@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import IsolationForest
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt # Optional, for visualization
 import glob
 
 csv_files = glob.glob("./Input/placement.csv", recursive=True)
@@ -46,7 +46,7 @@ dataframe_IF_cleaned = dataframe[dataframe['is_outlier_IF'] == 1]\
 print(f"\nAfter IsolationForest filtering: {dataframe_IF_cleaned.shape[0]} rows remain "
       f"(from {dataframe.shape[0]} original)")
 
-
+# Optional, for visualization
 if len(numerical_cols) >= 2:
     plt.figure(figsize=(6,4))
     plt.scatter(dataframe[numerical_cols[0]], dataframe[numerical_cols[1]],
@@ -62,6 +62,8 @@ plt.title("Distribution of Isolation Forest Scores")
 plt.xlabel("IF_score")
 plt.ylabel("Frequency")
 plt.show()
+
+# Optional, for visualization
 print(dataframe_IF_cleaned)
 print("\nSummary of Outlier Handling:")
 print(f"- Original dataset rows: {dataframe.shape[0]}")
