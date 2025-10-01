@@ -72,8 +72,9 @@ if st.button("🚀 Run Deduplication"):
     # Take sample
     sample = df.sample(sample_size, random_state=42).reset_index(drop=True)
 
+    # Load model (cached)
     with st.spinner("Loading model..."):
-        model = SentenceTransformer("all-mpnet-base-v2")
+        model = load_model()
 
     # Embeddings
     with st.spinner("Generating embeddings..."):
