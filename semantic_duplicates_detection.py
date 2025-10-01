@@ -14,6 +14,14 @@ This app loads queries (from file or example dataset), computes embeddings using
 """)
 
 # -------------------------------
+# Cache the model
+# -------------------------------
+@st.cache_resource
+def load_model():
+    # return SentenceTransformer("all-mpnet-base-v2")
+    return SentenceTransformer("paraphrase-MiniLM-L6-v2")
+
+# -------------------------------
 # Example dataset
 # -------------------------------
 example_data = {
@@ -64,7 +72,6 @@ if st.button("🚀 Run Deduplication"):
     # Take sample
     sample = df.sample(sample_size, random_state=42).reset_index(drop=True)
 
-    # Load model
     with st.spinner("Loading model..."):
         model = SentenceTransformer("all-mpnet-base-v2")
 
