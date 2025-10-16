@@ -1,0 +1,11 @@
+prompt,intent
+"remove duplicates from the data",remove_duplicates
+"delete repeated rows",remove_duplicates
+"drop duplicate entries",remove_duplicates
+"handle missing values",handle_missing_values
+"fill empty cells",handle_missing_values
+"impute nulls",handle_missing_values
+"select important features",feature_selection
+"choose best attributes",feature_selection
+"find and remove outliers",detect_outliers
+"clean noisy data",detect_outliers
