@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-import nltk
+# import nltk
 import re
-from nltk.corpus import stopwords, wordnet
-from nltk.stem import WordNetLemmatizer
+# from nltk.corpus import stopwords, wordnet
+# from nltk.stem import WordNetLemmatizer
 from sentence_transformers import SentenceTransformer, util
 import spacy
 from transformers import pipeline
@@ -14,16 +14,16 @@ import benepar
 st.set_page_config(page_title="🧠 AutoPrepAI — Hybrid Multi-Intent", layout="centered")
 st.title("💬 AutoPrepAI — Smart Hybrid Intent Understanding")
 
-# --- NLTK setup ---
-nltk.download('punkt')
-nltk.download('punkt_tab')
-nltk.download('stopwords', force=True)
-nltk.download('wordnet')
-nltk.download('averaged_perceptron_tagger')
-nltk.download('averaged_perceptron_tagger_eng')
+# # --- NLTK setup ---
+# nltk.download('punkt')
+# nltk.download('punkt_tab')
+# nltk.download('stopwords', force=True)
+# nltk.download('wordnet')
+# nltk.download('averaged_perceptron_tagger')
+# nltk.download('averaged_perceptron_tagger_eng')
 
-lemmatizer = WordNetLemmatizer()
-stop_words = set(stopwords.words('english'))
+# lemmatizer = WordNetLemmatizer()
+# stop_words = set(stopwords.words('english'))
 
 # --- Load Models ---
 @st.cache_resource
@@ -31,6 +31,10 @@ def load_models():
     nlp = spacy.load("en_core_web_md")
     model = SentenceTransformer('all-MiniLM-L6-v2')
     splitter = pipeline("text2text-generation", model="google/flan-t5-base")
+    #notes
+    #pytorch pretrained model
+    #model.load from pretrained model
+
     return nlp, model, splitter
 
 @st.cache_resource
@@ -55,28 +59,49 @@ data['embedding'] = data['prompt'].apply(lambda x: model.encode(x, convert_to_te
 available_methods = ["mean", "median", "mode", "average", "drop", "fill", "interpolate"]
 
 # =============== Preprocessing ===============
-def expand_contractions(text):
-    return contractions.fix(text)
+def preprocess_text(text):
+    # 1️⃣ Expand contractions
+    text = contractions.fix(text)
 
-def get_wordnet_pos(word):
-    tag = nltk.pos_tag([word])[0][1][0].upper()
-    tag_dict = {"J": wordnet.ADJ, "N": wordnet.NOUN, "V": wordnet.VERB, "R": wordnet.ADV}
-    return tag_dict.get(tag, wordnet.NOUN)
-
-def normalize_text(text):
+    # 2️⃣ Normalize text: lowercase, remove digits & extra spaces
     text = text.lower()
     text = re.sub(r'\d+', '', text)
-    text = re.sub(r'[^\w\s]', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
-    return text
 
-def preprocess_text(text):
-    text = expand_contractions(text)
-    text = normalize_text(text)
-    tokens = nltk.word_tokenize(text)
-    tokens = [word for word in tokens if word not in stop_words]
-    lemmatized = [lemmatizer.lemmatize(word, get_wordnet_pos(word)) for word in tokens]
-    return ' '.join(lemmatized)
+    # 3️⃣ Process with SpaCy
+    doc = nlp(text)
+
+    # 4️⃣ Lemmatize, remove stopwords, punctuation, spaces
+    tokens = [
+        token.lemma_.lower()
+        for token in doc
+        if not token.is_stop and not token.is_punct and not token.is_space
+    ]
+
+    clean_text = ' '.join(tokens)
+    # # 5️⃣ Identify subtask-like phrases (split by verbs or 'and/then')
+    # clauses = []
+    # current = []
+    # for token in doc:
+    #     if token.pos_ == "CCONJ" or token.text in ["and", "then","or"]:
+    #         if current:
+    #             clauses.append(" ".join(current).strip())
+    #             current = []
+    #     current.append(token.text)
+    # if current:
+    #     clauses.append(" ".join(current).strip())
+
+    # # fallback if nothing split
+    # if len(clauses) == 0:
+    #     clauses = [text]
+
+    return {
+        "normalized_text": text,
+        "tokens": [token.text for token in doc],
+        "lemmatized_tokens": tokens,
+        "clean_text": clean_text,
+        # "clauses": clauses
+    }
 
 # =============== Split Methods ===============
 # Dependency-based
@@ -84,15 +109,36 @@ def split_by_dependency(text):
     doc = nlp(text)
     clauses = []
     current_clause = []
+    conjunctions = {"and", "or", "then", "next", "after", "finally"}
+    first_verb_seen = False
+
     for token in doc:
-        if token.pos_ == "VERB" and token.dep_ in ["ROOT", "conj"]:
-            if current_clause:
-                clauses.append(" ".join(current_clause))
-                current_clause = []
+        # Condition to trigger a split point
+        if (
+            (token.pos_ == "VERB" and token.dep_ in ["ROOT", "conj"])
+            or (token.text.lower() in conjunctions)
+        ):
+            # Save what we collected so far (if not empty)
+            # Skip splitting at the very first verb (to keep "Handle missing values" together)
+            if first_verb_seen:
+                if current_clause:
+                    clauses.append(" ".join(current_clause))
+                    current_clause = []
+            else:
+                first_verb_seen = True
+            if token.text.lower() in conjunctions:
+                continue
+
+        # Add token to the current clause
         current_clause.append(token.text)
+
+    # Add last clause if anything remains
     if current_clause:
-        clauses.append(" ".join(current_clause))
-    return [c.strip() for c in clauses if len(c.strip()) > 0]
+        clauses.append(" ".join(current_clause).strip())
+
+    # Filter out empty strings and return
+    return [c for c in clauses if c]
+
 
 # Transformer (Flan-T5)
 def split_by_transformer(text):
@@ -120,10 +166,10 @@ def smart_split(text):
     num_words = len(text.split())
     # num_verbs = len([t for t in nlp(text) if t.pos_ == "VERB"])
     
-    if num_words <= 10:
-        return "dependency", split_by_dependency(text)
-    else:
-        return "transformer", split_by_transformer(text)
+    # if num_words <= 10:
+    return "dependency", split_by_dependency(text)
+    # else:
+    #     return "transformer", split_by_transformer(text)
 
 
 # =============== Intent + Parameter Extraction ===============
@@ -132,7 +178,7 @@ def predict_intent(text):
     sims = [float(util.cos_sim(user_emb, emb)) for emb in data['embedding']]
     best_match = data.iloc[sims.index(max(sims))]
     return best_match['intent'], best_match['prompt'], max(sims)
-
+#Bert for semantic duplicate
 def extract_semantic_method(text):
     text_emb = model.encode(text.split(), convert_to_tensor=True)
     best_method, best_score = None, 0
@@ -161,12 +207,14 @@ def extract_parameters(text):
 def process_intents(user_input):
     # Use original text for splitting so we don't lose conjunctions
     split_type, clauses = smart_split(user_input)
+    # preprocessed = preprocess_text(user_input)
+    # clauses = preprocessed["clauses"]
 
     results = []
     for clause in clauses:
         # preprocess each clause BEFORE predicting intent (clean for embeddings)
         cleaned_clause = preprocess_text(clause)
-        intent, matched, score = predict_intent(cleaned_clause)
+        intent, matched, score = predict_intent(cleaned_clause["clean_text"])
         params = extract_parameters(clause)  # extract params from original clause (keeps column names, etc.)
         results.append({
             "clause": clause,
@@ -179,6 +227,7 @@ def process_intents(user_input):
     # also return the overall cleaned text if you need it
     overall_cleaned = preprocess_text(user_input)
     return results, overall_cleaned, split_type
+    # return results, overall_cleaned
 
 
 # =============== Streamlit UI ===============
@@ -198,6 +247,7 @@ if st.button("🔍 Understand Intents"):
     else:
         print("User input:", user_input)
         results, cleaned, split_type = process_intents(user_input)
+        # results, cleaned = process_intents(user_input)
 
         st.subheader("🧹 Preprocessing Result")
         st.write(f"**Cleaned Text:** `{cleaned}`")
