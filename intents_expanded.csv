@@ -1,0 +1,121 @@
+prompt,intent
+replace NaNs with mean,handle_missing_values
+handle NA values in the dataframe,handle_missing_values
+detect and remove outliers,detect_outliers
+preserve NaN entries,skip_missing_values
+filter duplicate entries,remove_duplicates
+z-score normalize columns,normalize_data
+convert categories to numeric codes,encode_categorical
+keep outliers in the dataset,keep_outliers
+handle missing values,handle_missing_values
+save cleaned dataframe,export_data
+don't remove outliers,keep_outliers
+apply min-max scaling,normalize_data
+"preserve outliers, do not remove them",keep_outliers
+keep identical rows for auditing,keep_duplicates
+select features for model training,feature_selection
+create training and testing sets,split_data
+write cleaned data to csv,export_data
+remove outliers from the dataset,detect_outliers
+choose best predictors,feature_selection
+export data to excel file,export_data
+rescale features,normalize_data
+impute missing values using mean,handle_missing_values
+do not drop duplicates,keep_duplicates
+encode categorical variables,encode_categorical
+impute nulls,handle_missing_values
+do not delete outliers,keep_outliers
+do not filter out outlier rows,keep_outliers
+plot feature correlations,visualize_data
+encode text categories,encode_categorical
+split dataset for cross validation,split_data
+remove duplicate rows based on id,remove_duplicates
+transform categorical columns into dummies,encode_categorical
+drop duplicate entries,remove_duplicates
+create a validation split,split_data
+don't impute missing values automatically,skip_missing_values
+visualize distributions,visualize_data
+keep duplicate rows,keep_duplicates
+keep missing values for manual review,skip_missing_values
+plot data summaries,visualize_data
+delete outlier entries,detect_outliers
+retain repeated records,keep_duplicates
+deduplicate the dataframe,remove_duplicates
+standardize the features,normalize_data
+drop duplicates by column name,remove_duplicates
+split the data into folds,split_data
+select top-k features,feature_selection
+filter out outlier records,detect_outliers
+split data into train and test,split_data
+scale dataset features,normalize_data
+retain repeated rows for analysis,keep_duplicates
+fill missing entries using interpolation,handle_missing_values
+leave duplicates as they are,keep_duplicates
+keep anomalous data points,keep_outliers
+normalize numeric columns,normalize_data
+don't remove duplicate rows,keep_duplicates
+visualize relationships between variables,visualize_data
+exclude extreme observations,detect_outliers
+fill missing data with median,handle_missing_values
+label encode categories,encode_categorical
+apply feature scaling,normalize_data
+pick relevant columns for modeling,feature_selection
+delete repeated records,remove_duplicates
+retain outlier records,keep_outliers
+partition data into train/test,split_data
+export cleaned data to csv,export_data
+identify and drop outliers,detect_outliers
+retain extreme values for analysis,keep_outliers
+run feature importance selection,feature_selection
+eliminate anomalous rows,detect_outliers
+preserve anomalies for study,keep_outliers
+preserve duplicates for traceability,keep_duplicates
+show distribution plots,visualize_data
+remove anomalous data points,detect_outliers
+perform categorical encoding,encode_categorical
+plot histograms for features,visualize_data
+train test split the dataset,split_data
+do not replace nulls,skip_missing_values
+do not impute missing values,skip_missing_values
+select important features,feature_selection
+fill missing values by column median,handle_missing_values
+choose best attributes,feature_selection
+scale features to 0-1 range,normalize_data
+draw scatter plots,visualize_data
+turn category column into numeric labels,encode_categorical
+hold out validation set,split_data
+fill empty cells,handle_missing_values
+skip handling missing values,skip_missing_values
+impute null values with mode,handle_missing_values
+save dataframe to csv file,export_data
+leave missing data untouched,skip_missing_values
+apply one hot encoding,encode_categorical
+preserve duplicate entries,keep_duplicates
+show boxplots for columns,visualize_data
+do not fill empty cells,skip_missing_values
+standardize numerical features,normalize_data
+save results to CSV,export_data
+do not deduplicate the data,keep_duplicates
+remove repeated rows in dataset,remove_duplicates
+create exploratory plots,visualize_data
+find and remove outliers,detect_outliers
+do not fill missing data,skip_missing_values
+delete repeated rows,remove_duplicates
+drop extreme values,detect_outliers
+eliminate duplicate records,remove_duplicates
+download cleaned dataset,export_data
+make train and test subsets,split_data
+reduce features by importance,feature_selection
+download processed data as csv,export_data
+map string categories to integers,encode_categorical
+automatically choose important features,feature_selection
+perform feature selection,feature_selection
+generate EDA visuals,visualize_data
+remove duplicates from the data,remove_duplicates
+normalize data columns,normalize_data
+one-hot encode categorical columns,encode_categorical
+export processed data,export_data
+leave outliers untouched,keep_outliers
+split dataframe for modeling,split_data
+leave NaNs as they are,skip_missing_values
+write dataset to disk as csv,export_data

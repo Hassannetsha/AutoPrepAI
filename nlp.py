@@ -7,6 +7,8 @@ import re
 from sentence_transformers import SentenceTransformer, util
 import spacy
 from transformers import pipeline
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig
+import torch
 import contractions
 import benepar
 
@@ -31,11 +33,22 @@ def load_models():
     nlp = spacy.load("en_core_web_md")
     model = SentenceTransformer('all-MiniLM-L6-v2')
     splitter = pipeline("text2text-generation", model="google/flan-t5-base")
+    return nlp, model, splitter
+config = AutoConfig.from_pretrained("./intent_model")
+tokenizer = AutoTokenizer.from_pretrained("./intent_model")
+model2 = AutoModelForSequenceClassification.from_pretrained("./intent_model")
+id2label = config.id2label
+
+def classifier(text):
+    inputs = tokenizer(text, return_tensors="pt")
+    outputs = model2(**inputs)
+    predicted_class = torch.argmax(outputs.logits, dim=1).item()
+    return [{"label": id2label[predicted_class], "score": torch.softmax(outputs.logits, dim=1)[0][predicted_class].item()}]
+
     #notes
     #pytorch pretrained model
     #model.load from pretrained model
 
-    return nlp, model, splitter
 
 @st.cache_resource
 def load_constituency_parser():
@@ -75,7 +88,7 @@ def preprocess_text(text):
     tokens = [
         token.lemma_.lower()
         for token in doc
-        if not token.is_stop and not token.is_punct and not token.is_space
+        if not token.is_punct and not token.is_space
     ]
 
     clean_text = ' '.join(tokens)
@@ -174,10 +187,12 @@ def smart_split(text):
 
 # =============== Intent + Parameter Extraction ===============
 def predict_intent(text):
-    user_emb = model.encode(text, convert_to_tensor=True)
-    sims = [float(util.cos_sim(user_emb, emb)) for emb in data['embedding']]
-    best_match = data.iloc[sims.index(max(sims))]
-    return best_match['intent'], best_match['prompt'], max(sims)
+    result = classifier(text)[0]
+    return result["label"], result["score"]
+    # user_emb = model.encode(text, convert_to_tensor=True)
+    # sims = [float(util.cos_sim(user_emb, emb)) for emb in data['embedding']]
+    # best_match = data.iloc[sims.index(max(sims))]
+    # return best_match['intent'], best_match['prompt'], max(sims)
 #Bert for semantic duplicate
 def extract_semantic_method(text):
     text_emb = model.encode(text.split(), convert_to_tensor=True)
@@ -214,12 +229,15 @@ def process_intents(user_input):
     for clause in clauses:
         # preprocess each clause BEFORE predicting intent (clean for embeddings)
         cleaned_clause = preprocess_text(clause)
-        intent, matched, score = predict_intent(cleaned_clause["clean_text"])
+        # intent, matched, score = predict_intent(cleaned_clause["clean_text"])
+        matched, score = predict_intent(cleaned_clause["clean_text"])
+        # matched, score = predict_intent(clause)
+
         params = extract_parameters(clause)  # extract params from original clause (keeps column names, etc.)
         results.append({
             "clause": clause,
             "cleaned_clause": cleaned_clause,
-            "intent": intent,
+            # "intent": intent,
             "params": params,
             "matched": matched,
             "score": score
@@ -257,7 +275,7 @@ if st.button("🔍 Understand Intents"):
         for i, r in enumerate(results, 1):
             st.markdown(f"### Step {i}:")
             st.markdown(f"**➡️ Clause:** `{r['clause']}`")
-            st.write(f"Predicted Intent: `{r['intent']}`")
+            # st.write(f"Predicted Intent: `{r['intent']}`")
             st.write(f"Closest Phrase: `{r['matched']}`")
             st.write(f"Similarity Score: `{r['score']:.2f}`")
             if r["params"]:
