@@ -34,17 +34,31 @@ def load_models():
     model = SentenceTransformer('all-MiniLM-L6-v2')
     splitter = pipeline("text2text-generation", model="google/flan-t5-base")
     return nlp, model, splitter
-config = AutoConfig.from_pretrained("./intent_model")
-tokenizer = AutoTokenizer.from_pretrained("./intent_model")
-model2 = AutoModelForSequenceClassification.from_pretrained("./intent_model")
-id2label = config.id2label
+
+@st.cache_resource
+def load_intent_classifier():
+    config = AutoConfig.from_pretrained("./intent_model")
+    tokenizer = AutoTokenizer.from_pretrained("./intent_model")
+    model2 = AutoModelForSequenceClassification.from_pretrained(
+        "./intent_model",
+        ignore_mismatched_sizes=True
+    )
+    model2.eval()  
+    id2label = config.id2label
+    return tokenizer, model2, id2label
+
+tokenizer, model2, id2label = load_intent_classifier()
 
 def classifier(text):
-    inputs = tokenizer(text, return_tensors="pt")
-    outputs = model2(**inputs)
+    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
+    
+    with torch.no_grad():  
+        outputs = model2(**inputs)
+    
     predicted_class = torch.argmax(outputs.logits, dim=1).item()
-    return [{"label": id2label[predicted_class], "score": torch.softmax(outputs.logits, dim=1)[0][predicted_class].item()}]
-
+    confidence = torch.softmax(outputs.logits, dim=1)[0][predicted_class].item()
+    
+    return [{"label": id2label[predicted_class], "score": confidence}]
     #notes
     #pytorch pretrained model
     #model.load from pretrained model
@@ -69,7 +83,7 @@ nlp_parser = load_constituency_parser()
 data = load_intents()
 data['embedding'] = data['prompt'].apply(lambda x: model.encode(x, convert_to_tensor=True))
 
-available_methods = ["mean", "median", "mode", "average", "drop", "fill", "interpolate"]
+available_methods = ["mean", "median", "mode", "average"]
 
 # =============== Preprocessing ===============
 def preprocess_text(text):
@@ -206,20 +220,126 @@ def extract_semantic_method(text):
         return best_method
     return None
 
-def extract_parameters(text):
+def extract_parameters(text, df_columns=None):
     doc = nlp(text.lower())
     params = {}
     for i, token in enumerate(doc):
-        if token.text == "column" and i + 1 < len(doc):
-            params["column"] = doc[i + 1].text
-
+        if token.text in ["column", "columns"] and i + 1 < len(doc):
+            next_token = doc[i + 1]
+            if not next_token.is_punct and not next_token.is_space:
+                if "column" not in params:
+                    params["column"] = []
+                params["column"].append(next_token.text)
+    
+    # Pattern 2: Match with DataFrame columns
+    if df_columns:
+        # Try advanced list extraction first
+        matched_list = extract_column_list_from_text(text, df_columns)
+        if matched_list:
+            if "column" not in params:
+                params["column"] = matched_list
+            else:
+                # Merge with existing
+                params["column"] = list(set(params["column"] + matched_list))
+        else:
+            # Fallback to general matching
+            matched_cols = match_columns(text, df_columns)
+            if matched_cols:
+                if "column" not in params:
+                    params["column"] = matched_cols
+                else:
+                    params["column"] = list(set(params["column"] + matched_cols))
+    
+    # Convert single column list to string for consistency
+    if "column" in params and isinstance(params["column"], list):
+        if len(params["column"]) == 1:
+            params["column"] = params["column"][0]
+    
     method = extract_semantic_method(text)
     if method:
         params["method"] = method
     return params
 
+def match_columns(text, df_columns):
+    """
+    Match user input to actual column names in the DataFrame.
+    Returns a LIST of matched columns.
+    """
+    if not df_columns:
+        return None
+    
+    text_lower = text.lower()
+    matched = []
+    
+    # Method 1: Direct exact match
+    for col in df_columns:
+        if col.lower() in text_lower:
+            matched.append(col)
+    
+    if matched:
+        return matched
+    
+    # Method 2: Normalized matching (remove spaces/underscores/hyphens)
+    text_normalized = re.sub(r'[_\s-]+', '', text_lower)
+    
+    for col in df_columns:
+        col_normalized = re.sub(r'[_\s-]+', '', col.lower())
+        
+        if col_normalized in text_normalized or text_normalized in col_normalized:
+            matched.append(col)    
+    if matched:
+        return matched
+    
+    # Method 3: Word overlap matching (SPLIT by underscores too!)
+    # Split by spaces, underscores, and hyphens
+    text_words = set(re.split(r'[_\s-]+', text_lower))
+    text_words = {w for w in text_words if w}  # Remove empty strings    
+    for col in df_columns:
+        # Split column by underscores, spaces, hyphens
+        col_words = set(re.split(r'[_\s-]+', col.lower()))
+        col_words = {w for w in col_words if w}  # Remove empty strings        
+        if col_words and text_words:
+            overlap = text_words & col_words
+            score = len(overlap) / len(col_words)            
+            if score >= 0.8:
+                matched.append(col)
+    
+    return matched if matched else None
 
-def process_intents(user_input):
+def extract_column_list_from_text(text, df_columns):
+    """
+    Advanced extraction for comma/and-separated column lists.
+    Examples:
+    - "age, salary, and experience" -> ["age", "salary", "experience"]
+    - "user_id and customer_id" -> ["user_id", "customer_id"]
+    """
+    # Split by common delimiters
+    potential_cols = re.split(r'[,;&]|\band\b|\bor\b', text.lower())
+    potential_cols = [col.strip() for col in potential_cols]
+    
+    matched = []
+    for potential in potential_cols:
+        if not potential:
+            continue
+        
+        # Try to match each potential column
+        for col in df_columns:
+            col_lower = col.lower()
+            potential_normalized = re.sub(r'[_\s-]+', '', potential)
+            col_normalized = re.sub(r'[_\s-]+', '', col_lower)
+            
+            if (col_lower == potential or 
+                col_lower in potential or 
+                potential in col_lower or
+                col_normalized == potential_normalized):
+                if col not in matched:
+                    matched.append(col)
+                break
+    
+    return matched if matched else None
+
+
+def process_intents(user_input, df_columns=None):
     # Use original text for splitting so we don't lose conjunctions
     split_type, clauses = smart_split(user_input)
     # preprocessed = preprocess_text(user_input)
@@ -233,7 +353,7 @@ def process_intents(user_input):
         matched, score = predict_intent(cleaned_clause["clean_text"])
         # matched, score = predict_intent(clause)
 
-        params = extract_parameters(clause)  # extract params from original clause (keeps column names, etc.)
+        params = extract_parameters(clause,df_columns)  # extract params from original clause (keeps column names, etc.)
         results.append({
             "clause": clause,
             "cleaned_clause": cleaned_clause,
@@ -256,6 +376,39 @@ Examples:
 - "Normalize data, then detect outliers and drop extreme rows"
 """)
 
+# ========== Add File Upload ==========
+st.markdown("### 📂 Upload Your Dataset ")
+uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=['csv', 'xlsx', 'xls'])
+
+df = None
+df_columns = None
+
+if uploaded_file is not None:
+    try:
+        # Read file based on type
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
+        
+        df_columns = df.columns.tolist()
+        
+        st.success(f"✅ File uploaded successfully! Found **{len(df)}** rows and **{len(df_columns)}** columns.")
+        
+        # Show dataset info
+        with st.expander("📊 Preview Dataset"):
+            st.dataframe(df.head(10))
+            st.write(f"**Columns:** {', '.join(df_columns)}")
+            st.write(f"**Shape:** {df.shape}")
+            
+    except Exception as e:
+        st.error(f"❌ Error reading file: {str(e)}")
+else:
+    st.info("💡 Upload a dataset to enable column-aware intent detection")
+
+st.markdown("---")
+
+# ========== Text Input ==========
 user_input = st.text_area("✍️ Enter your command:", height=150,
                           placeholder="e.g., handle missing values using median and remove duplicates by column ID")
 
@@ -264,8 +417,9 @@ if st.button("🔍 Understand Intents"):
         st.warning("⚠️ Please enter a command first.")
     else:
         print("User input:", user_input)
-        results, cleaned, split_type = process_intents(user_input)
-        # results, cleaned = process_intents(user_input)
+        
+        # Pass columns to the function (or None if no file uploaded)
+        results, cleaned, split_type = process_intents(user_input, df_columns)
 
         st.subheader("🧹 Preprocessing Result")
         st.write(f"**Cleaned Text:** `{cleaned}`")
@@ -275,9 +429,8 @@ if st.button("🔍 Understand Intents"):
         for i, r in enumerate(results, 1):
             st.markdown(f"### Step {i}:")
             st.markdown(f"**➡️ Clause:** `{r['clause']}`")
-            # st.write(f"Predicted Intent: `{r['intent']}`")
-            st.write(f"Closest Phrase: `{r['matched']}`")
-            st.write(f"Similarity Score: `{r['score']:.2f}`")
+            st.write(f"**Closest Phrase:** `{r['matched']}`")
+            st.write(f"**Similarity Score:** `{r['score']:.2f}`")
             if r["params"]:
                 st.write("🧩 Extracted Parameters:")
                 for k, v in r["params"].items():
@@ -287,5 +440,11 @@ if st.button("🔍 Understand Intents"):
             st.markdown("---")
 
         st.success("✅ Intents detected successfully!")
+        
+        # If dataset is uploaded, show preview of expected results
+        if df is not None:
+            st.markdown("### 🎬 What will happen to your data:")
+            st.info("This is a preview of the detected operations. Actual execution coming soon!")
+            
 else:
     st.info("💡 Enter a command and click **Understand Intents**.")
