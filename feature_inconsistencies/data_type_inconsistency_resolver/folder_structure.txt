@@ -1,0 +1,17 @@
+data_resolver/
+├── __init__.py
+├── config.py
+├── resolver.py
+├── detection_result.py
+├── strategy/
+│   ├── __init__.py
+│   ├── base_strategy.py
+│   ├── impute_strategies.py        # mean, median, mode, custom, ffill, bfill
+│   ├── delete_strategies.py        # delete_rows, delete_column
+│   ├── convert_to_type.py          # convert to numeric/datetime/boolean/string
+│   └── leave_as_is.py
+├── utils/
+│   ├── __init__.py
+│   ├── cleaning_utils.py
+│   └── severity_analyzer.py
+└── README.md
