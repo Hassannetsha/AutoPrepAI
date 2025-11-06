@@ -11,7 +11,7 @@ import evaluate
 import numpy as np
 
 # ========= 1. Load dataset =========
-df = pd.read_csv("intents_expanded.csv")
+df = pd.read_csv("intents_augmented.csv")
 
 # Encode intent labels as numbers
 labels = sorted(df["intent"].unique())

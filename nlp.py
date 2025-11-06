@@ -139,8 +139,14 @@ def split_by_dependency(text):
     conjunctions = {"and", "or", "then", "next", "after", "finally"}
     first_verb_seen = False
 
-    for token in doc:
+    for i, token in enumerate(doc):
         # Condition to trigger a split point
+        if token.text.lower() in conjunctions:
+        # 👇 NEW CHECK: if 'and' is surrounded by nouns (likely column names), skip splitting
+            if i > 0 and i < len(doc) - 1:
+                if doc[i-1].pos_ == "NOUN" and doc[i+1].pos_ == "NOUN":
+                    current_clause.append(token.text)
+                    continue
         if (
             (token.pos_ == "VERB" and token.dep_ in ["ROOT", "conj"])
             or (token.text.lower() in conjunctions)
