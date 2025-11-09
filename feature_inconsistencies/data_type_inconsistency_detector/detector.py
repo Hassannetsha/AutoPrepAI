@@ -1,6 +1,7 @@
 import pandas as pd
 from collections import Counter
-from typing import Dict, Any, List
+from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, Any
 from .strategy.numeric_detector import NumericDetectionStrategy
 from .strategy.datetime_detector import DatetimeDetectionStrategy
 from .strategy.string_detector import StringDetectionStrategy
@@ -11,9 +12,8 @@ from .converter.datetime_converter import DatetimeConverter
 from .report_generator import ReportGenerator
 
 class DataTypeInconsistencyDetector:
-    def __init__(self):
+    def __init__(self, max_workers: int = 4):
         self.results = {}
-        # Available detection strategies
         self.strategies = [
             NumericDetectionStrategy(),
             DatetimeDetectionStrategy(),
@@ -24,15 +24,16 @@ class DataTypeInconsistencyDetector:
         self.numeric_converter = NumericConverter()
         self.datetime_converter = DatetimeConverter()
         self.report_generator = ReportGenerator()
+        self.max_workers = max_workers
 
     def analyze_dataframe(self, df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
-        self.size = len(df)
         self.results = {}
-        for col in df.columns:
-            self.results[col] = self.analyze_column(df[col])
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            results = executor.map(self._analyze_column_parallel, [df[col] for col in df.columns])
+        self.results = {res["column_name"]: res for res in results}
         return self.results
 
-    def analyze_column(self, series: pd.Series) -> Dict[str, Any]:
+    def _analyze_column_parallel(self, series: pd.Series) -> Dict[str, Any]:
         result = {
             'column_name': series.name,
             'total_rows': len(series),
@@ -48,14 +49,26 @@ class DataTypeInconsistencyDetector:
         }
 
         non_null = series.dropna()
-        if len(non_null) == 0:
+        if non_null.empty:
             result['recommended_type'] = 'empty_column'
             return result
 
-        sample = non_null.sample(n=min(len(non_null), self.size), random_state=42)
-        type_counts = self._detect_types(sample)
+        # Detect types once for all values
+        detected_types = []
+        for val in non_null:
+            detected_as = None
+            for strategy in self.strategies:
+                if strategy.detect(val):
+                    detected_as = strategy.name
+                    break
+            if detected_as is None:
+                detected_as = 'string'
+            detected_types.append(detected_as)
+
+        type_counts = dict(Counter(detected_types))
         result['detected_types'] = type_counts
 
+        # Check for inconsistencies
         if len(type_counts) > 1:
             result['inconsistencies'].append(
                 f"Multiple types detected: {', '.join([f'{k}: {v}' for k, v in type_counts.items()])}"
@@ -64,48 +77,21 @@ class DataTypeInconsistencyDetector:
         recommended_type = self.recommender.recommend(type_counts)
         result['recommended_type'] = recommended_type
 
-        inconsistent_indices = []
-        inconsistent_values = set()
-
-        for idx, val in series.items():
-            if pd.isna(val):
-                continue
-            
-            # Use the SAME logic as _detect_types to classify this value
-            detected_as = None
-            for strategy in self.strategies:
-                if strategy.detect(val):
-                    detected_as = strategy.name
-                    break
-            
-            if detected_as is None:
-                detected_as = 'string'
-            
-            # Now check if it matches the recommended type
-            if detected_as != recommended_type:
-                inconsistent_indices.append(idx)
-                inconsistent_values.add(val)
+        # Inconsistencies (avoid re-detecting)
+        inconsistent_mask = [t != recommended_type for t in detected_types]
+        inconsistent_indices = non_null.index[inconsistent_mask].tolist()
+        inconsistent_values = non_null[inconsistent_mask].unique().tolist()
 
         result['inconsistent_indices'] = inconsistent_indices
-        result['inconsistent_values'] = list(inconsistent_values)
+        result['inconsistent_values'] = inconsistent_values
 
-        if result['recommended_type'] == 'numeric':
+        # Conversion checks
+        if recommended_type == 'numeric':
             result['conversion_issues'] = self.numeric_converter.test_conversion(non_null)
-        elif result['recommended_type'] == 'datetime':
+        elif recommended_type == 'datetime':
             result['conversion_issues'] = self.datetime_converter.test_conversion(non_null)
 
         return result
-
-    def _detect_types(self, series: pd.Series) -> Dict[str, int]:
-        type_counts = Counter()
-        for val in series:
-            for strategy in self.strategies:
-                if strategy.detect(val):
-                    type_counts[strategy.name] += 1
-                    break
-            else:
-                type_counts['string'] += 1
-        return dict(type_counts)
 
     def generate_report(self) -> str:
         return self.report_generator.generate(self.results)

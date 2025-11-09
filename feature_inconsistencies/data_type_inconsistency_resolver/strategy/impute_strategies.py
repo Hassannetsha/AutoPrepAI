@@ -41,8 +41,9 @@ class ImputeModeStrategy(BaseResolutionStrategy):
         if len(mode_val) == 0:
             return df, f"❌ Cannot compute mode for '{column_name}'"
         mode_val = mode_val[0]
-        mask = get_inconsistent_mask(df, column_name, recommended_type)
-        count = mask.sum()
+        # mask = get_inconsistent_mask(df, column_name, recommended_type)
+        mask = result["inconsistent_indices"]
+        count = len(mask)
         df.loc[mask, column_name] = mode_val
         return df, f"✓ Imputed {count} values with mode ('{mode_val}') in '{column_name}'"
 
