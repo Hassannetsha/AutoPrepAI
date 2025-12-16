@@ -246,8 +246,82 @@ class class_nlp:
             "- Detect outliers with IQR method and encode categorical variables\n"
             "- Select top 10 features for modeling and fill NaNs with mean"
         )
+    def run(self, user_input: str, dataset_df: Optional[pd.DataFrame] = None, dataset_path: Optional[str] = None) -> Optional[List[str]]:
+        """Headless version of runUI: perform same processing without Streamlit and return detected intents.
 
-    def run(self):
+        Args:
+            user_input: command string to process (required).
+            dataset_df: optional pandas DataFrame representing the dataset (preferred).
+            dataset_path: optional path to CSV/Excel dataset (used if dataset_df is None).
+
+        Returns:
+            List of detected intent names (same as runUI returns on success), or [] if nothing detected.
+        """
+        # 1) Ensure LM is configured (headless: fail if no API key)
+        try:
+            # Prefer cached setup if available and key present
+            lm = self.setup_dspy()
+        except Exception:
+            api_key = self.api_key or os.getenv("GROQ_API_KEY")
+            if not api_key:
+                raise RuntimeError("GROQ_API_KEY not set. Provide api key via constructor or environment.")
+            lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+            dspy.settings.configure(lm=lm)
+            self.lm = lm
+
+        # 2) Load training data (headless: read from disk if not provided)
+        # if dataset_df is None:
+        try:
+            training_data = pd.read_csv(self.training_csv)
+        except Exception:
+            training_data = None
+        # else:
+        #     training_data = dataset_df
+        self.training_data = training_data
+
+        # 3) Build pipeline
+        self.pipeline = self.build_pipeline(self.training_data)
+
+        # 4) Load dataset columns (if a dataset provided)
+        df = None
+        if dataset_df is not None:
+            df = dataset_df
+        elif dataset_path:
+            if dataset_path.lower().endswith(".csv"):
+                df = pd.read_csv(dataset_path)
+            else:
+                df = pd.read_excel(dataset_path)
+
+        columns_str = ", ".join(df.columns.tolist()) if df is not None else ""
+
+        # 5) Validate input
+        if not isinstance(user_input, str) or not user_input.strip():
+            raise ValueError("user_input must be a non-empty string.")
+
+        # 6) Run pipeline (call forward if available)
+        try:
+            if hasattr(self.pipeline, "forward"):
+                results = self.pipeline.forward(user_command=user_input, dataset_columns=columns_str)
+            else:
+                # Some DSPy modules are callable
+                results = self.pipeline(user_command=user_input, dataset_columns=columns_str)
+        except Exception as e:
+            raise RuntimeError(f"Error processing command: {e}")
+
+        if not results:
+            return []
+
+        # 7) Produce the same "intents" list as runUI
+        intents = []
+        for result in results:
+            temp = []
+            temp.append(result.get("intent"))
+            if result.get("columns"):
+                temp.append(result.get("columns"))
+            intents.append(temp)
+        print(intents)
+        return df,intents
+    def runUI(self):
         """Public entrypoint that renders the Streamlit app and wires everything."""
         # Setup and dependencies
         self._prepare_ui_config()
@@ -320,6 +394,7 @@ class class_nlp:
                     st.subheader("🎯 Detected Intents and Parameters")
                     intents = []
                     for i, result in enumerate(results, 1):
+                        temp = []
                         if result['confidence'] >= 0.8:
                             confidence_color = "🟢"
                         elif result['confidence'] >= 0.6:
@@ -329,12 +404,13 @@ class class_nlp:
                         st.markdown(f"### {confidence_color} Step {i}:")
                         st.markdown(f"**➡️ Task:** `{result['task']}`")
                         st.write(f"**Intent:** `{result['intent']}`")
-                        intents.append(result['intent'])
                         st.write(f"**Confidence:** {result['confidence']:.2%}")
+                        temp.append(result['intent'])
                         if result.get('reasoning'):
                             st.write(f"**Reasoning:** _{result['reasoning']}_")
                         if result['columns']:
                             st.write(f"**📊 Applies to columns:** {', '.join(f'`{c}`' for c in result['columns'])}")
+                            temp.append(result['columns'])
                         else:
                             st.write("**📊 Applies to:** all columns (no specific columns mentioned)")
                         if result['method']:
@@ -343,6 +419,7 @@ class class_nlp:
                             st.write("**🔧 Other Parameters:**")
                             for k, v in result['other_params'].items():
                                 st.markdown(f"- **{k}**: `{v}`")
+                        intents.append(temp)
                         st.markdown("---")
                     st.success("✅ Intents detected successfully!")
                     with st.expander("📋 Summary"):

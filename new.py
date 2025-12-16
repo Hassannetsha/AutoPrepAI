@@ -401,5 +401,5 @@
 
 import class_nlp
 auto = class_nlp.class_nlp()
-list = auto.run()
+list = auto.runUI()
 print(list)
