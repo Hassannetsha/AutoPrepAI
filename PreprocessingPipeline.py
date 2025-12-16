@@ -170,7 +170,7 @@ def build_pipeline() -> PreprocessingPipeline:
         (OutlierRemover(), needs_any_intent("keep_outliers","remove_outliers")),
         (MissingValueHandler(), needs_any_intent("handle_missing_values")),
         (FeatureSelector(), needs_any_intent("select_features")),
-        (Scaler(), lambda ctx: ctx.metadata.get("has_numeric", False) and ctx.metadata.get("intent:scale", False)),
+        (Scaler(), needs_any_intent("scale_numerical")),
         (Encoder(), needs_any_intent("encode_categorical")),
     ])
 # ...existing code...
