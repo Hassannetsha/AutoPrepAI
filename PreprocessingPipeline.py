@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Callable, List, Tuple
 import pandas as pd
+from Class_missingValues import MissingValuesDemo
+from Class_outliers import class_outliers
 from class_nlp import class_nlp
 # ...existing code...
 
@@ -90,6 +92,11 @@ class OutlierRemover(PreprocessingStep):
     def run(self, context: DataContext, **kwargs) -> DataContext:
         context.log("Handling outliers")
         context.metadata["outliers_handled"] = True
+        c = class_outliers(dataframe=context.data)
+        c.load()
+        c.run_isolation_forest()
+        cleaned = c.get_cleaned()
+        context.data = cleaned
         return context
 
 
@@ -97,8 +104,12 @@ class MissingValueHandler(PreprocessingStep):
     name = "Missing Values"
 
     def run(self, context: DataContext, **kwargs) -> DataContext:
+        columns = kwargs.get("columns", [])
         context.log("Handling missing values")
         context.metadata["missing_values_handled"] = True
+        print("Handling missing values for columns:", columns)
+        demo = MissingValuesDemo()
+        context.data = demo.run(context.data, strategy=columns[1] if len(columns) > 1 else "Mean")
         return context
 
 
@@ -106,6 +117,7 @@ class FeatureSelector(PreprocessingStep):
     name = "Feature Selection"
 
     def run(self, context: DataContext, **kwargs) -> DataContext:
+        columns = kwargs.get("columns", [])
         context.log("Selecting features")
         context.metadata["features_selected"] = True
         return context
@@ -115,8 +127,11 @@ class Scaler(PreprocessingStep):
     name = "Scaler"
 
     def run(self, context: DataContext, **kwargs) -> DataContext:
+        columns = kwargs.get("columns", [])
         context.log("Scaling numerical features")
         context.metadata["scaled"] = True
+        scaler = Scaler()
+        context.data = scaler.scale(context.data, method=columns[1] if len(columns) > 1 else "standard")
         return context
 
 
@@ -124,8 +139,11 @@ class Encoder(PreprocessingStep):
     name = "Encoder"
 
     def run(self, context: DataContext, **kwargs) -> DataContext:
+        columns = kwargs.get("columns", [])
         context.log("Encoding categorical features")
         context.metadata["encoded"] = True
+        encoder = Encoder()
+        context.data = encoder.encode(context.data, method=columns[1] if len(columns) > 1 else "onehot")
         return context
 
 
@@ -137,12 +155,30 @@ class PreprocessingPipeline:
         self.steps = steps
 
     def run(self, context: DataContext, user_command: str = "") -> DataContext:
-        """Run all steps in order. Pass user_command to steps that accept it."""
-        for step, condition in self.steps:
+        """Run all steps in order. Pass user_command to steps that accept it.
+        Each step entry may be:
+          - (step, condition)
+          - (step, condition, columns_getter)
+        """
+        for entry in self.steps:
+            # unpack flexible tuple
+            if len(entry) == 2:
+                step, condition = entry
+                columns_getter = None
+            elif len(entry) == 3:
+                step, condition, columns_getter = entry
+            else:
+                raise ValueError(f"Invalid pipeline step tuple length: {len(entry)}")
+
             if condition(context):
                 print(f"--> Running step: {step.name}")
-                # pass user_command to every step; steps that don't use it ignore via **kwargs
-                context = step.run(context, user_command=user_command)
+                # prepare kwargs for step.run
+                kwargs = {"user_command": user_command}
+                if columns_getter is not None:
+                    cols = columns_getter(context)
+                    # always pass columns (could be empty list)
+                    kwargs["columns"] = cols
+                context = step.run(context, **kwargs)
             else:
                 print(f"--> Skipping step: {step.name}")
         return context
@@ -161,17 +197,31 @@ def needs_any_intent(*intent_names: str) -> Callable[[DataContext], bool]:
             return True
         return False
     return checker
+def needs_any_column(*intent_names: str,required = True) -> Callable[[DataContext], bool]:
+    def checker(ctx: DataContext) -> List[str]:
+        if not required:
+            return []
+        # if NLP didn't run, fall back to metadata capability flags
+        if ctx.metadata.get("nlp_done"):
+            intents = ctx.metadata.get("intents", []) or []
+            # intents items may be like ["intent_name", "column_name"] or just "intent_name"
+            for item in intents:
+                intent_name = item[0] if isinstance(item, (list, tuple)) and len(item) > 0 else item
+                if intent_name in intent_names:
+                    if len(item) > 1:
+                        return item[1:]
+    return checker
 
 def build_pipeline() -> PreprocessingPipeline:
     return PreprocessingPipeline([
         (NLPPreprocessor(), lambda ctx: ctx.metadata.get("has_text", True)),
-        (InconsistencyResolver(), needs_any_intent("remove_inconsistencies")),
-        (DuplicateRemover(), needs_any_intent("remove_duplicates")),
-        (OutlierRemover(), needs_any_intent("keep_outliers","remove_outliers")),
-        (MissingValueHandler(), needs_any_intent("handle_missing_values")),
-        (FeatureSelector(), needs_any_intent("select_features")),
-        (Scaler(), needs_any_intent("scale_numerical")),
-        (Encoder(), needs_any_intent("encode_categorical")),
+        (InconsistencyResolver(), needs_any_intent("remove_inconsistencies"),needs_any_column("remove_inconsistencies",required=False)),
+        (DuplicateRemover(), needs_any_intent("remove_duplicates"),needs_any_column("remove_duplicates",required=False)),
+        (OutlierRemover(), needs_any_intent("remove_outliers"),needs_any_column("remove_outliers",required=False)),
+        (MissingValueHandler(), needs_any_intent("handle_missing_values"),needs_any_column("handle_missing_values",required=True)),
+        (FeatureSelector(), needs_any_intent("select_features"),needs_any_column("select_features",required=True)),
+        (Scaler(), needs_any_intent("scale_numerical"),needs_any_column("scale_numerical",required=True)),
+        (Encoder(), needs_any_intent("encode_categorical"),needs_any_column("encode_categorical",required=True)),
     ])
 # ...existing code...
 if __name__ == "__main__":
@@ -179,7 +229,7 @@ if __name__ == "__main__":
     raw_data = "DATASET_PLACEHOLDER"
 
     context = DataContext(
-        data= pd.read_csv('/home/hassan-elkersh/Downloads/croky_age_salary.csv'),
+        data= pd.read_csv('/home/hassan-elkersh/graduation project/AutoPrepAI/Input/placement.csv'),
         metadata={
             "has_text": True,
             "has_numeric": True,
@@ -188,7 +238,7 @@ if __name__ == "__main__":
     )
 
     pipeline = build_pipeline()
-    final_context = pipeline.run(context, user_command="handle missing values using median for age and remove duplicates for salary")
+    final_context = pipeline.run(context, user_command="handle missing values using median for cgpa and remove duplicates for placed")
 
     print("\nExecution Log:")
     for log in final_context.logs:

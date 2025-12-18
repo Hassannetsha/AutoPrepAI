@@ -318,6 +318,10 @@ class class_nlp:
             temp.append(result.get("intent"))
             if result.get("columns"):
                 temp.append(result.get("columns"))
+            if result.get("method"):
+                temp.append(result.get("method"))
+            if result.get("other_params"):
+                temp.append(result.get("other_params"))
             intents.append(temp)
         print(intents)
         return df,intents
@@ -415,8 +419,10 @@ class class_nlp:
                             st.write("**📊 Applies to:** all columns (no specific columns mentioned)")
                         if result['method']:
                             st.write(f"**⚙️ Method:** `{result['method']}`")
+                            temp.append(result['method'])
                         if result['other_params']:
                             st.write("**🔧 Other Parameters:**")
+                            temp.append(result['other_params'])
                             for k, v in result['other_params'].items():
                                 st.markdown(f"- **{k}**: `{v}`")
                         intents.append(temp)

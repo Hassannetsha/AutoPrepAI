@@ -11,9 +11,9 @@ class class_outliers:
     Simple wrapper to run IsolationForest outlier detection on a CSV.
     """
 
-    def __init__(self, csv_glob: str = "./Input/placement.csv"):
+    def __init__(self, csv_glob: str = "./Input/placement.csv",dataframe: Optional[pd.DataFrame] = None):
         self.csv_glob = csv_glob
-        self.dataframe: Optional[pd.DataFrame] = None
+        self.dataframe: Optional[pd.DataFrame] = dataframe
         self.numerical_cols: List[str] = []
         self.iso: Optional[IsolationForest] = None
 
@@ -23,7 +23,8 @@ class class_outliers:
             raise FileNotFoundError(f"Please provide a dataset matching: {self.csv_glob}")
         DATA_PATH = csv_files[0]
         print("Using dataset:", DATA_PATH)
-        self.dataframe = pd.read_csv(DATA_PATH)
+        if not self.dataframe:
+            self.dataframe = pd.read_csv(DATA_PATH)
         print("\nOriginal Dataset Shape:", self.dataframe.shape)
         print(self.dataframe)
         self.numerical_cols = self.dataframe.select_dtypes(include=[np.number]).columns.tolist()
@@ -58,7 +59,7 @@ class class_outliers:
     def get_cleaned(self) -> pd.DataFrame:
         if self.dataframe is None:
             raise RuntimeError("Data not loaded. Call load() first.")
-        df_cleaned = self.dataframe[self.dataframe['is_outlier_IF'] == 1].drop(columns=['is_outlier_IF'])
+        df_cleaned = self.dataframe[self.dataframe['is_outlier_IF'] == 1].drop(columns=['is_outlier_IF','IF_score'])
         print(f"\nAfter IsolationForest filtering: {df_cleaned.shape[0]} rows remain (from {self.dataframe.shape[0]} original)")
         return df_cleaned
 
