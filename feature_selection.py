@@ -4,62 +4,101 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectFromModel
 from sklearn.metrics import accuracy_score
+from typing import Optional, List, Tuple
 
-st.set_page_config(page_title="Employee Feature Selection", layout="wide")
-st.title("RandomForest Feature Selection with Uploaded Data")
 
-# =========================
-# Upload CSV File
-# =========================
-uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+class FeatureSelectionAgent:
+    """Reusable feature selection engine that supports threshold or top-N selection.
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.subheader("Dataset Preview")
-    st.dataframe(df.head())
+    Methods are headless and safe to use from the preprocessing pipeline (no Streamlit side-effects).
+    """
+    def __init__(self, estimator: Optional[RandomForestClassifier] = None, random_state: int = 42):
+        self.random_state = random_state
+        self.estimator = estimator or RandomForestClassifier(n_estimators=100, random_state=random_state)
 
-    # Ask user which column is the target
-    target_column = st.selectbox("Select target column", df.columns)
-    y = df[target_column]
+    def select_features(self, df: pd.DataFrame, target_col: str, threshold: str = "median", n_features: Optional[int] = None) -> Tuple[List[str], pd.DataFrame]:
+        """Return (selected_feature_names, pruned_dataframe_with_target).
+
+        - df: full DataFrame containing target_col
+        - target_col: the name of the target/label column
+        - threshold: threshold to pass to SelectFromModel (e.g., 'median', 'mean')
+        - n_features: if provided, select top-n by feature importance instead of threshold
+        """
+        if target_col not in df.columns:
+            raise ValueError(f"target_col '{target_col}' not found in DataFrame columns")
+
+        # Prepare features and target
+        X = df.drop(columns=[target_col])
+        X_encoded = pd.get_dummies(X)
+        y = df[target_col]
+
+        if n_features is not None:
+            # Fit a RandomForest and take the top-n features by importance
+            rf = RandomForestClassifier(n_estimators=100, random_state=self.random_state)
+            rf.fit(X_encoded, y)
+            importances = pd.Series(rf.feature_importances_, index=X_encoded.columns).sort_values(ascending=False)
+            selected = list(importances.index[:n_features])
+        else:
+            selector = SelectFromModel(self.estimator, threshold=threshold)
+            selector.fit(X_encoded, y)
+            selected = list(X_encoded.columns[selector.get_support()])
+
+        # Build the pruned DataFrame (include selected features and the target column)
+        result_df = pd.concat([X_encoded[selected], df[[target_col]].reset_index(drop=True)], axis=1)
+        return selected, result_df
+
+    def run(self, df: pd.DataFrame, columns: Optional[List] = None, threshold: Optional[str] = None, n_features: Optional[int] = None, metadata: Optional[dict] = None) -> Tuple[List[str], pd.DataFrame]:
+        """Higher-level runner that accepts pipeline-style `columns`/`metadata` configuration.
+
+        Supported column formats:
+          - ['target=Label', 'top=10']
+          - ['Label', 'top=10']
+          - ['median'] or ['mean'] to set the threshold
+          - an integer value in the list treated as `n_features`
+
+        Falls back to metadata.get('target_col') when target is not in `columns`.
+        """
+        columns = columns or []
+        target = None
+        if threshold is None:
+            threshold = "median"
+
+        for item in columns:
+            if isinstance(item, str) and item.startswith("target="):
+                target = item.split("=", 1)[1]
+            elif isinstance(item, str) and item.startswith("top="):
+                try:
+                    n_features = int(item.split("=", 1)[1])
+                except Exception:
+                    pass
+            elif isinstance(item, str) and item in ("median", "mean"):
+                threshold = item
+            elif isinstance(item, str) and "=" not in item and target is None:
+                # treat a lone string as target column
+                target = item
+            elif isinstance(item, int) and n_features is None:
+                n_features = item
+
+        # metadata fallback
+        if target is None and isinstance(metadata, dict):
+            target = metadata.get("target_col")
+            # allow n_features from metadata
+            if n_features is None:
+                n_features = metadata.get("n_features")
+            if threshold is None:
+                threshold = metadata.get("threshold", threshold)
+
+        if target is None:
+            raise ValueError("FeatureSelectionAgent.run requires a target column via columns or metadata['target_col']")
+
+        # delegate to select_features
+        return self.select_features(df, target_col=target, threshold=threshold, n_features=n_features)
+
+
+if __name__ == "__main__":
+    df = pd.read_csv("Input/employees_large.csv")
+    target = "LeftCompany"
+    engine = FeatureSelectionAgent()
+    res = engine.run(df, columns=[f"target={target}"])
+    print(res)
     
-    # Features (drop target)
-    X = df.drop(columns=[target_column])
-    
-    # Convert categorical columns to numeric (one-hot)
-    X = pd.get_dummies(X)
-    st.subheader("Features after encoding")
-    st.write(X.columns.tolist())
-    
-    # =========================
-    # Train/Test Split
-    # =========================
-    test_size = st.slider("Test size (fraction)", 0.1, 0.5, 0.3)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
-    
-    # =========================
-    # Feature Selection
-    # =========================
-    rf = RandomForestClassifier(n_estimators=100, random_state=42)
-    threshold_option = st.selectbox("Threshold for feature selection", ["median", "mean"])
-    selector = SelectFromModel(rf, threshold=threshold_option)
-    selector.fit(X_train, y_train)
-    
-    selected_features = X.columns[selector.get_support()]
-    st.subheader("Selected Features")
-    st.write(selected_features.tolist())
-    
-    X_train_sel = selector.transform(X_train)
-    X_test_sel = selector.transform(X_test)
-    
-    # =========================
-    # Train Model on Selected Features
-    # =========================
-    rf_selected = RandomForestClassifier(n_estimators=100, random_state=42)
-    rf_selected.fit(X_train_sel, y_train)
-    y_pred = rf_selected.predict(X_test_sel)
-    accuracy = accuracy_score(y_test, y_pred)
-    
-    st.subheader("Model Accuracy on Selected Features")
-    st.write(f"{accuracy*100:.2f}%")
-else:
-    st.info("Please upload a CSV file to start the analysis.")

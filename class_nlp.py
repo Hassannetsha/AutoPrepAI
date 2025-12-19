@@ -6,6 +6,8 @@ from typing import List, Optional, Dict, Any
 import streamlit as st
 import pandas as pd
 import dspy
+
+from feature_engineering import *
 os.environ['GROQ_API_KEY'] = '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'
 
 class class_nlp:
@@ -27,7 +29,6 @@ class class_nlp:
         # keep training data in memory for the pipeline
         self.training_data = None
 
-    # ...existing code...
     @st.cache_resource
     def setup_dspy(_self) -> dspy.LM:
         """Initialize and cache DSPy LM resource. Prompts the user if key is missing."""
@@ -46,7 +47,7 @@ class class_nlp:
         dspy.settings.configure(lm=lm)
         _self.lm = lm
         return lm
-# ...existing code...
+
     @st.cache_data
     def load_training_data(_self) -> Optional[pd.DataFrame]:
         """Load training CSV if present; cache result."""
@@ -56,14 +57,13 @@ class class_nlp:
         except FileNotFoundError:
             st.sidebar.warning(f"⚠️ Training file '{_self.training_csv}' not found. Using basic mode.")
             return None
-# ...existing code...
+        
     @st.cache_resource
     def build_pipeline(_self, training_data: Optional[pd.DataFrame]):
         """Create and cache the pipeline module."""
         if training_data is not None and len(training_data) > 0:
             return class_nlp.OptimizedIntentPipeline(training_examples=training_data)
         return class_nlp.OptimizedIntentPipeline(training_examples=None)
-# ...existing code...
 
     # ---------- DSPy Signatures ----------
     # Keep these as inner classes for encapsulation but accessible by dspy
@@ -110,7 +110,7 @@ class class_nlp:
         columns = dspy.OutputField(desc="Column names mentioned (comma-separated), or 'none' if not specified")
         method = dspy.OutputField(desc="Method/algorithm mentioned (e.g., mean, median, IQR), or 'none'")
         other_params = dspy.OutputField(desc="Other parameters as key:value pairs (comma-separated), or 'none'")
-
+    
     class OptimizedIntentPipeline(dspy.Module):
         """Intent understanding pipeline with few-shot learning from training data"""
 
@@ -119,7 +119,8 @@ class class_nlp:
             self.split_tasks = dspy.ChainOfThought(class_nlp.SplitIntoTasks)
             self.classify = dspy.ChainOfThought(class_nlp.ClassifyIntent)
             self.extract_params = dspy.ChainOfThought(class_nlp.ExtractParameters)
-                    
+            self.suggest_features = dspy.ChainOfThought(SuggestFeatures)
+            
             # Add few-shot examples if training data available
             if training_examples is not None and len(training_examples) > 0:
                 self._setup_few_shot_examples(training_examples)
@@ -378,6 +379,183 @@ class class_nlp:
         else:
             st.info("💡 Upload a dataset to enable column-aware intent detection")
 
+        # --- Feature suggestion UI ---
+        # --- Feature suggestion UI ---
+        if df is not None:
+            st.markdown("---")
+            st.markdown("### ✨ Suggest New Features")
+            top_n = st.number_input("Number of suggestions to generate", min_value=1, max_value=20, value=5, step=1, key="suggest_top_n")
+            
+            if st.button("✨ Suggest Features", key="suggest_features_btn"):
+                if not self.pipeline:
+                    st.warning("Pipeline not ready. Please try again.")
+                else:
+                    with st.spinner("🔎 Generating feature suggestions..."):
+                        try:
+                            sample_rows = df.head(10).to_json(orient='records')
+                            # First, try the structured helper which returns parsed suggestions
+                            try:
+                                parsed = apply_feature_engineering_agent(dataset_columns=columns_str, sample_rows=sample_rows, top_n=int(top_n))
+                                suggestions = []
+                                for item in parsed:
+                                    suggestions.append(item.get('raw') or f"{item.get('name')}: {item.get('description')}" + (f" | code: {item.get('code')}" if item.get('code') else ""))
+                            except Exception as agent_exc:
+                                # Fallback to pipeline method if the helper fails
+                                suggest_res = self.pipeline.suggest_features(
+                                    dataset_columns=columns_str,
+                                    sample_rows=sample_rows,
+                                    top_n=str(top_n)
+                                )
+                                suggestions_raw = getattr(suggest_res, "suggested_features", None) or str(suggest_res)
+                                suggestions = [s.strip() for s in str(suggestions_raw).split('\n') if s.strip()]
+
+                            if not suggestions:
+                                st.warning("⚠️ No suggestions returned by the model.")
+                            else:
+                                # Store suggestions in session state
+                                st.session_state['feature_suggestions'] = suggestions
+                                st.session_state['df_original'] = df.copy()  # Keep original df
+                                
+                                st.success(f"✅ {len(suggestions)} suggestions generated.")
+                                
+                        except Exception as e:
+                            st.error(f"❌ Error generating suggestions: {e}")
+            
+            # Display suggestions and allow selection
+            if 'feature_suggestions' in st.session_state and st.session_state['feature_suggestions']:
+                suggestions = st.session_state['feature_suggestions']
+                
+                st.markdown("---")
+                st.markdown("### 📋 Select Features to Apply")
+                
+                # Display suggestions with checkboxes
+                selected_features = []
+                for idx, suggestion in enumerate(suggestions):
+                    # Create a more readable display
+                    display_text = suggestion
+                    if '| code:' in suggestion:
+                        name_desc, code_part = suggestion.split('| code:', 1)
+                        display_text = f"**{name_desc.strip()}**\n   `Code: {code_part.strip()}`"
+                    
+                    if st.checkbox(display_text, key=f"feature_{idx}", value=True):
+                        selected_features.append(suggestion)
+                
+                st.markdown("---")
+                
+                # Buttons in columns
+                col1, col2, col3 = st.columns([1, 1, 1])
+                
+                with col1:
+                    if st.button("✅ Apply Selected Features", key="apply_features_btn", type="primary"):
+                        if not selected_features:
+                            st.warning("⚠️ Please select at least one feature to apply.")
+                        else:
+                            with st.spinner("🔧 Engineering features..."):
+                                try:
+                                    # Use the original dataframe
+                                    df_to_engineer = st.session_state.get('df_original', df).copy()
+                                    
+                                    # Convert selected features to string format
+                                    features_str = "\n".join(selected_features)
+                                    
+                                    # Debug: Show what we're about to apply
+                                    with st.expander("🔍 Debug: Features to Apply", expanded=False):
+                                        st.write(f"**Number of features selected:** {len(selected_features)}")
+                                        st.write(f"**Dataframe shape:** {df_to_engineer.shape}")
+                                        st.write(f"**Dataframe columns:** {list(df_to_engineer.columns)}")
+                                        st.write("**Features string:**")
+                                        st.code(features_str)
+                                    
+                                    # Apply feature engineering
+                                    df_engineered = engineer_features(df_to_engineer, features_str)
+                                    
+                                    # Count new features
+                                    new_columns = [col for col in df_engineered.columns if col not in df_to_engineer.columns]
+                                    
+                                    if len(new_columns) == 0:
+                                        st.warning("⚠️ No new features were added. Check the debug info below.")
+                                        st.info("**Possible issues:**")
+                                        st.write("1. The code expressions may have syntax errors")
+                                        st.write("2. Column names in the code don't match your dataframe")
+                                        st.write("3. The feature format is incorrect")
+                                        
+                                        # Show a sample of what the format should be
+                                        st.code("""Expected format:
+        feature_name: description | code: df['column1'] + df['column2']
+        age_squared: Square of age | code: df['age'] ** 2
+        """)
+                                    else:
+                                        st.success(f"✅ Successfully added {len(new_columns)} new features!")
+                                        
+                                        # Show new columns
+                                        st.info(f"**New columns added:** {', '.join(new_columns)}")
+                                        
+                                        # Preview the engineered dataset
+                                        with st.expander("📊 Preview Updated Dataset", expanded=True):
+                                            st.dataframe(df_engineered.head(10))
+                                            st.write(f"**Original shape:** {df_to_engineer.shape}")
+                                            st.write(f"**New shape:** {df_engineered.shape}")
+                                        
+                                        # Store the engineered dataframe
+                                        st.session_state['df_engineered'] = df_engineered
+                                        
+                                        # Download button
+                                        csv = df_engineered.to_csv(index=False)
+                                        st.download_button(
+                                            "⬇️ Download Engineered Dataset",
+                                            csv,
+                                            "engineered_data.csv",
+                                            "text/csv",
+                                            key="download_engineered"
+                                        )
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ Error applying features: {e}")
+                                    import traceback
+                                    with st.expander("🔍 Error Details", expanded=True):
+                                        st.code(traceback.format_exc())
+                                        st.write("**Selected features:**")
+                                        for i, feat in enumerate(selected_features, 1):
+                                            st.write(f"{i}. `{feat}`")
+                        
+                with col2:
+                    # Download suggestions as CSV
+                    import io, csv
+                    csv_buf = io.StringIO()
+                    writer = csv.writer(csv_buf)
+                    writer.writerow(["name", "description", "code", "raw"])
+                    for s in suggestions:
+                        name = s
+                        description = ""
+                        code = ""
+                        if ':' in s:
+                            name_part, rest = s.split(':', 1)
+                            name = name_part.strip()
+                            if '| code:' in rest:
+                                desc_part, code_part = rest.split('| code:', 1)
+                                description = desc_part.strip()
+                                code = code_part.strip()
+                            else:
+                                description = rest.strip()
+                        writer.writerow([name, description, code, s])
+                    csv_bytes = csv_buf.getvalue().encode('utf-8')
+                    st.download_button(
+                        "📥 Download Suggestions CSV", 
+                        data=csv_bytes, 
+                        file_name="feature_suggestions.csv", 
+                        mime="text/csv",
+                        key="download_suggestions"
+                    )
+                
+                with col3:
+                    if st.button("🗑️ Clear Suggestions", key="clear_suggestions_btn"):
+                        if 'feature_suggestions' in st.session_state:
+                            del st.session_state['feature_suggestions']
+                        if 'df_original' in st.session_state:
+                            del st.session_state['df_original']
+                        if 'df_engineered' in st.session_state:
+                            del st.session_state['df_engineered']
+                        st.rerun()
         st.markdown("---")
         user_input = st.text_area(
             "✍️ Enter your command:",
@@ -442,3 +620,16 @@ class class_nlp:
                     st.info("Try simplifying your command or check the error details above.")
         else:
             st.info("💡 Enter a command and click **Understand Intents**.")
+
+
+if __name__ == "__main__":
+    # When running the file directly (e.g. `streamlit run class_nlp.py`),
+    # instantiate the app and launch the Streamlit UI.
+    app = class_nlp()
+    try:
+        app.runUI()
+    except Exception as _err:
+        # If something goes wrong while launching the UI, print the error to the console
+        # so the user can see it in the terminal that invoked Streamlit.
+        print(f"Error launching Streamlit UI: {_err}")
+        raise

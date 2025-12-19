@@ -6,6 +6,7 @@ import pandas as pd
 from Class_missingValues import MissingValuesDemo
 from Class_outliers import class_outliers
 from class_nlp import class_nlp
+from feature_selection import FeatureSelectionAgent
 # ...existing code...
 
 @dataclass
@@ -117,9 +118,21 @@ class FeatureSelector(PreprocessingStep):
     name = "Feature Selection"
 
     def run(self, context: DataContext, **kwargs) -> DataContext:
-        columns = kwargs.get("columns", [])
+        columns = kwargs.get("columns", []) or []
         context.log("Selecting features")
+        try:
+            agent = FeatureSelectionAgent(random_state=context.metadata.get("random_state", 42))
+            selected, pruned_df = agent.run(context.data, columns=columns, metadata=context.metadata, threshold=kwargs.get("threshold"))
+        except ValueError as e:
+            context.log(f"Feature selection skipped: {e}")
+            return context
+        except Exception as e:
+            context.log(f"Feature selection error: {e}")
+            return context
+        context.data = pruned_df
         context.metadata["features_selected"] = True
+        context.metadata["selected_features"] = selected
+        context.log(f"Selected features: {selected}")
         return context
 
 
