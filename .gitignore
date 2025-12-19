@@ -1,3 +1,5 @@
 Input/train.csv
 .venv.zip
 __pycache__/class_nlp.cpython-312.pyc
+
+config.py
