@@ -22,6 +22,8 @@ from Class_scaler import Scaler as DFScaler
 from Encoder.encoder import one_hot_encode, label_encode, target_encode
 from feature_engineering import FeatureEngineer, SuggestFeatures
 
+import copy
+# =============================
 @dataclass
 class DataContext:
     data: Any  # usually pandas.DataFrame
@@ -363,6 +365,17 @@ class SemanticDuplicateRemoverStep(PreprocessingStep):
         
         return context
 
+class DuplicateRemover(PreprocessingStep):
+    name = "Duplicate Remover"
+
+    def run(self, context: DataContext, **kwargs) -> DataContext:
+        context.log("Removing duplicate rows")
+        context.metadata["duplicates_removed"] = True
+        exact_remover = ExactDuplicateRemoverStep()
+        context = exact_remover.run(context, **kwargs)
+        semantic_remover = SemanticDuplicateRemoverStep()
+        context = semantic_remover.run(context, **kwargs)
+        return context
 
 class OutlierRemover(PreprocessingStep):
     name = "Outlier Remover"
@@ -582,13 +595,11 @@ class PreprocessingPipeline:
         self.steps = steps
 
     def run(self, context: DataContext, user_command: str = "") -> DataContext:
-        """Run all steps in order. Pass user_command to steps that accept it.
-        Each step entry may be:
-          - (step, condition)
-          - (step, condition, columns_getter)
-        """
+        """Run all steps in order. Each step tuple may be (step, condition) or (step, condition, columns_getter)."""
+        # create NLP explainer (reuse single instance)
+        nlp_explainer = class_nlp()
+
         for entry in self.steps:
-            # unpack flexible tuple
             if len(entry) == 2:
                 step, condition = entry
                 columns_getter = None
@@ -598,16 +609,38 @@ class PreprocessingPipeline:
                 raise ValueError(f"Invalid pipeline step tuple length: {len(entry)}")
 
             if condition(context):
-                print(f"--> Running step: {step.name}")
+                # snapshot metadata before running step
+                metadata_before = copy.deepcopy(context.metadata)
+
                 # prepare kwargs for step.run
                 kwargs = {"user_command": user_command}
                 if columns_getter is not None:
-                    cols = columns_getter(context) or []
-                    # always pass columns (could be empty list)
-                    kwargs["columns"] = cols
+                    kwargs["columns"] = columns_getter(context) or []
+
+                # run the step
                 context = step.run(context, **kwargs)
+
+                # ask DSPy/LLM to explain why this step ran (headless-capable)
+                try:
+                    explanation = nlp_explainer.explain_step_llm(
+                        step_name=step.name,
+                        task=user_command,
+                        metadata_before=metadata_before,
+                        metadata_after=context.metadata
+                    )
+                except Exception as e:
+                    explanation = f"Explainability invocation failed: {e}"
+
+                # store explanation in context metadata and log
+                context.metadata.setdefault("explanations", []).append({
+                    "step": step.name,
+                    "explanation": explanation
+                })
+                context.log(f"Explanation for '{step.name}': {explanation}")
+
             else:
-                print(f"--> Skipping step: {step.name}")
+                context.log(f"Skipping step: {step.name}")
+
         return context
 def needs_any_intent(*intent_names: str) -> Callable[[DataContext], bool]:
     def checker(ctx: DataContext) -> bool:
@@ -652,9 +685,7 @@ def build_pipeline() -> PreprocessingPipeline:
         (DataTypeInconsistencyHandler(), needs_any_intent("fix_data_types", "remove_inconsistencies"),needs_any_column("fix_data_types", "remove_inconsistencies",required=False)),
         (SpellingCorrectorStep(), needs_any_intent("correct_spelling"),needs_any_column("correct_spelling",required=False)),
         (DataStandardizer(), needs_any_intent("standardize_data"),needs_any_column("standardize_data",required=False)),
-        (ExactDuplicateRemoverStep(), needs_any_intent("remove_duplicates"),needs_any_column("remove_duplicates",required=False)),
-        (SemanticDuplicateRemoverStep(), needs_any_intent("remove_duplicates"),needs_any_column("remove_duplicates",required=False)),
-        # Accept both 'remove_outliers' and 'detect_outliers' (and honor 'keep_outliers' by not removing if present)
+        (DuplicateRemover(), needs_any_intent("remove_duplicates"),needs_any_column("remove_duplicates",required=False)),
         (OutlierRemover(), needs_any_intent("remove_outliers", "detect_outliers"), needs_any_column("remove_outliers", required=False)),
         (MissingValueHandler(), needs_any_intent("handle_missing_values"),needs_any_column("handle_missing_values",required=True)),
         # Accept both 'suggest_features' and 'feature_engineering' intents

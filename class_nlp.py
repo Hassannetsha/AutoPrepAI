@@ -6,8 +6,8 @@ from typing import List, Optional, Dict, Any
 import streamlit as st
 import pandas as pd
 import dspy
-
 from feature_engineering import *
+import json
 os.environ['GROQ_API_KEY'] = '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'
 
 class class_nlp:
@@ -234,7 +234,66 @@ class class_nlp:
             except:
                 pass
             return params
+    class ExplainStep(dspy.Signature):
+        """Ask the LM to explain why a preprocessing step ran and explain the step in detail and why this method was chosen, given metadata before/after."""
+        step_name = dspy.InputField(desc="Name of the preprocessing step")
+        task = dspy.InputField(desc="Original user task / intent (optional)", default="")
+        metadata_before = dspy.InputField(desc="Metadata before step (JSON string)", default="")
+        metadata_after = dspy.InputField(desc="Metadata after step (JSON string)", default="")
+        explanation = dspy.OutputField(desc="LLM explanation for why the step was executed")
 
+    def explain_step_llm(self,
+                         step_name: str,
+                         task: str = "",
+                         metadata_before: Optional[Dict[str, Any]] = None,
+                         metadata_after: Optional[Dict[str, Any]] = None,
+                         max_tokens: int = 250) -> str:
+        """
+        Use DSPy / the configured LM to produce a human-readable explanation why
+        the given preprocessing step executed. Returns the LLM's explanation string.
+        """
+        # Ensure LM is configured
+        if not self.lm:
+            try:
+                self.setup_dspy()
+            except Exception:
+                # try to configure directly if setup_dspy relied on Streamlit
+                api_key = self.api_key or os.getenv("GROQ_API_KEY")
+                if not api_key:
+                    raise RuntimeError("GROQ_API_KEY not set; cannot call LLM for explanations.")
+                lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+                dspy.settings.configure(lm=lm)
+                self.lm = lm
+
+        # Prepare JSON strings for metadata fields (shorten if very large)
+        mb = json.dumps(metadata_before or {}, indent=2, default=str)
+        ma = json.dumps(metadata_after or {}, indent=2, default=str)
+        # Optionally truncate long metadata for the prompt
+        def _truncate(s, n=2000):
+            return s if len(s) <= n else (s[:n] + "\n... (truncated)")
+
+        mb = _truncate(mb)
+        ma = _truncate(ma)
+
+        # Create a ChainOfThought for the ExplainStep signature and call it
+        explain_chain = dspy.ChainOfThought(class_nlp.ExplainStep)
+        try:
+            resp = explain_chain(
+                step_name=step_name,
+                task=task or "",
+                metadata_before=mb,
+                metadata_after=ma,
+            )
+            # The returned object usually exposes .explanation
+            explanation = getattr(resp, "explanation", None)
+            if not explanation:
+                # fallback: string representation
+                explanation = str(resp)
+            # small cleanup
+            return explanation.strip()
+        except Exception as e:
+            # fail gracefully — return diagnostic message for logs
+            return f"LLM explanation failed: {e}"
     # @st.cache_resource
     # def build_pipeline(self, training_data: Optional[pd.DataFrame]):
     #     """Create and cache the pipeline module."""
