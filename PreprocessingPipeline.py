@@ -1,4 +1,3 @@
-# ...existing code...
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Callable, List, Tuple
@@ -15,11 +14,9 @@ from data_standardization.config import API_KEY
 from groq import Groq
 from duplicates.exact_duplicate_remover import ExactDuplicateRemover
 from duplicates.semantic_duplicate_remover import SemanticDuplicateRemover
-# ...existing code...
 
 @dataclass
 class DataContext:
-    # ...existing code...
     data: Any  # usually pandas.DataFrame
     metadata: Dict[str, Any] = field(default_factory=dict)
     logs: List[str] = field(default_factory=list)
@@ -362,7 +359,6 @@ class OutlierRemover(PreprocessingStep):
         context.log("Handling outliers")
         context.metadata["outliers_handled"] = True
         c = class_outliers(dataframe=context.data)
-        c.load()
         c.run_isolation_forest()
         cleaned = c.get_cleaned()
         context.data = cleaned
@@ -499,15 +495,14 @@ def build_pipeline() -> PreprocessingPipeline:
         (DataTypeInconsistencyHandler(), needs_any_intent("fix_data_types", "remove_inconsistencies"),needs_any_column("fix_data_types", "remove_inconsistencies",required=False)),
         (SpellingCorrectorStep(), needs_any_intent("correct_spelling"),needs_any_column("correct_spelling",required=False)),
         (DataStandardizer(), needs_any_intent("standardize_data"),needs_any_column("standardize_data",required=False)),
-        (ExactDuplicateRemoverStep(), needs_any_intent("remove_duplicates", "remove_exact_duplicates"),needs_any_column("remove_duplicates", "remove_exact_duplicates",required=False)),
-        (SemanticDuplicateRemoverStep(), needs_any_intent("remove_semantic_duplicates"),needs_any_column("remove_semantic_duplicates",required=False)),
+        (ExactDuplicateRemoverStep(), needs_any_intent("remove_duplicates"),needs_any_column("remove_duplicates",required=False)),
+        (SemanticDuplicateRemoverStep(), needs_any_intent("remove_duplicates"),needs_any_column("remove_duplicates",required=False)),
         (OutlierRemover(), needs_any_intent("remove_outliers"),needs_any_column("remove_outliers",required=False)),
         (MissingValueHandler(), needs_any_intent("handle_missing_values"),needs_any_column("handle_missing_values",required=True)),
         (FeatureSelector(), needs_any_intent("select_features"),needs_any_column("select_features",required=True)),
         (Scaler(), needs_any_intent("scale_numerical"),needs_any_column("scale_numerical",required=True)),
         (Encoder(), needs_any_intent("encode_categorical"),needs_any_column("encode_categorical",required=True)),
     ])
-# ...existing code...
 if __name__ == "__main__":
     # Pretend this is a pandas DataFrame
     raw_data = "DATASET_PLACEHOLDER"
@@ -527,4 +522,3 @@ if __name__ == "__main__":
     print("\nExecution Log:")
     for log in final_context.logs:
         print("-", log)
-# ...existing code...
