@@ -2,49 +2,68 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 
 # ----------- Standard Scaler -----------
-def standard_scaler(df):
+def standard_scaler(df, selected_cols=None):
     scaler = StandardScaler()
-    numeric_cols = df.select_dtypes(include=['number']).columns
-    df.loc[:, numeric_cols] = scaler.fit_transform(df[numeric_cols])
-    print(f"📏 Applied Standard Scaler on: {list(numeric_cols)}")
+    numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+    if selected_cols:
+        cols_to_scale = [c for c in selected_cols if c in numeric_cols]
+    else:
+        cols_to_scale = numeric_cols
+
+    if cols_to_scale:
+        df.loc[:, cols_to_scale] = scaler.fit_transform(df[cols_to_scale])
     return df
 
 
+
 # ----------- MinMax Scaler -----------
-def minmax_scaler(df, feature_range=(0, 1)):
+def minmax_scaler(df, selected_cols=None, feature_range=(0, 1)):
     scaler = MinMaxScaler(feature_range=feature_range)
-    numeric_cols = df.select_dtypes(include=['number']).columns
-    df.loc[:, numeric_cols] = scaler.fit_transform(df[numeric_cols])
-    print(f"📊 Applied MinMax Scaler with range {feature_range} on: {list(numeric_cols)}")
+    numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+
+    if selected_cols:
+        cols_to_scale = [c for c in selected_cols if c in numeric_cols]
+    else:
+        cols_to_scale = numeric_cols
+
+    if cols_to_scale:
+        df.loc[:, cols_to_scale] = scaler.fit_transform(df[cols_to_scale])
+
     return df
 
 
 # ----------- Robust Scaler -----------
-def robust_scaler(df):
+def robust_scaler(df, selected_cols=None):
     scaler = RobustScaler()
-    numeric_cols = df.select_dtypes(include=['number']).columns
-    df.loc[:, numeric_cols] = scaler.fit_transform(df[numeric_cols])
-    print(f"🧱 Applied Robust Scaler on: {list(numeric_cols)}")
+    numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+
+    if selected_cols:
+        cols_to_scale = [c for c in selected_cols if c in numeric_cols]
+    else:
+        cols_to_scale = numeric_cols
+
+    if cols_to_scale:
+        df.loc[:, cols_to_scale] = scaler.fit_transform(df[cols_to_scale])
+
     return df
+
 
 
 # ----------- Example Usage -----------
 if __name__ == "__main__":
     # Load dataset
     df = pd.read_csv("data.csv")
-    print("✅ Dataset loaded successfully!")
     print(df.head())
 
-    # 1️⃣ Standard Scaler
-    df_standard = standard_scaler(df.copy())
+    # Standard Scaler
+    df_standard = standard_scaler(df.copy(), selected_cols=['Age'])
 
-    # 2️⃣ MinMax Scaler
-    df_minmax = minmax_scaler(df.copy())
+    # MinMax Scaler
+    df_minmax = minmax_scaler(df.copy(), selected_cols=['Salary'], feature_range=(0, 1))
 
-    # 3️⃣ Robust Scaler
-    df_robust = robust_scaler(df.copy())
+    # Robust Scaler
+    df_robust = robust_scaler(df.copy(), selected_cols=['Age', 'Salary'])
 
-    # Print sample results
     print("\n🔹Standard Scaled Data:")
     print(df_standard.head())
 
