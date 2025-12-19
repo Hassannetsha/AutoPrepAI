@@ -126,6 +126,124 @@ augmentation_rules = {
             '{method} to {verb} {object}',
             '{verb} {object} {method} {purpose}',
         ]
+    },
+    
+    'fix_data_types': {
+        'verbs': ['fix', 'correct', 'change', 'convert', 'adjust', 'modify', 'update', 'transform', 'set', 'cast'],
+        'objects': ['data types', 'dtypes', 'column types', 'data formats', 'type definitions', 
+                   'variable types', 'field types', 'column formats', 'datatypes', 'types'],
+        'types': ['to numeric', 'to integer', 'to float', 'to string', 'to datetime', 'to category',
+                 'to boolean', 'to int', 'to str', 'to date', 'to object', 'to categorical'],
+        'locations': ['in column {col}', 'for {col}', 'in the dataset', 'in dataframe', 'in {col} column',
+                     'across columns', 'for all columns'],
+        'templates': [
+            '{verb} {object}',
+            '{verb} {object} {location}',
+            '{verb} {object} {types}',
+            '{verb} {object} {types} {location}',
+            '{object} should be {verb}',
+            'convert {object} {types}',
+            '{verb} column types',
+            'ensure correct {object}',
+        ]
+    },
+    
+    'remove_inconsistencies': {
+        'verbs': ['remove', 'fix', 'correct', 'clean', 'resolve', 'eliminate', 'handle', 'address', 'deal with'],
+        'objects': ['inconsistencies', 'inconsistent data', 'data inconsistencies', 'conflicting values',
+                   'contradictions', 'mismatches', 'irregular entries', 'discrepancies', 'conflicting entries',
+                   'inconsistent values', 'data conflicts', 'irregular data'],
+        'locations': ['in the dataset', 'in dataframe', 'in column {col}', 'from the data',
+                     'across columns', 'in {col} column', 'from data'],
+        'examples': ['in date formats', 'in naming', 'in categories', 'in formats', 'in values'],
+        'templates': [
+            '{verb} {object}',
+            '{verb} {object} {location}',
+            '{verb} {object} {examples}',
+            '{object} should be {verb}',
+            '{verb} all {object}',
+            'clean {object} {location}',
+            '{verb} data {object}',
+        ]
+    },
+    
+    'correct_spelling': {
+        'verbs': ['correct', 'fix', 'clean', 'standardize', 'rectify', 'adjust', 'repair', 'amend'],
+        'objects': ['spelling', 'spelling errors', 'typos', 'misspellings', 'text errors',
+                   'spelling mistakes', 'typographical errors', 'text mistakes', 'incorrect spellings'],
+        'locations': ['in column {col}', 'in the dataset', 'in dataframe', 'in {col} column',
+                     'in text columns', 'in string columns', 'across all text'],
+        'templates': [
+            '{verb} {object}',
+            '{verb} {object} {location}',
+            '{object} should be {verb}',
+            '{verb} all {object}',
+            'fix {object} in data',
+            '{verb} text {object}',
+            'clean {object}',
+        ]
+    },
+    
+    'standardize_data': {
+        'verbs': ['standardize', 'normalize', 'unify', 'harmonize', 'regularize', 'make consistent', 
+                 'align', 'format', 'structure'],
+        'objects': ['data', 'values', 'entries', 'formats', 'fields', 'columns', 'text',
+                   'date formats', 'naming conventions', 'categories', 'labels'],
+        'methods': ['to common format', 'across dataset', 'using standards', 'to consistent format',
+                   'by convention', 'using template', 'to uniform format'],
+        'locations': ['in the dataset', 'in dataframe', 'in column {col}', 'in {col} column',
+                     'across columns', 'in all columns'],
+        'templates': [
+            '{verb} {object}',
+            '{verb} {object} {location}',
+            '{verb} {object} {method}',
+            '{verb} {object} {method} {location}',
+            '{verb} all {object}',
+            'make {object} consistent',
+            'apply {verb} to {object}',
+        ]
+    },
+    
+    'scale_numerical': {
+        'verbs': ['scale', 'normalize', 'standardize', 'transform', 'rescale', 'adjust', 'convert'],
+        'objects': ['numerical features', 'numeric columns', 'numerical data', 'numeric features',
+                   'continuous variables', 'numerical values', 'numeric data', 'continuous features',
+                   'quantitative variables', 'numeric variables'],
+        'methods': ['using MinMax', 'with StandardScaler', 'using normalization', 'with z-score',
+                   'using min-max scaling', 'with robust scaling', 'to 0-1 range', 'using max-abs scaling',
+                   'with standard scaling', 'to unit variance'],
+        'locations': ['in the dataset', 'in dataframe', 'in column {col}', 'in {col} column',
+                     'across all features', 'for all numeric columns'],
+        'templates': [
+            '{verb} {object}',
+            '{verb} {object} {method}',
+            '{verb} {object} {location}',
+            '{verb} {object} {method} {location}',
+            'apply {method} to {object}',
+            '{method} for {object}',
+            '{verb} all {object}',
+        ]
+    },
+    
+    'feature_engineering': {
+        'verbs': ['create', 'engineer', 'generate', 'build', 'construct', 'design', 'develop', 'derive', 'extract'],
+        'objects': ['new features', 'features', 'feature columns', 'derived features', 'engineered features',
+                   'custom features', 'additional features', 'feature variables', 'new attributes'],
+        'methods': ['from existing columns', 'by combining features', 'using transformations', 'by interaction',
+                   'using polynomial features', 'with aggregations', 'by binning', 'using domain knowledge',
+                   'with feature crosses', 'by mathematical operations'],
+        'purposes': ['for modeling', 'for prediction', 'for the model', 'for analysis', 'for ML',
+                    'to improve performance', 'for better accuracy'],
+        'templates': [
+            '{verb} {object}',
+            '{verb} {object} {method}',
+            '{verb} {object} {purpose}',
+            '{verb} {object} {method} {purpose}',
+            'perform feature engineering',
+            '{method} to {verb} {object}',
+            '{verb} custom {object}',
+            'apply feature engineering',
+        ]
     }
 }
 
@@ -161,6 +279,10 @@ def generate_phrase(intent, rules):
         phrase = phrase.replace('{purpose}', random.choice(rules['purposes']))
     if '{number}' in phrase and 'numbers' in rules:
         phrase = phrase.replace('{number}', random.choice(rules['numbers']))
+    if '{types}' in phrase and 'types' in rules:
+        phrase = phrase.replace('{types}', random.choice(rules['types']))
+    if '{examples}' in phrase and 'examples' in rules:
+        phrase = phrase.replace('{examples}', random.choice(rules['examples']))
     
     return phrase.strip()
 
@@ -168,14 +290,20 @@ def generate_phrase(intent, rules):
 augmented_data = []
 target_per_intent = 500
 
-# Only use the 6 specified intents
+# All intents (original + new)
 target_intents = [
     'handle_missing_values',
     'detect_outliers', 
     'keep_outliers',
     'remove_duplicates',
     'encode_categorical',
-    'feature_selection'
+    'feature_selection',
+    'fix_data_types',
+    'remove_inconsistencies',
+    'correct_spelling',
+    'standardize_data',
+    'scale_numerical',
+    'feature_engineering'
 ]
 
 for intent in target_intents:

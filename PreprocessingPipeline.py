@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Callable, List, Tuple
+import dspy
+import numpy as np
 import pandas as pd
 from Class_missingValues import MissingValuesDemo
 from Class_outliers import class_outliers
@@ -14,6 +16,11 @@ from data_standardization.config import API_KEY
 from groq import Groq
 from duplicates.exact_duplicate_remover import ExactDuplicateRemover
 from duplicates.semantic_duplicate_remover import SemanticDuplicateRemover
+
+# Use project scaler and encoder utilities (avoid shadowing class names)
+from Class_scaler import Scaler as DFScaler
+from Encoder.encoder import one_hot_encode, label_encode, target_encode
+from feature_engineering import FeatureEngineer, SuggestFeatures
 
 @dataclass
 class DataContext:
@@ -44,6 +51,11 @@ class NLPPreprocessor(PreprocessingStep):
     name = "NLP"
 
     def run(self, context: DataContext, user_command: str = "") -> DataContext:
+        # Skip NLP if another part of the code (e.g., Manual Mode) already set intents
+        if context.metadata.get("nlp_done"):
+            context.log("NLP already provided/disabled; skipping NLP step")
+            return context
+
         context.log("NLP preprocessing started")
         auto = class_nlp()
         # class_nlp.run returns (df, intents) in headless mode
@@ -367,16 +379,88 @@ class OutlierRemover(PreprocessingStep):
 
 class MissingValueHandler(PreprocessingStep):
     name = "Missing Values"
-
+    
     def run(self, context: DataContext, **kwargs) -> DataContext:
+        # Get columns from kwargs (list of column names)
         columns = kwargs.get("columns", [])
-        context.log("Handling missing values")
-        context.metadata["missing_values_handled"] = True
-        print("Handling missing values for columns:", columns)
+        
+        # Get strategy from kwargs (default to "mean")
+        strategy = kwargs.get("strategy", "mean")
+        
+        # If user didn't specify strategy, default to mean
+        if not strategy or not isinstance(strategy, str):
+            strategy = "mean"
+        
+        # If columns is empty, use all numeric columns
+        if not columns:
+            columns = context.data.select_dtypes(include=[np.number]).columns.tolist()
+        
+        if not columns:
+            context.log("No columns to handle missing values")
+            return context
+        
+        context.log(f"Handling missing values for columns: {columns}")
+        context.log(f"Using strategy: {strategy}")
+        
         demo = MissingValuesDemo()
-        context.data = demo.run(context.data, strategy=columns[1] if len(columns) > 1 else "Mean")
+        context.data = demo.run(
+            context.data, 
+            strategy=strategy, 
+            selected_cols=columns
+        )
+        
         return context
+    
 
+class FeatureEngineeringStep(PreprocessingStep):
+    name = "Feature Engineering"
+    
+    def __init__(self):
+        api_key='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'
+        super().__init__()
+        # Configure DSPy with a language model if not already configured
+        if not hasattr(dspy.settings, 'lm') or dspy.settings.lm is None:
+            lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+            dspy.settings.configure(lm=lm)
+    
+    def run(self, context: DataContext, **kwargs) -> DataContext:
+        context.log("Starting feature engineering")
+        
+        try:
+            suggest_predictor = dspy.ChainOfThought(SuggestFeatures)
+            
+            dataset_columns = ", ".join(context.data.columns.tolist())
+            sample_rows = context.data.head(5).to_json(orient='records')
+            top_n = kwargs.get('top_n', '5')
+            
+            result = suggest_predictor(
+                dataset_columns=dataset_columns,
+                sample_rows=sample_rows,
+                top_n=top_n
+            )
+            
+            suggested_str = result.suggested_features
+            
+            if not suggested_str or not suggested_str.strip():
+                context.log("No feature suggestions generated; skipping")
+                return context
+            
+            context.log(f"Generated suggestions:\n{suggested_str}")
+            
+            fe = FeatureEngineer()
+            new_df, features_added = fe.engineer(context.data, suggested_str)
+            
+            context.data = new_df
+            context.metadata["features_engineered"] = True
+            context.metadata["features_added_count"] = features_added
+            context.log(f"Successfully added {features_added} new features")
+            
+        except Exception as e:
+            context.log(f"Feature engineering error: {e}")
+            import traceback
+            context.log(traceback.format_exc())
+        
+        return context
 
 class FeatureSelector(PreprocessingStep):
     name = "Feature Selection"
@@ -404,11 +488,35 @@ class Scaler(PreprocessingStep):
     name = "Scaler"
 
     def run(self, context: DataContext, **kwargs) -> DataContext:
-        columns = kwargs.get("columns", [])
+        columns = kwargs.get("columns", []) or []
         context.log("Scaling numerical features")
         context.metadata["scaled"] = True
-        scaler = Scaler()
-        context.data = scaler.scale(context.data, method=columns[1] if len(columns) > 1 else "standard")
+        # Use DFScaler from Class_scaler (avoid naming conflict with this class)
+        try:
+            method = columns[1].lower() if len(columns) > 1 and isinstance(columns[1], str) else "standard"
+
+            # determine columns to scale (first arg may be list of columns)
+            cols_to_scale = []
+            if len(columns) > 0:
+                first = columns[0]
+                if isinstance(first, (list, tuple)):
+                    cols_to_scale = list(first)
+                elif isinstance(first, str) and "," in first:
+                    cols_to_scale = [c.strip() for c in first.split(",") if c.strip()]
+                else:
+                    cols_to_scale = [c for c in columns if isinstance(c, str)]
+
+            if not cols_to_scale:
+                cols_to_scale = None
+
+            scaler = DFScaler()
+            context.data = scaler.scale(context.data, method=method, columns=cols_to_scale)
+            if cols_to_scale:
+                context.log(f"Scaled columns: {cols_to_scale} using method: {method}")
+            else:
+                context.log(f"Scaled all numeric columns using method: {method}")
+        except Exception as e:
+            context.log(f"Scaling error: {e}")
         return context
 
 
@@ -416,11 +524,53 @@ class Encoder(PreprocessingStep):
     name = "Encoder"
 
     def run(self, context: DataContext, **kwargs) -> DataContext:
-        columns = kwargs.get("columns", [])
+        columns = kwargs.get("columns", []) or []
         context.log("Encoding categorical features")
         context.metadata["encoded"] = True
-        encoder = Encoder()
-        context.data = encoder.encode(context.data, method=columns[1] if len(columns) > 1 else "onehot")
+
+        # determine method
+        method = columns[1].lower() if len(columns) > 1 and isinstance(columns[1], str) else "onehot"
+
+        # determine columns to encode
+        cols_to_encode = []
+        if len(columns) > 0:
+            first = columns[0]
+            if isinstance(first, (list, tuple)):
+                cols_to_encode = list(first)
+            elif isinstance(first, str) and "," in first:
+                cols_to_encode = [c.strip() for c in first.split(",") if c.strip()]
+            else:
+                # assume list of strings
+                cols_to_encode = [c for c in columns if isinstance(c, str)]
+
+        if not cols_to_encode:
+            # fallback: detect categorical columns
+            cols_to_encode = context.data.select_dtypes(include=['object', 'category']).columns.tolist()
+
+        try:
+            if method in ("onehot", "one-hot"):
+                context.data = one_hot_encode(context.data, cols_to_encode)
+            elif method.startswith("label"):
+                context.data = label_encode(context.data, cols_to_encode)
+            elif method.startswith("target"):
+                # find target column from params if provided
+                target = None
+                for el in columns:
+                    if isinstance(el, dict) and 'target' in el:
+                        target = el['target']
+                if not target:
+                    numeric_cols = context.data.select_dtypes(include=['number']).columns.tolist()
+                    target = numeric_cols[0] if numeric_cols else None
+                if not target:
+                    context.log("No target column found for target encoding; skipping encoding.")
+                else:
+                    context.data = target_encode(context.data, cols_to_encode, target=target)
+            else:
+                context.log(f"Unknown encoding method '{method}', defaulting to one-hot.")
+                context.data = one_hot_encode(context.data, cols_to_encode)
+        except Exception as e:
+            context.log(f"Encoding error: {e}")
+
         return context
 
 
@@ -452,7 +602,7 @@ class PreprocessingPipeline:
                 # prepare kwargs for step.run
                 kwargs = {"user_command": user_command}
                 if columns_getter is not None:
-                    cols = columns_getter(context)
+                    cols = columns_getter(context) or []
                     # always pass columns (could be empty list)
                     kwargs["columns"] = cols
                 context = step.run(context, **kwargs)
@@ -474,7 +624,7 @@ def needs_any_intent(*intent_names: str) -> Callable[[DataContext], bool]:
             return True
         return False
     return checker
-def needs_any_column(*intent_names: str,required = True) -> Callable[[DataContext], bool]:
+def needs_any_column(*intent_names: str, required = True) -> Callable[[DataContext], List[str]]:
     def checker(ctx: DataContext) -> List[str]:
         if not required:
             return []
@@ -485,8 +635,15 @@ def needs_any_column(*intent_names: str,required = True) -> Callable[[DataContex
             for item in intents:
                 intent_name = item[0] if isinstance(item, (list, tuple)) and len(item) > 0 else item
                 if intent_name in intent_names:
-                    if len(item) > 1:
-                        return item[1:]
+                    # only extract columns when the intent item is list/tuple
+                    if isinstance(item, (list, tuple)) and len(item) > 1:
+                        cols = list(item[1:])
+                        # if a single element which itself is a list/tuple, unwrap it
+                        if len(cols) == 1 and isinstance(cols[0], (list, tuple)):
+                            return list(cols[0])
+                        return cols
+        # Default: no specific columns
+        return []
     return checker
 
 def build_pipeline() -> PreprocessingPipeline:
@@ -497,9 +654,13 @@ def build_pipeline() -> PreprocessingPipeline:
         (DataStandardizer(), needs_any_intent("standardize_data"),needs_any_column("standardize_data",required=False)),
         (ExactDuplicateRemoverStep(), needs_any_intent("remove_duplicates"),needs_any_column("remove_duplicates",required=False)),
         (SemanticDuplicateRemoverStep(), needs_any_intent("remove_duplicates"),needs_any_column("remove_duplicates",required=False)),
-        (OutlierRemover(), needs_any_intent("remove_outliers"),needs_any_column("remove_outliers",required=False)),
+        # Accept both 'remove_outliers' and 'detect_outliers' (and honor 'keep_outliers' by not removing if present)
+        (OutlierRemover(), needs_any_intent("remove_outliers", "detect_outliers"), needs_any_column("remove_outliers", required=False)),
         (MissingValueHandler(), needs_any_intent("handle_missing_values"),needs_any_column("handle_missing_values",required=True)),
-        (FeatureSelector(), needs_any_intent("select_features"),needs_any_column("select_features",required=True)),
+        # Accept both 'suggest_features' and 'feature_engineering' intents
+        (FeatureEngineeringStep(), needs_any_intent("suggest_features", "feature_engineering"), needs_any_column("suggest_features", required=False)),
+        # Accept both 'select_features' and 'feature_selection'
+        (FeatureSelector(), needs_any_intent("select_features", "feature_selection"),needs_any_column("select_features",required=True)),
         (Scaler(), needs_any_intent("scale_numerical"),needs_any_column("scale_numerical",required=True)),
         (Encoder(), needs_any_intent("encode_categorical"),needs_any_column("encode_categorical",required=True)),
     ])

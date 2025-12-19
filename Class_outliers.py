@@ -42,19 +42,53 @@ class class_outliers:
         if self.dataframe is None:
             raise RuntimeError("Data not loaded. Call load() first.")
         print("\nRunning Isolation Forest...")
-        X = self.dataframe[self.numerical_cols].fillna(0)
-        self.iso = IsolationForest(
-            contamination=contamination,
-            random_state=random_state,
-            n_estimators=n_estimators,
-            max_samples=max_samples,
-            max_features=max_features
-        )
-        self.iso.fit(X)
-        self.dataframe['IF_score'] = self.iso.decision_function(X)
-        self.dataframe['is_outlier_IF'] = self.iso.predict(X)
-        print("\nIsolationForest predictions (+1=inlier, -1=outlier):")
-        print(self.dataframe['is_outlier_IF'].value_counts())
+
+        # Ensure numerical columns are identified (support direct construction without load())
+        if not self.numerical_cols:
+            self.numerical_cols = self.dataframe.select_dtypes(include=[np.number]).columns.tolist()
+
+        if not self.numerical_cols:
+            print("No numerical columns available for outlier detection. Skipping IsolationForest.")
+            return
+
+        # Work on a copy of numeric data
+        X = self.dataframe[self.numerical_cols].copy()
+
+        # Drop rows that are completely empty across numeric columns
+        X_non_empty = X.dropna(how="all")
+        if X_non_empty.shape[0] == 0:
+            print("Numeric columns exist but all values are missing. Skipping IsolationForest.")
+            return
+
+        # Impute remaining missing values per column using median (safe for outlier detection)
+        medians = X_non_empty.median()
+        X_filled = X.fillna(medians).fillna(0)
+
+        # Final sanity checks
+        if X_filled.shape[0] == 0 or X_filled.shape[1] == 0:
+            print("No usable numeric data for IsolationForest after imputation. Skipping.")
+            return
+
+        # Fit IsolationForest
+        try:
+            self.iso = IsolationForest(
+                contamination=contamination,
+                random_state=random_state,
+                n_estimators=n_estimators,
+                max_samples=max_samples,
+                max_features=max_features
+            )
+            self.iso.fit(X_filled)
+            # store scores and predictions aligned with original dataframe index
+            self.dataframe['IF_score'] = self.iso.decision_function(X_filled)
+            self.dataframe['is_outlier_IF'] = self.iso.predict(X_filled)
+            print("\nIsolationForest predictions (+1=inlier, -1=outlier):")
+            print(self.dataframe['is_outlier_IF'].value_counts())
+        except Exception as e:
+            print(f"IsolationForest failed: {e}")
+            import traceback
+            print(traceback.format_exc())
+            return
 
     def get_cleaned(self) -> pd.DataFrame:
         if self.dataframe is None:

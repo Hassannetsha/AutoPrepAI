@@ -8,7 +8,7 @@ from typing import Any, Optional
 class MissingValuesDemo:
     """Provides a Streamlit UI (runUI) and algorithm-only runner (run)."""
 
-    def run(self, df: pd.DataFrame, strategy: str, fill_value: Optional[Any] = "missing") -> pd.DataFrame:
+    def run(self, df: pd.DataFrame, strategy: str, fill_value: Optional[Any] = "missing", selected_cols: Optional[list[str]] = None) -> pd.DataFrame:
         """Run imputation algorithm on df according to strategy. Returns imputed DataFrame.
         This function does NOT use Streamlit and is safe to call from other code/tests.
         strategy: "Mean", "Median", "Most Frequent", "Constant", "KNN (3 Neighbors)"
@@ -24,38 +24,89 @@ class MissingValuesDemo:
         # Handle non-numeric columns: default to most_frequent unless Constant requested
         if non_numerical:
             if strategy.strip().lower() == "constant":
-                imputer_non = SimpleImputer(strategy="constant", fill_value=fill_value)
-            else:
-                imputer_non = SimpleImputer(strategy="most_frequent")
-            df_imputed[non_numerical] = imputer_non.fit_transform(df_imputed[non_numerical])
-
+                if(selected_cols):
+                    cols_for_non_const = [c for c in selected_cols if c in non_numerical]
+                else:
+                    cols_for_non_const = non_numerical
+                # only impute non-numeric columns that actually have missing values
+                cols_for_non_const = [c for c in cols_for_non_const if df_imputed[c].isna().any()]
+                if cols_for_non_const:
+                    imputer_non = SimpleImputer(strategy="constant", fill_value=fill_value)
+                    df_imputed[cols_for_non_const] = imputer_non.fit_transform(df_imputed[cols_for_non_const])
+            elif strategy.strip().lower() == "most frequent":
+                if(selected_cols):
+                    cols_for_non_freq = [c for c in selected_cols if c in non_numerical]
+                else:
+                    cols_for_non_freq = non_numerical
+                # only impute non-numeric columns that actually have missing values
+                cols_for_non_freq = [c for c in cols_for_non_freq if df_imputed[c].isna().any()]
+                if cols_for_non_freq:
+                    imputer_non = SimpleImputer(strategy="most_frequent")
+                    df_imputed[cols_for_non_freq] = imputer_non.fit_transform(df_imputed[cols_for_non_freq])
+            
+            
         # Handle numeric columns per strategy
         if strategy.strip().lower() == "mean":
-            if numerical_cols:
+            if selected_cols:
+                cols_for_mean = [c for c in selected_cols if c in numerical_cols]
+                if not cols_for_mean:   
+                    cols_for_mean = numerical_cols
+            else:
+                cols_for_mean = numerical_cols
+            # only impute numeric columns that actually have missing values
+            cols_for_mean = [c for c in cols_for_mean if df_imputed[c].isna().any()]
+            if cols_for_mean:
                 imputer_num = SimpleImputer(strategy="mean")
-                df_imputed[numerical_cols] = imputer_num.fit_transform(df_imputed[numerical_cols])
+                df_imputed[cols_for_mean] = imputer_num.fit_transform(df_imputed[cols_for_mean])
+
 
         elif strategy.strip().lower() == "median":
-            if numerical_cols:
+            if selected_cols:
+                cols_for_median = [c for c in selected_cols if c in numerical_cols]
+            else:
+                cols_for_median = numerical_cols
+            # only impute numeric columns that actually have missing values
+            cols_for_median = [c for c in cols_for_median if df_imputed[c].isna().any()]
+            if cols_for_median:
                 imputer_num = SimpleImputer(strategy="median")
-                df_imputed[numerical_cols] = imputer_num.fit_transform(df_imputed[numerical_cols])
-
+                df_imputed[cols_for_median] = imputer_num.fit_transform(df_imputed[cols_for_median])
+        
         elif strategy.strip().lower() == "most frequent":
-            if numerical_cols:
+            if selected_cols:
+                cols_for_most_freq = [c for c in selected_cols if c in numerical_cols]
+            else:
+                cols_for_most_freq = numerical_cols
+            # only impute numeric columns that actually have missing values
+            cols_for_most_freq = [c for c in cols_for_most_freq if df_imputed[c].isna().any()]
+            if cols_for_most_freq:
                 imputer_num = SimpleImputer(strategy="most_frequent")
-                df_imputed[numerical_cols] = imputer_num.fit_transform(df_imputed[numerical_cols])
+                df_imputed[cols_for_most_freq] = imputer_num.fit_transform(df_imputed[cols_for_most_freq])
+
 
         elif strategy.strip().lower() == "constant":
-            if numerical_cols:
-                # try to coerce fill_value to numeric where appropriate; if not possible SimpleImputer will cast
+            if selected_cols:
+                cols_for_const = [c for c in selected_cols if c in numerical_cols]
+            else:
+                cols_for_const = numerical_cols
+            # only impute numeric columns that actually have missing values
+            cols_for_const = [c for c in cols_for_const if df_imputed[c].isna().any()]
+            if cols_for_const:
                 numeric_fill = pd.to_numeric(fill_value, errors="coerce")
                 chosen_fill = numeric_fill if not np.isnan(numeric_fill) else fill_value
                 imputer_num = SimpleImputer(strategy="constant", fill_value=chosen_fill)
-                df_imputed[numerical_cols] = imputer_num.fit_transform(df_imputed[numerical_cols])
+                df_imputed[cols_for_const] = imputer_num.fit_transform(df_imputed[cols_for_const])
 
         elif strategy.strip().lower().startswith("knn"):
-            if numerical_cols:
-                # extract n_neighbors from label if provided like "KNN (3 Neighbors)"
+    # Apply KNN ONLY on selected numeric columns (or all numeric if none selected)
+            if selected_cols:
+                cols_for_knn = [c for c in selected_cols if c in numerical_cols]
+            else:
+                cols_for_knn = numerical_cols
+
+            # only impute numeric columns that actually have missing values
+            cols_for_knn = [c for c in cols_for_knn if df_imputed[c].isna().any()]
+
+            if cols_for_knn:
                 n_neighbors = 3
                 try:
                     import re
@@ -63,9 +114,10 @@ class MissingValuesDemo:
                     if m:
                         n_neighbors = int(m.group(1))
                 except Exception:
-                    n_neighbors = 3
+                    pass
+
                 imputer_num = KNNImputer(n_neighbors=n_neighbors)
-                df_imputed[numerical_cols] = imputer_num.fit_transform(df_imputed[numerical_cols])
+                df_imputed[cols_for_knn] = imputer_num.fit_transform(df_imputed[cols_for_knn])
 
         else:
             raise ValueError(f"Unknown strategy: {strategy}")

@@ -37,3 +37,5 @@ __pycache__/Class_missingValues.cpython-312.pyc
 __pycache__/Class_outliers.cpython-312.pyc
 __pycache__/feature_engineering.cpython-312.pyc
 data_standardization/config.py
+
+*.pyc

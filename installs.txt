@@ -1,0 +1,9 @@
+pip install symspellpy
+
+pip install textdistance
+
+pip install category_encoders
+
+pip install faiss-cpu
+
+pip install groq 

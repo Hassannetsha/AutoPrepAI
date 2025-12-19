@@ -84,11 +84,16 @@ class class_nlp:
     
         Available intents:
         - handle_missing_values: Fill, impute, or handle missing/null/NaN values
-        - detect_outliers: Identify and remove outliers, anomalies, or extreme values
+        - detect_outliers / remove_outliers: Identify and remove outliers, anomalies, or extreme values
         - keep_outliers: Preserve or keep outliers in the data
         - remove_duplicates: Remove duplicate rows or entries
         - encode_categorical: Convert categorical/text columns to numeric
-        - feature_selection: Select important features or columns for modeling
+        - feature_selection / select_features: Select important features or columns for modeling
+        - fix_data_types / remove_inconsistencies: Detect and resolve inconsistent types (dates, numbers, booleans)
+        - correct_spelling: Fix spelling errors in categorical/text columns
+        - standardize_data: Normalize or standardize categorical values
+        - scale_numerical: Scale numerical columns (standard, minmax, robust)
+        - feature_engineering / suggest_features: Suggest and/or apply new derived features
         """
         task = dspy.InputField(desc="A single preprocessing task description")
         intent = dspy.OutputField(desc="The intent category (must be one of: handle_missing_values, detect_outliers, keep_outliers, remove_duplicates, encode_categorical, feature_selection)")

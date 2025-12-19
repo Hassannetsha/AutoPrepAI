@@ -3,7 +3,6 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectFromModel
-from sklearn.metrics import accuracy_score
 from typing import Optional, List, Tuple
 
 
@@ -96,7 +95,7 @@ class FeatureSelectionAgent:
 
 
 if __name__ == "__main__":
-    df = pd.read_csv("Input/employees_large.csv")
+    df = pd.read_csv("Input/emp.csv")
     target = "LeftCompany"
     engine = FeatureSelectionAgent()
     res = engine.run(df, columns=[f"target={target}"])
