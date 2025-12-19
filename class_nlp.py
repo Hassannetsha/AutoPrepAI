@@ -8,7 +8,8 @@ import pandas as pd
 import dspy
 from feature_engineering import *
 import json
-os.environ['GROQ_API_KEY'] = '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'
+from config import API_KEY  
+os.environ['GROQ_API_KEY'] = API_KEY
 
 class class_nlp:
     """AutoPrepAI application class: encapsulates DSPy setup, pipeline creation, data loading and Streamlit UI.

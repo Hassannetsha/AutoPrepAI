@@ -12,7 +12,7 @@ from data_type_inconsistency_detector.detector import DataTypeInconsistencyDetec
 from data_type_inconsistency_resolver.resolver import DataResolver
 from SpellingCorrector import SpellingCorrector
 from data_standardization.feature_standardizer import FeatureStandardizer
-from data_standardization.config import API_KEY
+from config import API_KEY
 from groq import Groq
 from duplicates.exact_duplicate_remover import ExactDuplicateRemover
 from duplicates.semantic_duplicate_remover import SemanticDuplicateRemover
@@ -622,21 +622,23 @@ class PreprocessingPipeline:
 
                 # ask DSPy/LLM to explain why this step ran (headless-capable)
                 try:
-                    explanation = nlp_explainer.explain_step_llm(
-                        step_name=step.name,
-                        task=user_command,
-                        metadata_before=metadata_before,
-                        metadata_after=context.metadata
-                    )
+                    if step.name != "NLP":
+                        explanation = nlp_explainer.explain_step_llm(
+                            step_name=step.name,
+                            task=user_command,
+                            metadata_before=metadata_before,
+                            metadata_after=context.metadata
+                        )
                 except Exception as e:
                     explanation = f"Explainability invocation failed: {e}"
 
                 # store explanation in context metadata and log
-                context.metadata.setdefault("explanations", []).append({
-                    "step": step.name,
-                    "explanation": explanation
-                })
-                context.log(f"Explanation for '{step.name}': {explanation}")
+                if step.name != "NLP":
+                    context.metadata.setdefault("explanations", []).append({
+                        "step": step.name,
+                        "explanation": explanation
+                    })
+                    context.log(f"Explanation for '{step.name}': {explanation}")
 
             else:
                 context.log(f"Skipping step: {step.name}")
