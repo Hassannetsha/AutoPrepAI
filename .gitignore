@@ -1,5 +1,5 @@
 Input/train.csv
-.venv.zip
+.venv
 __pycache__/*
 __pycache__/Class_missingValues.cpython-312.pyc
 __pycache__/Class_missingValues.cpython-312.pyc
