@@ -286,50 +286,92 @@ class class_nlp:
                          max_tokens: int = 250) -> str:
         """
         Use DSPy / the configured LM to produce a human-readable explanation why
-        the given preprocessing step executed. Returns the LLM's explanation string.
+        the given preprocessing step executed. Includes automatic key rotation on rate limits.
+        Returns the LLM's explanation string.
         """
-        # Ensure LM is configured
-        if not self.lm:
+        max_retries = _key_manager.get_total_keys_count()
+        retry_count = 0
+        last_error = None
+        
+        while retry_count < max_retries:
             try:
-                self.setup_dspy()
-            except Exception:
-                # try to configure directly if setup_dspy relied on Streamlit
-                api_key = self.api_key or os.getenv("GROQ_API_KEY")
-                if not api_key:
-                    raise RuntimeError("GROQ_API_KEY not set; cannot call LLM for explanations.")
-                lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-                dspy.settings.configure(lm=lm)
-                self.lm = lm
+                # Ensure LM is configured
+                if not self.lm:
+                    try:
+                        self.setup_dspy()
+                    except Exception:
+                        # try to configure directly if setup_dspy relied on Streamlit
+                        api_key = _key_manager.get_current_key()
+                        if not api_key:
+                            return "Explanation failed: No API key available."
+                        lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+                        dspy.settings.configure(lm=lm)
+                        self.lm = lm
 
-        # Prepare JSON strings for metadata fields (shorten if very large)
-        mb = json.dumps(metadata_before or {}, indent=2, default=str)
-        ma = json.dumps(metadata_after or {}, indent=2, default=str)
-        # Optionally truncate long metadata for the prompt
-        def _truncate(s, n=2000):
-            return s if len(s) <= n else (s[:n] + "\n... (truncated)")
+                # Prepare JSON strings for metadata fields (shorten if very large)
+                mb = json.dumps(metadata_before or {}, indent=2, default=str)
+                ma = json.dumps(metadata_after or {}, indent=2, default=str)
+                # Optionally truncate long metadata for the prompt
+                def _truncate(s, n=2000):
+                    return s if len(s) <= n else (s[:n] + "\n... (truncated)")
 
-        mb = _truncate(mb)
-        ma = _truncate(ma)
+                mb = _truncate(mb)
+                ma = _truncate(ma)
 
-        # Create a ChainOfThought for the ExplainStep signature and call it
-        explain_chain = dspy.ChainOfThought(class_nlp.ExplainStep)
-        try:
-            resp = explain_chain(
-                step_name=step_name,
-                task=task or "",
-                metadata_before=mb,
-                metadata_after=ma,
-            )
-            # The returned object usually exposes .explanation
-            explanation = getattr(resp, "explanation", None)
-            if not explanation:
-                # fallback: string representation
-                explanation = str(resp)
-            # small cleanup
-            return explanation.strip()
-        except Exception as e:
-            # fail gracefully — return diagnostic message for logs
-            return f"LLM explanation failed: {e}"
+                # Create a ChainOfThought for the ExplainStep signature and call it
+                explain_chain = dspy.ChainOfThought(class_nlp.ExplainStep)
+                resp = explain_chain(
+                    step_name=step_name,
+                    task=task or "",
+                    metadata_before=mb,
+                    metadata_after=ma,
+                )
+                # The returned object usually exposes .explanation
+                explanation = getattr(resp, "explanation", None)
+                if not explanation:
+                    # fallback: string representation
+                    explanation = str(resp)
+                # small cleanup
+                return explanation.strip()
+                
+            except Exception as e:
+                error_msg = str(e).lower()
+                last_error = e
+                
+                # Check if it's a rate limit error
+                if "rate" in error_msg or "quota" in error_msg or "limit" in error_msg or "429" in error_msg:
+                    available = _key_manager.get_available_keys_count()
+                    print(f"[WARN] Rate limit hit during explanation. Rotating key... ({available} keys available)")
+                    _key_manager.mark_key_failed()
+                    
+                    # If no keys available, we need to wait or fail gracefully
+                    if available <= 1:
+                        # Extract retry time from error if possible
+                        retry_seconds = "unknown"
+                        if "please try again in" in error_msg:
+                            import re
+                            match = re.search(r'please try again in ([^s]+s)', error_msg)
+                            if match:
+                                retry_seconds = match.group(1)
+                        return f"Explanation failed: All API keys exhausted (TPD limit reached). Retry in {retry_seconds}. Step still executed successfully."
+                    
+                    try:
+                        api_key = _key_manager.rotate_key()
+                        os.environ["GROQ_API_KEY"] = api_key
+                        lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+                        dspy.settings.configure(lm=lm)
+                        self.lm = lm
+                        retry_count += 1
+                        time.sleep(1)  # Brief delay before retry
+                        continue
+                    except RuntimeError:
+                        return f"Explanation failed: All API keys exhausted. {error_msg}"
+                else:
+                    # Not a rate limit error - return gracefully
+                    return f"Explanation failed: {e}"
+        
+        # All retries exhausted
+        return f"Explanation failed after {max_retries} retries: {last_error}"
     # @st.cache_resource
     # def build_pipeline(self, training_data: Optional[pd.DataFrame]):
     #     """Create and cache the pipeline module."""

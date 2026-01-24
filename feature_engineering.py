@@ -78,7 +78,7 @@ class FeatureEngineer:
         Returns a tuple (new_dataframe, features_added_count).
         """
         df = DataFrame.copy()
-        df_columns = df.columns.tolist()
+        df_columns = list(df.columns)  # Keep as mutable list
         features_added = 0
 
         lines = suggested_features.strip().split("\n")
@@ -106,17 +106,34 @@ class FeatureEngineer:
                 print(f"Fixed code: {fixed_code}")
 
                 eval_context = {"df": df, "pd": pd, "np": np, "numpy": np}
+                
+                # Ensure the code is wrapped as an assignment if it isn't already
+                if "=" not in fixed_code or not fixed_code.strip().startswith(name + " ="):
+                    # This is an expression, wrap it as an assignment
+                    execution_code = f"{name} = {fixed_code}"
+                else:
+                    execution_code = fixed_code
+                
                 try:
                     # Use exec() to handle assignment statements
-                    exec(fixed_code, eval_context)
-                    # The exec modifies df in the context, no need to reassign
+                    exec(execution_code, eval_context)
+                    # Check if a variable with the feature name was created
+                    if name in eval_context and name not in ["df", "pd", "np", "numpy"]:
+                        result = eval_context[name]
+                        df[name] = result
+                    # UPDATE: Add new column to tracking list for future features
+                    if name not in df_columns:
+                        df_columns.append(name)
                     features_added += 1
                     print(f"✓ Successfully added feature: {name}")
                 except Exception as exec_error:
-                    # If exec fails, try as expression and assign
+                    # If exec fails, try original fixed code as expression and assign
                     try:
                         result = eval(fixed_code, eval_context)
                         df[name] = result
+                        # UPDATE: Add new column to tracking list for future features
+                        if name not in df_columns:
+                            df_columns.append(name)
                         features_added += 1
                         print(f"✓ Successfully added feature: {name}")
                     except:
