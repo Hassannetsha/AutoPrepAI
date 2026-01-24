@@ -12,7 +12,8 @@ from data_type_inconsistency_detector.detector import DataTypeInconsistencyDetec
 from data_type_inconsistency_resolver.resolver import DataResolver
 from SpellingCorrector import SpellingCorrector
 from data_standardization.feature_standardizer import FeatureStandardizer
-from config import API_KEY
+# from config import API_KEY
+from api_key_manager import get_key_manager  # Multi-key rotation support
 from groq import Groq
 from duplicates.exact_duplicate_remover import ExactDuplicateRemover
 from duplicates.semantic_duplicate_remover import SemanticDuplicateRemover
@@ -213,7 +214,9 @@ class DataStandardizer(PreprocessingStep):
         
         try:
             # Initialize Groq client
-            client = Groq(api_key=API_KEY)
+            key_manager = get_key_manager()
+            api_key = key_manager.get_current_key()
+            client = Groq(api_key=api_key)
             model = "llama-3.3-70b-versatile"
             
             standardizer = FeatureStandardizer(context.data, client, model)
@@ -429,8 +432,11 @@ class FeatureEngineeringStep(PreprocessingStep):
     name = "Feature Engineering"
     
     def __init__(self):
-        api_key='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'
         super().__init__()
+        # Get API key from multi-key manager (supports automatic rotation)
+        key_manager = get_key_manager()
+        api_key = key_manager.get_current_key()
+        
         # Configure DSPy with a language model if not already configured
         if not hasattr(dspy.settings, 'lm') or dspy.settings.lm is None:
             lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)

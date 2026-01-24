@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🤖 AutoPrepAI – Intelligent Data Preprocessing")
+st.title("🤖 AutoPrepAI - Intelligent Data Preprocessing")
 
 # SESSION STATE INIT
 DEFAULT_STATE = {
@@ -50,7 +50,6 @@ AVAILABLE_OPERATIONS = {
 TARGET_INTENTS = [
     'handle_missing_values',
     'detect_outliers', 
-    'keep_outliers',
     'remove_duplicates',
     'encode_categorical',
     'feature_selection',
@@ -71,6 +70,15 @@ clean data automatically:
 - correct spelling in categorical columns,
 - engineer features for modeling
 """
+
+Automade = [
+    'handle_missing_values',
+    'detect_outliers', 
+    'remove_duplicates',
+    'remove_inconsistencies',
+    'correct_spelling',
+    'feature_engineering'
+]
 
 # SIDEBAR
 st.sidebar.header("⚙️ Settings")
@@ -158,6 +166,9 @@ if user_command and st.session_state.df is not None:
     if st.session_state.mode == "☑️ Manual Selection Mode":
         context.metadata["nlp_done"] = True
         context.metadata["intents"] = [(intent,) for intent in selected_intents]
+    elif st.session_state.mode == "🤖 Full Auto Mode" :
+        context.metadata["nlp_done"] = True
+        context.metadata["intents"] = [(intent,) for intent in Automade]
 
     pipeline = build_pipeline()
 

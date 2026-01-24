@@ -1,6 +1,6 @@
-# ...existing code...
 import os
 import re
+from time import time
 from typing import List, Optional, Dict, Any
 
 import streamlit as st
@@ -8,8 +8,11 @@ import pandas as pd
 import dspy
 from feature_engineering import *
 import json
-from config import API_KEY  
-os.environ['GROQ_API_KEY'] = API_KEY
+from api_key_manager import get_key_manager, get_api_key, rotate_api_key
+
+# Initialize the key manager
+_key_manager = get_key_manager()
+os.environ['GROQ_API_KEY'] = _key_manager.get_current_key()
 
 class class_nlp:
     """AutoPrepAI application class: encapsulates DSPy setup, pipeline creation, data loading and Streamlit UI.
@@ -32,22 +35,54 @@ class class_nlp:
 
     @st.cache_resource
     def setup_dspy(_self) -> dspy.LM:
-        """Initialize and cache DSPy LM resource. Prompts the user if key is missing."""
-        api_key = _self.api_key or os.getenv("GROQ_API_KEY")
-        if not api_key:
-            # Let UI flow ask for key
-            st.warning("⚠️ GROQ_API_KEY not found!")
-            st.info("1) Get key: https://console.groq.com/  2) Enter below.")
-            api_key = st.text_input("Enter Groq API Key:", type="password", key="api_key_input")
-            if not api_key:
-                st.stop()
-            os.environ["GROQ_API_KEY"] = api_key
-
-        # configure LM
-        lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-        dspy.settings.configure(lm=lm)
-        _self.lm = lm
-        return lm
+        """Initialize and cache DSPy LM resource with key rotation support."""
+        api_key = None
+        max_retries = _key_manager.get_total_keys_count()
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # Get current API key
+                api_key = _key_manager.get_current_key()
+                if not api_key:
+                    st.warning("⚠️ No API keys available!")
+                    st.stop()
+                
+                # Configure LM with current key
+                lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+                dspy.settings.configure(lm=lm)
+                _self.lm = lm
+                
+                # Show key status
+                st.sidebar.info(
+                    f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}\n"
+                    f"Available keys: {_key_manager.get_available_keys_count()}"
+                )
+                
+                return lm
+                
+            except Exception as e:
+                error_msg = str(e).lower()
+                
+                # Check if it's a rate limit error
+                if "rate" in error_msg or "quota" in error_msg or "limit" in error_msg or "429" in error_msg:
+                    st.warning(f"⚠️ API Key #{_key_manager.current_index + 1} rate limited. Rotating...")
+                    _key_manager.mark_key_failed()
+                    
+                    # Try next key
+                    try:
+                        api_key = _key_manager.rotate_key()
+                        os.environ["GROQ_API_KEY"] = api_key
+                        retry_count += 1
+                        time.sleep(1)  # Brief delay before retry
+                        continue
+                    except RuntimeError as rotate_err:
+                        st.error(f"❌ {rotate_err}")
+                        st.stop()
+                else:
+                    # Other error
+                    st.error(f"❌ Setup Error: {e}")
+                    st.stop()
 
     @st.cache_data
     def load_training_data(_self) -> Optional[pd.DataFrame]:
@@ -314,6 +349,7 @@ class class_nlp:
         )
     def run(self, user_input: str, dataset_df: Optional[pd.DataFrame] = None, dataset_path: Optional[str] = None) -> Optional[List[str]]:
         """Headless version of runUI: perform same processing without Streamlit and return detected intents.
+        Includes automatic key rotation on rate limit errors.
 
         Args:
             user_input: command string to process (required).
@@ -323,26 +359,42 @@ class class_nlp:
         Returns:
             List of detected intent names (same as runUI returns on success), or [] if nothing detected.
         """
-        # 1) Ensure LM is configured (headless: fail if no API key)
-        try:
-            # Prefer cached setup if available and key present
-            lm = self.setup_dspy()
-        except Exception:
-            api_key = self.api_key or os.getenv("GROQ_API_KEY")
-            if not api_key:
-                raise RuntimeError("GROQ_API_KEY not set. Provide api key via constructor or environment.")
-            lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-            dspy.settings.configure(lm=lm)
-            self.lm = lm
+        # 1) Ensure LM is configured with key rotation capability
+        max_retries = _key_manager.get_total_keys_count()
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # Configure with current key
+                api_key = _key_manager.get_current_key()
+                os.environ["GROQ_API_KEY"] = api_key
+                lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+                dspy.settings.configure(lm=lm)
+                self.lm = lm
+                
+                print(f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}")
+                break
+                
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "rate" in error_msg or "quota" in error_msg or "limit" in error_msg or "429" in error_msg:
+                    print(f"⚠️ Key #{_key_manager.current_index + 1} rate limited. Rotating...")
+                    _key_manager.mark_key_failed()
+                    try:
+                        _key_manager.rotate_key()
+                        retry_count += 1
+                        time.sleep(1)
+                        continue
+                    except RuntimeError as rotate_err:
+                        raise RuntimeError(str(rotate_err))
+                else:
+                    raise
 
         # 2) Load training data (headless: read from disk if not provided)
-        # if dataset_df is None:
         try:
             training_data = pd.read_csv(self.training_csv)
         except Exception:
             training_data = None
-        # else:
-        #     training_data = dataset_df
         self.training_data = training_data
 
         # 3) Build pipeline
@@ -364,15 +416,38 @@ class class_nlp:
         if not isinstance(user_input, str) or not user_input.strip():
             raise ValueError("user_input must be a non-empty string.")
 
-        # 6) Run pipeline (call forward if available)
-        try:
-            if hasattr(self.pipeline, "forward"):
-                results = self.pipeline.forward(user_command=user_input, dataset_columns=columns_str)
-            else:
-                # Some DSPy modules are callable
-                results = self.pipeline(user_command=user_input, dataset_columns=columns_str)
-        except Exception as e:
-            raise RuntimeError(f"Error processing command: {e}")
+        # 6) Run pipeline with rate limit handling
+        max_pipeline_retries = _key_manager.get_total_keys_count()
+        pipeline_retry = 0
+        
+        while pipeline_retry < max_pipeline_retries:
+            try:
+                if hasattr(self.pipeline, "forward"):
+                    results = self.pipeline.forward(user_command=user_input, dataset_columns=columns_str)
+                else:
+                    results = self.pipeline(user_command=user_input, dataset_columns=columns_str)
+                break
+                
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "rate" in error_msg or "quota" in error_msg or "limit" in error_msg or "429" in error_msg:
+                    print(f"⚠️ Key #{_key_manager.current_index + 1} rate limited during processing. Rotating...")
+                    _key_manager.mark_key_failed()
+                    try:
+                        api_key = _key_manager.rotate_key()
+                        os.environ["GROQ_API_KEY"] = api_key
+                        lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+                        dspy.settings.configure(lm=lm)
+                        self.lm = lm
+                        # Rebuild pipeline with new key
+                        self.pipeline = self.build_pipeline(self.training_data)
+                        pipeline_retry += 1
+                        time.sleep(1)
+                        continue
+                    except RuntimeError as rotate_err:
+                        raise RuntimeError(str(rotate_err))
+                else:
+                    raise RuntimeError(f"Error processing command: {e}")
 
         if not results:
             return []

@@ -25,15 +25,50 @@ class FeatureEngineer:
     @staticmethod
     def fix_column_references(code: str, df_columns: list) -> str:
         """Fix bare column names in code to use df['column'] syntax.
+        Avoids replacing column names that are already inside quotes.
         """
+        def is_inside_quotes(text: str, pos: int) -> bool:
+            """Check if position is inside a quoted string."""
+            single_quote_count = 0
+            double_quote_count = 0
+            
+            for i in range(pos):
+                if text[i] == "'" and (i == 0 or text[i-1] != '\\'):
+                    single_quote_count += 1
+                elif text[i] == '"' and (i == 0 or text[i-1] != '\\'):
+                    double_quote_count += 1
+            
+            # If odd number of quotes before position, we're inside quotes
+            return (single_quote_count % 2 == 1) or (double_quote_count % 2 == 1)
+        
         fixed_code = code
         sorted_columns = sorted(df_columns, key=len, reverse=True)
+        
         for col in sorted_columns:
-            pattern = r'(?<!df\[\')(?<!df\[")(?<!\w)' + re.escape(col) + r'(?!\w)(?!\'\])(?!\"\])'
-            replacement = f"df['{col}']"
-            fixed_code = re.sub(pattern, replacement, fixed_code)
+            # Find all occurrences of the column name
+            pattern = r'\b' + re.escape(col) + r'\b'
+            matches = list(re.finditer(pattern, fixed_code))
+            
+            # Process matches in reverse to maintain correct positions
+            for match in reversed(matches):
+                start_pos = match.start()
+                
+                # Skip if inside quotes
+                if is_inside_quotes(fixed_code, start_pos):
+                    continue
+                
+                # Skip if already in df['col'] or df["col"] format
+                if start_pos >= 4:
+                    before = fixed_code[start_pos-4:start_pos]
+                    if before == "df['" or before == 'df["':
+                        continue
+                
+                # Replace with df['col']
+                fixed_code = (fixed_code[:start_pos] + 
+                            f"df['{col}']" + 
+                            fixed_code[match.end():])
+        
         return fixed_code
-
     def apply(self, DataFrame: pd.DataFrame, suggested_features: str) -> tuple[pd.DataFrame, int]:
         """Apply feature engineering described in `suggested_features` to the DataFrame.
 
@@ -71,9 +106,21 @@ class FeatureEngineer:
                 print(f"Fixed code: {fixed_code}")
 
                 eval_context = {"df": df, "pd": pd, "np": np, "numpy": np}
-                df[name] = eval(fixed_code, eval_context)
-                features_added += 1
-                print(f"✓ Successfully added feature: {name}")
+                try:
+                    # Use exec() to handle assignment statements
+                    exec(fixed_code, eval_context)
+                    # The exec modifies df in the context, no need to reassign
+                    features_added += 1
+                    print(f"✓ Successfully added feature: {name}")
+                except Exception as exec_error:
+                    # If exec fails, try as expression and assign
+                    try:
+                        result = eval(fixed_code, eval_context)
+                        df[name] = result
+                        features_added += 1
+                        print(f"✓ Successfully added feature: {name}")
+                    except:
+                        raise exec_error
             except Exception as e:
                 print(f"✗ Error processing line '{line}'")
                 print(f"  Error: {e}")
