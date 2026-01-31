@@ -20,7 +20,8 @@ from duplicates.semantic_duplicate_remover import SemanticDuplicateRemover
 
 # Use project scaler and encoder utilities (avoid shadowing class names)
 from Class_scaler import Scaler as DFScaler
-from Encoder.encoder import one_hot_encode, label_encode, target_encode
+from Encoders.encoder_factory import EncoderFactory
+from utils.column_detector import detect_categorical_columns
 from feature_engineering import FeatureEngineer, SuggestFeatures
 
 import copy
@@ -543,54 +544,40 @@ class Encoder(PreprocessingStep):
     name = "Encoder"
 
     def run(self, context: DataContext, **kwargs) -> DataContext:
-        columns = kwargs.get("columns", []) or []
         context.log("Encoding categorical features")
-        context.metadata["encoded"] = True
 
-        # determine method
-        method = columns[1].lower() if len(columns) > 1 and isinstance(columns[1], str) else "onehot"
+        columns = kwargs.get("columns", []) or []
 
-        # determine columns to encode
-        cols_to_encode = []
-        if len(columns) > 0:
-            first = columns[0]
-            if isinstance(first, (list, tuple)):
-                cols_to_encode = list(first)
-            elif isinstance(first, str) and "," in first:
-                cols_to_encode = [c.strip() for c in first.split(",") if c.strip()]
-            else:
-                # assume list of strings
-                cols_to_encode = [c for c in columns if isinstance(c, str)]
-
-        if not cols_to_encode:
-            # fallback: detect categorical columns
-            cols_to_encode = context.data.select_dtypes(include=['object', 'category']).columns.tolist()
+        method = columns[1].lower() if len(columns) > 1 else "onehot"
+        cols_to_encode = self._parse_columns(columns, context)
 
         try:
-            if method in ("onehot", "one-hot"):
-                context.data = one_hot_encode(context.data, cols_to_encode)
-            elif method.startswith("label"):
-                context.data = label_encode(context.data, cols_to_encode)
-            elif method.startswith("target"):
-                # find target column from params if provided
-                target = None
-                for el in columns:
-                    if isinstance(el, dict) and 'target' in el:
-                        target = el['target']
-                if not target:
-                    numeric_cols = context.data.select_dtypes(include=['number']).columns.tolist()
-                    target = numeric_cols[0] if numeric_cols else None
-                if not target:
-                    context.log("No target column found for target encoding; skipping encoding.")
-                else:
-                    context.data = target_encode(context.data, cols_to_encode, target=target)
-            else:
-                context.log(f"Unknown encoding method '{method}', defaulting to one-hot.")
-                context.data = one_hot_encode(context.data, cols_to_encode)
+            encoder = EncoderFactory.get_encoder(method)
+
+            target = self._extract_target(columns, context)
+            context.data = encoder.encode(context.data, cols_to_encode, target=target)
+
+            context.metadata["encoded"] = True
         except Exception as e:
             context.log(f"Encoding error: {e}")
 
         return context
+
+    def _parse_columns(self, columns, context):
+        if columns and isinstance(columns[0], (list, tuple)):
+            return list(columns[0])
+        if columns and isinstance(columns[0], str) and "," in columns[0]:
+            return [c.strip() for c in columns[0].split(",")]
+        if columns:
+            return [c for c in columns if isinstance(c, str)]
+        return detect_categorical_columns(context.data)
+
+    def _extract_target(self, columns, context):
+        for el in columns:
+            if isinstance(el, dict) and 'target' in el:
+                return el['target']
+        numeric_cols = context.data.select_dtypes(include=['number']).columns.tolist()
+        return numeric_cols[0] if numeric_cols else None
 
 
 # =============================
@@ -708,7 +695,7 @@ if __name__ == "__main__":
     raw_data = "DATASET_PLACEHOLDER"
 
     context = DataContext(
-        data= pd.read_csv('/home/hassan-elkersh/graduation project/AutoPrepAI/Input/placement.csv'),
+        data= pd.read_csv(r'Input\placement.csv'),
         metadata={
             "has_text": True,
             "has_numeric": True,
