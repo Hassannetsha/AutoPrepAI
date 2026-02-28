@@ -6,7 +6,7 @@ from sklearn.feature_selection import SelectFromModel
 from typing import Optional, List, Tuple
 
 
-class FeatureSelectionAgent:
+class FeatureSelectionService:
     """Reusable feature selection engine that supports threshold or top-N selection.
 
     Methods are headless and safe to use from the preprocessing pipeline (no Streamlit side-effects).
@@ -97,7 +97,7 @@ class FeatureSelectionAgent:
 if __name__ == "__main__":
     df = pd.read_csv("Input/emp.csv")
     target = "LeftCompany"
-    engine = FeatureSelectionAgent()
+    engine = FeatureSelectionService()
     res = engine.run(df, columns=[f"target={target}"])
     print(res)
     

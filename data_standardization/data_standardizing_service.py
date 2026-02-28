@@ -3,7 +3,7 @@ import json
 import re
 from groq import Groq
 
-class FeatureStandardizer:
+class DataStandardizingService:
     def __init__(self, df: pd.DataFrame, client: Groq, model: str):
         """
         Generic data cleaner using LLM for categorical standardization and numeric validation.

@@ -1,5 +1,5 @@
 # package initializer
-from .resolver import DataResolver
+from .data_resolving_service import DataResolvingService
 
 
 __all__ = ["DataResolver"]

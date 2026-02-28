@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 from sentence_transformers import SentenceTransformer
-from semantic_duplicate_remover import SemanticDuplicateRemover  # <- import your class
+from agents.semantic_duplicate_remover import SemanticDuplicateRemover  # <- import your class
 
 # ------------------------------------------------------------
 # Streamlit App

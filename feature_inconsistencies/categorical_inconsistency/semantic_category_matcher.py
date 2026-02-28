@@ -3,7 +3,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
-from duplicates.semantic_duplicate_remover import SemanticDuplicateRemover
+from duplicates.semantic_duplicate_remover_service import SemanticDuplicateRemover
 
 class SemanticCategoryMatcher:
     def __init__(self, threshold=0.85):

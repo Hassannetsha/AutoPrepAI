@@ -6,7 +6,7 @@ import faiss
 import torch
 
 
-class SemanticDuplicateRemover:
+class SemanticDuplicateRemoverService:
     def __init__(
         self,
         model_name: str = "paraphrase-MiniLM-L6-v2",

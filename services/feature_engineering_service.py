@@ -14,7 +14,7 @@ class SuggestFeatures(dspy.Signature):
     top_n = dspy.InputField(desc="Number of suggestions to return", default="5")
     suggested_features = dspy.OutputField(desc="Suggested features, one per line (name: description | code: ...)")
 
-class FeatureEngineer:
+class FeatureEngineeringService:
     """Feature engineering utilities encapsulated as a class to use from the pipeline.
 
     Example:
@@ -168,10 +168,10 @@ class FeatureEngineer:
 
 # Backwards-compatible wrappers
 def apply_feature_engineering_agent(DataFrame, suggested_features: str) -> tuple[pd.DataFrame, int]:
-    fe = FeatureEngineer()
+    fe = FeatureEngineeringService()
     return fe.apply(DataFrame, suggested_features)
 
 
 def engineer_features(df: Any, suggested_features: str) -> tuple[pd.DataFrame, int]:
-    fe = FeatureEngineer()
+    fe = FeatureEngineeringService()
     return fe.engineer(df, suggested_features)

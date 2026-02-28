@@ -9,7 +9,7 @@ from .strategy.impute_strategies import (
 )
 from .strategy.convert_to_type import ConvertToTypeStrategy
 
-class DataResolver:
+class DataResolvingService:
     def __init__(self, df: pd.DataFrame, detection_results: Dict[str, Dict[str, Any]]):
         self.df_original = df.copy()
         self.df_resolved = df.copy()

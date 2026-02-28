@@ -6,7 +6,7 @@ from category_encoders import TargetEncoder
 from typing import List, Optional, Iterable
 
 
-class EncoderTool:
+class EncodingService:
     """Encoding utilities for pandas DataFrames (label, one-hot, target)."""
 
     def __init__(self, df: Optional[pd.DataFrame] = None):
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     if not os.path.exists(input_path):
         raise SystemExit(f"Input file not found: {input_path}")
 
-    tool = EncoderTool()
+    tool = EncodingService()
     df = pd.read_csv(input_path)
     print("\n Original Data:")
     print(df.head())

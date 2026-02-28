@@ -1,0 +1,42 @@
+from agents.pipeline_agent import PipelineAgent
+from data_context import DataContext
+from agent_params import AgentParams
+from services.nlp_service import NLPService
+
+class NLPAgent(PipelineAgent):
+    def __init__(self):
+        super().__init__("NLP")
+
+    def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        user_command = params.get_option("user_command", context.metadata.get("user_command", ""))
+        # Skip NLP if another part of the code (e.g., Manual Mode) already set intents
+        if context.metadata.get("nlp_done"):
+            context.log("NLP already provided/disabled; skipping NLP step")
+            return context
+
+        context.log("NLP preprocessing started")
+        auto = NLPService()
+        # NLPService.run returns (df, intents) in headless mode
+        try:
+            result = auto.run(user_input=user_command, dataset_df=context.data)
+        except Exception as e:
+            context.log(f"NLP error: {e}")
+            return context
+
+        # handle result being tuple (df, intents) or just intents
+        df, intents = None, []
+        if isinstance(result, tuple):
+            if len(result) >= 2:
+                df, intents = result[0], result[1]
+            elif len(result) == 1:
+                intents = result[0] or []
+        else:
+            # fallback: maybe returns list of intents
+            if isinstance(result, list):
+                intents = result
+        if df is not None:
+            context.data = df
+        context.metadata["nlp_done"] = True
+        context.metadata["intents"] = intents
+        context.log("NLP preprocessing finished")
+        return context

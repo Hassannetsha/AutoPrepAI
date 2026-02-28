@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import glob
 from typing import Optional, List
 
-class class_outliers:
+class OutliersService:
     """
     Simple wrapper to run IsolationForest outlier detection on a CSV.
     """
@@ -34,7 +34,7 @@ class class_outliers:
         print(self.dataframe[self.numerical_cols].describe())
 
     def run_isolation_forest(self,
-                             contamination="auto",
+                             contamination=0.01,
                              random_state=42,
                              n_estimators=200,
                              max_samples="auto",
@@ -132,7 +132,7 @@ class class_outliers:
         print(f"- Outliers detected: {(self.dataframe.shape[0] - df_cleaned.shape[0])}")
 
 if __name__ == "__main__":
-    c = class_outliers()
+    c = OutliersService()
     c.load()
     c.run_isolation_forest()
     cleaned = c.get_cleaned()

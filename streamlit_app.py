@@ -4,10 +4,9 @@ from copy import deepcopy
 from datetime import datetime
 
 # IMPORT YOUR PIPELINE
-from PreprocessingPipeline import (
-    DataContext,
-    build_pipeline
-)
+from pipeline_builder import PipelineBuilder
+from data_context import DataContext
+
 # PAGE CONFIG
 st.set_page_config(
     page_title="AutoPrepAI",
@@ -170,7 +169,7 @@ if user_command and st.session_state.df is not None:
         context.metadata["nlp_done"] = True
         context.metadata["intents"] = [(intent,) for intent in Automade]
 
-    pipeline = build_pipeline()
+    pipeline = PipelineBuilder.build_default_pipeline()
 
     with st.spinner("Running preprocessing pipeline..."):
         final_context = pipeline.run(

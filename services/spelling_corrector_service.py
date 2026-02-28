@@ -11,7 +11,7 @@ from tqdm import tqdm
 from typing import List, Union, Optional
 
 
-class SpellingCorrector:
+class SpellingCorrectorService:
     """
     A class to correct spelling mistakes using SymSpell algorithm.
     
@@ -42,7 +42,7 @@ class SpellingCorrector:
         df: pd.DataFrame, 
         column_name: str,
         show_progress: bool = True
-    ) -> 'SpellingCorrector':
+    ) -> 'SpellingCorrectorService':
         """
         Build SymSpell dictionary from a DataFrame column.
         
@@ -52,7 +52,7 @@ class SpellingCorrector:
             show_progress (bool): Whether to show progress bar. Default is True.
         
         Returns:
-            SpellingCorrector: Self reference for method chaining.
+            SpellingCorrectorService: Self reference for method chaining.
         """
         # Reset the dictionary
         self.symspell = SymSpell(self.max_edit_distance, self.prefix_length)
@@ -74,7 +74,7 @@ class SpellingCorrector:
         self, 
         words: List[str],
         show_progress: bool = True
-    ) -> 'SpellingCorrector':
+    ) -> 'SpellingCorrectorService':
         """
         Build SymSpell dictionary from a list of words.
         
@@ -103,7 +103,7 @@ class SpellingCorrector:
         corpus_file: bool = True,
         separator: str = " ",
         show_progress: bool = True
-    ) -> 'SpellingCorrector':
+    ) -> 'SpellingCorrectorService':
         """
         Build SymSpell dictionary from a file.
         
@@ -337,7 +337,7 @@ if __name__ == "__main__":
     })
     
     # Initialize corrector
-    corrector = SpellingCorrector(max_edit_distance=2, prefix_length=7)
+    corrector = SpellingCorrectorService(max_edit_distance=2, prefix_length=7)
     
     # Build dictionary from correct words
     corrector.build_dictionary_from_dataframe(df, 'correct', show_progress=False)
@@ -363,7 +363,7 @@ if __name__ == "__main__":
     correct_words = ['apple', 'banana', 'cherry', 'date', 'elderberry']
     misspelled_words = ['aple', 'bannana', 'chery', 'dat', 'elderberr']
     
-    corrector2 = SpellingCorrector(max_edit_distance=2)
+    corrector2 = SpellingCorrectorService(max_edit_distance=2)
     corrector2.build_dictionary_from_list(correct_words, show_progress=False)
     
     corrected_words = corrector2.correct_list(misspelled_words, show_progress=False)

@@ -1,5 +1,5 @@
 # package initializer
-from .semantic_duplicate_remover import SemanticDuplicateRemover
+from .semantic_duplicate_remover_service import SemanticDuplicateRemoverService
 
 
-__all__ = ["SemanticDuplicateRemover"]
+__all__ = ["SemanticDuplicateRemoverService"]
