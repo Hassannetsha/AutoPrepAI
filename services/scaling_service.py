@@ -78,40 +78,28 @@ class RobustScalingStrategy(ScalingStrategy):
 # Context Class
 class Scaler:
 
-    def __init__(self, strategy: ScalingStrategy = None):
-
+    def __init__(self):
         self.strategies = {
             "standard": StandardScalingStrategy(),
             "minmax": MinMaxScalingStrategy(),
             "robust": RobustScalingStrategy()
         }
 
-        self.strategy = strategy
+    def scale(self, df: pd.DataFrame, method: str = "standard", columns=None):
+        strategy = self.strategies.get(method.lower())
+
+        if not strategy:
+            raise ValueError(f"Unknown scaling method: {method}")
+
+        return strategy.scale(df, columns)
+
+
+
 
 
     def set_strategy(self, strategy: ScalingStrategy):
 
         self.strategy = strategy
-
-
-    def scale(self, df: pd.DataFrame, method: str = "standard", columns=None):
-
-        # select strategy using method
-        if method:
-            strategy = self.strategies.get(method.lower())
-
-            if not strategy:
-                raise ValueError(f"Unknown scaling method: {method}")
-
-            self.strategy = strategy
-
-
-        if not self.strategy:
-            raise ValueError("Scaling strategy not set")
-
-
-        return self.strategy.scale(df, columns)
-
 
 
 # main test
