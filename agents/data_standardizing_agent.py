@@ -40,6 +40,7 @@ class DataStandardizerAgent(PipelineAgent):
             
             # Apply categorical fixes
             standardizer.apply_categorical_fixes(columns=columns if columns else None)
+            standardizer.apply_llm_normalization(columns=columns if columns else None)
             
             # Update context with standardized data
             context.data = standardizer.df
