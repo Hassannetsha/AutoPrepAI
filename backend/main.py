@@ -7,10 +7,16 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from auth.dependencies import get_current_user
 from backend.database import Base, engine, get_db
 from backend.ml_service import MLPipelineService
-from backend.models import Conversation, ConversationMessage
+from backend.models import Conversation, ConversationMessage, User
 from backend.schemas import ChatResponse, ConversationOut
+from auth import signup, login
+from auth import admin  # import your admin router
+# from fastapi import Request
+from backend.Routes import conversations
+
 
 
 @asynccontextmanager
@@ -20,7 +26,22 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AutoPrepAI Backend", version="1.0.0", lifespan=lifespan)
-
+app.include_router(signup.router, prefix="/auth")
+app.include_router(login.router, prefix="/auth")
+app.include_router(admin.router)
+app.include_router(conversations.router)
+# @app.middleware("http")
+# async def enforce_auth(request: Request, call_next):
+#     if request.url.path.startswith("/auth") or request.url.path.startswith("/health"):
+#         return await call_next(request)
+    
+#     try:
+#         user = await get_current_user(request)
+#         request.state.user = user
+#     except HTTPException:
+#         raise HTTPException(status_code=401, detail="Not authenticated")
+    
+#     return await call_next(request)
 
 @app.get("/health")
 def health() -> dict:
@@ -34,6 +55,7 @@ async def chat(
     selected_intents: str | None = Form(default=None),
     conversation_id: str | None = Form(default=None),
     dataset: UploadFile | None = File(default=None),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     parsed_selected_intents: list[str] = []
@@ -57,7 +79,8 @@ async def chat(
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
     else:
-        conversation = Conversation()
+        conversation = Conversation( title="New Chat",
+        user_id=current_user.id)
         db.add(conversation)
         db.flush()
 
@@ -127,7 +150,7 @@ def download_processed_file(filename: str):
 
 
 @app.get("/conversations/{conversation_id}", response_model=ConversationOut)
-def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
+def get_conversation(conversation_id: str,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         conversation_uuid = uuid.UUID(conversation_id)
     except ValueError as exc:
@@ -136,5 +159,18 @@ def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
     conversation = db.get(Conversation, conversation_uuid)
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-
+    #security check to ensure that the conversation belongs to the current user
+    if conversation.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     return conversation
+
+@app.get("/conversations")
+def get_user_conversations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conversations = db.query(Conversation).filter(
+        Conversation.user_id == current_user.id
+    ).all()
+
+    return conversations

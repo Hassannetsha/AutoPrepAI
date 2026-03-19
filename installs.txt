@@ -29,3 +29,9 @@ pip install streamlit pandas numpy scikit-learn matplotlib category-encoders sym
 .venv\Scripts\Activate.ps1 --> Activate the environment
 
 uvicorn backend.main:app --reload --host 127.0.0.1 --port 8022
+
+pip install "pydantic[email]"
+
+pip install python-jose
+
+pip install passlib

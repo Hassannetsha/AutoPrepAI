@@ -87,7 +87,8 @@ class MLPipelineService:
             raise FileNotFoundError("File not found")
 
         return file_path
-
+    #this function reads the uploaded file and converts it to a pandas dataframe
+    # it supports both csv and excel files based on the file extension
     @staticmethod
     def dataframe_from_upload(file_bytes: bytes, filename: str | None = None) -> pd.DataFrame:
         if filename and filename.lower().endswith((".xlsx", ".xls")):
