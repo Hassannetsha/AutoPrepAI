@@ -10,6 +10,8 @@ import pandas as pd
 from data_context import DataContext
 from pipeline_builder import PipelineBuilder
 
+from backend.b2_service import upload_file_to_b2
+
 
 class MLPipelineService:
     OUTPUT_DIR = Path(__file__).resolve().parents[1] / "output"
@@ -178,6 +180,7 @@ class MLPipelineService:
         dataset_df: pd.DataFrame | None = None,
         mode: str = "chat",
         selected_intents: list[str] | None = None,
+        conversation_id: str = "",
     ) -> dict:
         if dataset_df is None:
             raise ValueError("Dataset is required for processing")
@@ -210,7 +213,7 @@ class MLPipelineService:
 
         pipeline = PipelineBuilder.build_default_pipeline()
         final_context = pipeline.run(context=context, user_command=effective_command)
-        output_file = MLPipelineService.save_processed_dataframe(final_context.data)
+        output_file = MLPipelineService.save_processed_dataframe(final_context.data, conversation_id)
 
         result = {
             "shape": final_context.data.shape,
@@ -221,3 +224,10 @@ class MLPipelineService:
             "download_url": None,
         }
         return MLPipelineService._to_jsonable(result)
+
+    @classmethod
+    def save_processed_dataframe(cls, dataframe: pd.DataFrame, conversation_id: str) -> str:
+        filename = f"processed/{conversation_id}/{uuid.uuid4().hex}.csv"
+        csv_bytes = dataframe.to_csv(index=False).encode("utf-8")
+        upload_file_to_b2(csv_bytes, key=filename, content_type="text/csv")
+        return filename

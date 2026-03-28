@@ -1,5 +1,6 @@
 import json
 import uuid
+import time
 
 from contextlib import asynccontextmanager
 
@@ -16,6 +17,9 @@ from auth import signup, login
 from auth import admin  # import your admin router
 # from fastapi import Request
 from backend.Routes import conversations
+
+from backend.b2_service import upload_file_to_b2, generate_download_url
+from fastapi.responses import FileResponse, RedirectResponse
 
 
 
@@ -90,6 +94,19 @@ async def chat(
     file_bytes = await dataset.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Uploaded dataset is empty")
+    
+    # upload input dataset to B2
+    input_key = f"inputs/{conversation.id}/{int(time.time())}_{dataset.filename}"
+    try:
+        upload_file_to_b2(
+            file_bytes,
+            key=input_key,
+            content_type=dataset.content_type or "application/octet-stream",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to upload dataset to storage: {exc}") from exc
+
+    
     try:
         dataset_df = MLPipelineService.dataframe_from_upload(file_bytes, dataset.filename)
     except Exception as exc:
@@ -101,13 +118,19 @@ async def chat(
             dataset_df=dataset_df,
             mode=mode,
             selected_intents=parsed_selected_intents,
+            conversation_id=str(conversation.id),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    output_file = result.get("output_file")
-    if output_file:
-        result["download_url"] = f"/download/{output_file}"
+    # Replace local download URL with a presigned B2 URL (valid for 1 hour)
+    output_key = result.get("output_file")
+    if output_key:
+        try:
+            result["download_url"] = generate_download_url(output_key)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {exc}") from exc
+
 
     assistant_message = "Processing completed successfully."
     stored_message = (message or "").strip() or f"[{mode}]"
@@ -137,16 +160,17 @@ async def chat(
     )
 
 
-@app.get("/download/{filename}")
-def download_processed_file(filename: str):
+@app.get("/download/{path:path}")
+def download_processed_file(
+    path: str,
+    current_user: User = Depends(get_current_user)
+):
     try:
-        file_path = MLPipelineService.get_output_file_path(filename)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="File not found") from exc
+        url = generate_download_url(path)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="File not found or could not generate download link") from exc
 
-    return FileResponse(path=file_path, filename=file_path.name, media_type="text/csv")
+    return RedirectResponse(url=url)
 
 
 @app.get("/conversations/{conversation_id}", response_model=ConversationOut)
