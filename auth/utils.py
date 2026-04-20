@@ -30,3 +30,19 @@ def create_access_token(data: dict):
     
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+#email verification token
+VERIFICATION_TOKEN_EXPIRE_HOURS = 1
+
+def create_verification_token(email: str):
+    expire = datetime.utcnow() + timedelta(hours=VERIFICATION_TOKEN_EXPIRE_HOURS)
+    to_encode = {"sub": email, "exp": expire, "type": "email_verification"}
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def decode_verification_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "email_verification":
+            return None
+        return payload.get("sub") # Returns the email
+    except jwt.JWTError:
+        return None
