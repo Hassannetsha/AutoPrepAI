@@ -22,3 +22,6 @@ class AdminDeleteUserRequest(BaseModel):
     admin_username: str
     admin_password: str
     email: EmailStr
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
