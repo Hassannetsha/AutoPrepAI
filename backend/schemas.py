@@ -37,3 +37,6 @@ class ConversationOut(BaseModel):
 
     class Config:
         from_attributes = True
+        
+class ConversationRenameRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)

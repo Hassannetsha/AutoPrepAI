@@ -9,6 +9,7 @@ from backend.database import get_db
 from backend.models import Conversation, User
 from auth.dependencies import get_current_user
 from backend.settings import B2_BUCKET_NAME, B2_KEY_ID
+from backend.schemas import ConversationRenameRequest
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -53,3 +54,33 @@ def delete_conversation(
     db.commit()
 
     return {"message": "Conversation deleted successfully"}
+
+
+@router.patch("/{conversation_id}/rename")
+def rename_conversation(
+    conversation_id: str,
+    body: ConversationRenameRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Validate UUID
+    try:
+        conversation_uuid = uuid.UUID(conversation_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid conversation_id")
+
+    # Fetch conversation
+    conversation = db.get(Conversation, conversation_uuid)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Ownership check
+    if conversation.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Rename
+    conversation.title = body.title.strip()
+    db.commit()
+    db.refresh(conversation)
+
+    return {"id": conversation.id, "title": conversation.title}
