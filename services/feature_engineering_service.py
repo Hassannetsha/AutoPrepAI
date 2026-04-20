@@ -6,8 +6,9 @@ import re
 
 class SuggestFeatures(dspy.Signature):
     """Suggest meaningful new features for a dataset.
-    Outputs a set of suggested new column definitions, one per line in the format:
-    name: description | code: pandas expression
+    IMPORTANT: Only suggest features using columns that exist in dataset_columns.
+    Never reference columns not listed there.
+    Outputs one feature per line: name: description | code: pandas expression
     """
     dataset_columns = dspy.InputField(desc="Available column names (comma-separated)", default="")
     sample_rows = dspy.InputField(desc="Sample rows as JSON (first N rows)", default="")
@@ -175,3 +176,47 @@ def apply_feature_engineering_agent(DataFrame, suggested_features: str) -> tuple
 def engineer_features(df: Any, suggested_features: str) -> tuple[pd.DataFrame, int]:
     fe = FeatureEngineeringService()
     return fe.engineer(df, suggested_features)
+
+def review_features(suggested_features: str) -> str:
+    """
+    Interactively ask the user to accept or reject each suggested feature.
+    Returns a filtered string containing only accepted features.
+    """
+    lines = [l.strip() for l in suggested_features.strip().split("\n") if l.strip()]
+    accepted = []
+
+    print("\n" + "="*50)
+    print("FEATURE REVIEW — accept or reject each feature")
+    print("="*50)
+
+    for i, line in enumerate(lines, 1):
+        if "| code:" not in line:
+            continue
+
+        name_desc, code_part = line.split("| code:", 1)
+        name = name_desc.split(":")[0].strip()
+        code = code_part.strip()
+
+        print(f"\n[{i}/{len(lines)}] {name}")
+        print(f"  code: {code}")
+
+        while True:
+            choice = input("  Accept? [y/n/s to skip all remaining]: ").strip().lower()
+            if choice == 'y':
+                accepted.append(line)
+                print("  ✓ Accepted")
+                break
+            elif choice == 'n':
+                print("  ✗ Rejected")
+                break
+            elif choice == 's':
+                print("  Skipping remaining features...")
+                print(f"\n{'='*50}")
+                print(f"Accepted {len(accepted)}/{len(lines)} features")
+                return "\n".join(accepted)
+            else:
+                print("  Please enter y, n, or s")
+
+    print(f"\n{'='*50}")
+    print(f"Accepted {len(accepted)}/{len(lines)} features")
+    return "\n".join(accepted)
