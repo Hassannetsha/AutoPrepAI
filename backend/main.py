@@ -1,5 +1,6 @@
 import json
 import uuid
+import time
 
 from contextlib import asynccontextmanager
 
@@ -7,10 +8,19 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from auth.dependencies import get_current_user
 from backend.database import Base, engine, get_db
 from backend.ml_service import MLPipelineService
-from backend.models import Conversation, ConversationMessage
+from backend.models import Conversation, ConversationMessage, User
 from backend.schemas import ChatResponse, ConversationOut
+from auth import signup, login
+from auth import admin  # import your admin router
+# from fastapi import Request
+from backend.Routes import conversations
+
+from backend.b2_service import upload_file_to_b2, generate_download_url
+from fastapi.responses import FileResponse, RedirectResponse
+
 
 
 @asynccontextmanager
@@ -20,7 +30,22 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AutoPrepAI Backend", version="1.0.0", lifespan=lifespan)
-
+app.include_router(signup.router, prefix="/auth")
+app.include_router(login.router, prefix="/auth")
+app.include_router(admin.router)
+app.include_router(conversations.router)
+# @app.middleware("http")
+# async def enforce_auth(request: Request, call_next):
+#     if request.url.path.startswith("/auth") or request.url.path.startswith("/health"):
+#         return await call_next(request)
+    
+#     try:
+#         user = await get_current_user(request)
+#         request.state.user = user
+#     except HTTPException:
+#         raise HTTPException(status_code=401, detail="Not authenticated")
+    
+#     return await call_next(request)
 
 @app.get("/health")
 def health() -> dict:
@@ -34,6 +59,7 @@ async def chat(
     selected_intents: str | None = Form(default=None),
     conversation_id: str | None = Form(default=None),
     dataset: UploadFile | None = File(default=None),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     parsed_selected_intents: list[str] = []
@@ -57,7 +83,8 @@ async def chat(
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
     else:
-        conversation = Conversation()
+        conversation = Conversation( title="New Chat",
+        user_id=current_user.id)
         db.add(conversation)
         db.flush()
 
@@ -67,6 +94,19 @@ async def chat(
     file_bytes = await dataset.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Uploaded dataset is empty")
+    
+    # upload input dataset to B2
+    input_key = f"inputs/{conversation.id}/{int(time.time())}_{dataset.filename}"
+    try:
+        upload_file_to_b2(
+            file_bytes,
+            key=input_key,
+            content_type=dataset.content_type or "application/octet-stream",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to upload dataset to storage: {exc}") from exc
+
+    
     try:
         dataset_df = MLPipelineService.dataframe_from_upload(file_bytes, dataset.filename)
     except Exception as exc:
@@ -78,13 +118,19 @@ async def chat(
             dataset_df=dataset_df,
             mode=mode,
             selected_intents=parsed_selected_intents,
+            conversation_id=str(conversation.id),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    output_file = result.get("output_file")
-    if output_file:
-        result["download_url"] = f"/download/{output_file}"
+    # Replace local download URL with a presigned B2 URL (valid for 1 hour)
+    output_key = result.get("output_file")
+    if output_key:
+        try:
+            result["download_url"] = generate_download_url(output_key)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {exc}") from exc
+
 
     assistant_message = "Processing completed successfully."
     stored_message = (message or "").strip() or f"[{mode}]"
@@ -114,20 +160,21 @@ async def chat(
     )
 
 
-@app.get("/download/{filename}")
-def download_processed_file(filename: str):
+@app.get("/download/{path:path}")
+def download_processed_file(
+    path: str,
+    current_user: User = Depends(get_current_user)
+):
     try:
-        file_path = MLPipelineService.get_output_file_path(filename)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="File not found") from exc
+        url = generate_download_url(path)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="File not found or could not generate download link") from exc
 
-    return FileResponse(path=file_path, filename=file_path.name, media_type="text/csv")
+    return RedirectResponse(url=url)
 
 
 @app.get("/conversations/{conversation_id}", response_model=ConversationOut)
-def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
+def get_conversation(conversation_id: str,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         conversation_uuid = uuid.UUID(conversation_id)
     except ValueError as exc:
@@ -136,5 +183,18 @@ def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
     conversation = db.get(Conversation, conversation_uuid)
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-
+    #security check to ensure that the conversation belongs to the current user
+    if conversation.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     return conversation
+
+@app.get("/conversations")
+def get_user_conversations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conversations = db.query(Conversation).filter(
+        Conversation.user_id == current_user.id
+    ).all()
+
+    return conversations
