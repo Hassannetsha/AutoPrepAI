@@ -12,6 +12,9 @@ import {
   User,
   Database,
   Bot,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import "./style.css";
 import { useNavigate } from "react-router-dom";
@@ -64,6 +67,57 @@ export default function MainPage() {
       ],
     },
   ]);
+
+  const [chats, setChats] = useState([
+    {
+      id: 1,
+      title: "Chat 1",
+      messages: [
+        {
+          sender: "bot",
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          text: "Hello! I'm your AutoPrepAI assistant. Upload a dataset to get started.",
+          list: [
+            "Fix missing values",
+            "Detect and handle outliers",
+            "Detect and handle duplicates",
+            "Resolve feature inconsistency",
+            "Scale and encode data",
+            "Feature selection",
+          ],
+        },
+      ],
+    },
+  ]);
+
+  const [activeChatId, setActiveChatId] = useState(1);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Get current active chat
+  const activeChat = chats.find((c) => c.id === activeChatId);
+
+  const handleNewChat = () => {
+    const newId = Date.now();
+    const newChat = {
+      id: newId,
+      title: `Chat ${chats.length + 1}`,
+      messages: [
+        {
+          sender: "bot",
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          text: "Hello! Start a new conversation.",
+        },
+      ],
+    };
+    setChats((prev) => [...prev, newChat]);
+    setActiveChatId(newId);
+  };
 
   const parseCSV = (text) => {
     const lines = text
@@ -158,36 +212,35 @@ export default function MainPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
-  
-function HistoryModal({ onClose, logs }) {
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        
-        <div className="modal-header">
-          <h3>Operations History</h3>
-          <span className="close-btn" onClick={onClose}>✕</span>
-        </div>
 
-        <div className="history-container">
-          {logs.length === 0 ? (
-            <p className="empty-history">No operations yet.</p>
-          ) : (
-            logs.map((log, index) => (
-              <div key={index} className="history-item">
-                <p className="history-text">{log.message}</p>
-                <span className="history-time">{log.time}</span>
-              </div>
-            ))
-          )}
-        </div>
+  function HistoryModal({ onClose, logs }) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3>Operations History</h3>
+            <span className="close-btn" onClick={onClose}>
+              ✕
+            </span>
+          </div>
 
+          <div className="history-container">
+            {logs.length === 0 ? (
+              <p className="empty-history">No operations yet.</p>
+            ) : (
+              logs.map((log, index) => (
+                <div key={index} className="history-item">
+                  <p className="history-text">{log.message}</p>
+                  <span className="history-time">{log.time}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
   const handleShowHistory = async () => {
-
     // Production flow: open modal and try to fetch logs from backend.
     setShowHistory(true);
     try {
@@ -200,49 +253,55 @@ function HistoryModal({ onClose, logs }) {
       setHistoryLogs([]);
     }
   };
-const handleAutoClean = async () => {
-  try {
-    const response = await fetch("YOUR_API_ENDPOINT", {  // <----- replace with backend endpoint
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: tableData }),
-    });
+  const handleAutoClean = async () => {
+    try {
+      const response = await fetch("YOUR_API_ENDPOINT", {
+        // <----- replace with backend endpoint
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: tableData }),
+      });
 
-    const result = await response.json();
+      const result = await response.json();
 
-    // update table with cleaned data
-    setTableData(result.cleanedData);
+      // update table with cleaned data
+      setTableData(result.cleanedData);
 
-    // optional: show message
-    setMessages((prev) => [
-      ...prev,
-      {
-        sender: "bot",
-        text: "✨ Your data has been automatically cleaned!",
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      },
-    ]);
-  } catch (error) {
-    console.error(error);
-  }
-};
+      // optional: show message
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text: "✨ Your data has been automatically cleaned!",
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ]);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
-// ✅ Send message
-const handleSend = () => {
-  if (!inputValue.trim()) return;
+  // ✅ Send message
+  const handleSend = () => {
+    if (!inputValue.trim()) return;
 
     const time = new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
+    const userMessage = { sender: "user", text: inputValue, time };
 
-    setMessages((prev) => [
-      ...prev,
-      { sender: "user", text: inputValue, time },
-    ]);
+    // Add to active chat
+    setChats((prev) =>
+      prev.map((chat) =>
+        chat.id === activeChatId
+          ? { ...chat, messages: [...chat.messages, userMessage] }
+          : chat,
+      ),
+    );
     setInputValue("");
 
     setTimeout(() => {
@@ -250,14 +309,19 @@ const handleSend = () => {
         hour: "2-digit",
         minute: "2-digit",
       });
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "bot",
-          text: "I received your message! This feature is coming soon.",
-          time: botTime,
-        },
-      ]);
+      const botMessage = {
+        sender: "bot",
+        text: "I received your message!",
+        time: botTime,
+      };
+
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === activeChatId
+            ? { ...chat, messages: [...chat.messages, botMessage] }
+            : chat,
+        ),
+      );
     }, 800);
   };
 
@@ -287,6 +351,47 @@ const handleSend = () => {
   return (
     <div className="container">
       {/* ── Sidebar ── */}
+      <div className={`chat-sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
+        {/* Always visible — even when collapsed */}
+        <button
+          className="sidebar-toggle"
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        >
+          {sidebarCollapsed ? (
+            <ChevronRight size={16} />
+          ) : (
+            <ChevronLeft size={16} />
+          )}
+        </button>
+
+        {!sidebarCollapsed && (
+          <>
+            {/* New Chat Button */}
+            <button className="new-chat-btn" onClick={handleNewChat}>
+              <MessageSquare size={16} />
+              New Chat
+            </button>
+
+            {/* Chats Label */}
+            <p className="chats-label">CHATS</p>
+
+            <div className="chat-list-container">
+              {/* Chat List */}
+              {chats.map((chat) => (
+                <div
+                  key={chat.id}
+                  onClick={() => setActiveChatId(chat.id)}
+                  className={`chat-item ${chat.id === activeChatId ? "chat-item-active" : ""}`}
+                >
+                  <MessageSquare size={14} />
+                  {chat.title}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
       <div className="sidebar">
         <input
           ref={fileInputRef}
@@ -328,16 +433,16 @@ const handleSend = () => {
             </button>
 
             <button onClick={handleShowHistory}>
-            <Rows3 size={16} /> Cleaning History
+              <Rows3 size={16} /> Cleaning History
             </button>
             <button onClick={handleReset} className="reset">
               <X size={16} /> Reset Data
             </button>
-            
+
             <div className="autoSection">
-            <button className="autoCleanBtn" onClick={handleAutoClean}>
-            <Bot size={16} /> Automatic Data Cleaning 🪄
-            </button>
+              <button className="autoCleanBtn" onClick={handleAutoClean}>
+                <Bot size={16} /> Automatic Data Cleaning 🪄
+              </button>
             </div>
           </div>
         )}
@@ -360,7 +465,7 @@ const handleSend = () => {
         </div>
 
         <div className="chat">
-          {messages.map((msg, index) => (
+          {activeChat?.messages.map((msg, index) => (
             <div
               key={index}
               className={`message-row ${msg.sender === "user" ? "row-user" : "row-bot"}`}
@@ -435,7 +540,10 @@ const handleSend = () => {
         />
       )}
       {showHistory && (
-        <HistoryModal onClose={() => setShowHistory(false)} logs={historyLogs} />
+        <HistoryModal
+          onClose={() => setShowHistory(false)}
+          logs={historyLogs}
+        />
       )}
     </div>
   );
