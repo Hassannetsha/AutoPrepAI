@@ -40,6 +40,11 @@ export default function MainPage() {
     "Encode Data",
     "Select Features",
   ];
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLogs, setHistoryLogs] = useState([]);
+  // Toggle this to true to show a single demo operation when opening History.
+  // Set to false when you want to rely only on the backend API.
+  const USE_DEMO_HISTORY = true;
 
   const [messages, setMessages] = useState([
     {
@@ -153,10 +158,81 @@ export default function MainPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
+  
+function HistoryModal({ onClose, logs }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        
+        <div className="modal-header">
+          <h3>Operations History</h3>
+          <span className="close-btn" onClick={onClose}>✕</span>
+        </div>
 
-  // ✅ Send message
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
+        <div className="history-container">
+          {logs.length === 0 ? (
+            <p className="empty-history">No operations yet.</p>
+          ) : (
+            logs.map((log, index) => (
+              <div key={index} className="history-item">
+                <p className="history-text">{log.message}</p>
+                <span className="history-time">{log.time}</span>
+              </div>
+            ))
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+  const handleShowHistory = async () => {
+
+    // Production flow: open modal and try to fetch logs from backend.
+    setShowHistory(true);
+    try {
+      const response = await fetch("YOUR_BACKEND_LOGS_ENDPOINT"); // replace with backend endpoint
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      setHistoryLogs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to fetch history logs:", err);
+      setHistoryLogs([]);
+    }
+  };
+const handleAutoClean = async () => {
+  try {
+    const response = await fetch("YOUR_API_ENDPOINT", {  // <----- replace with backend endpoint
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: tableData }),
+    });
+
+    const result = await response.json();
+
+    // update table with cleaned data
+    setTableData(result.cleanedData);
+
+    // optional: show message
+    setMessages((prev) => [
+      ...prev,
+      {
+        sender: "bot",
+        text: "✨ Your data has been automatically cleaned!",
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+    ]);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// ✅ Send message
+const handleSend = () => {
+  if (!inputValue.trim()) return;
 
     const time = new Date().toLocaleTimeString([], {
       hour: "2-digit",
@@ -251,9 +327,18 @@ export default function MainPage() {
               <Download size={16} /> Download Cleaned Data
             </button>
 
+            <button onClick={handleShowHistory}>
+            <Rows3 size={16} /> Cleaning History
+            </button>
             <button onClick={handleReset} className="reset">
               <X size={16} /> Reset Data
             </button>
+            
+            <div className="autoSection">
+            <button className="autoCleanBtn" onClick={handleAutoClean}>
+            <Bot size={16} /> Automatic Data Cleaning 🪄
+            </button>
+            </div>
           </div>
         )}
       </div>
@@ -348,6 +433,9 @@ export default function MainPage() {
           headers={headers}
           datasetName={datasetName}
         />
+      )}
+      {showHistory && (
+        <HistoryModal onClose={() => setShowHistory(false)} logs={historyLogs} />
       )}
     </div>
   );
