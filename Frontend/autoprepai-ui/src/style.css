@@ -1,0 +1,537 @@
+/* ─── Reset / Base ─────────────────────────────────── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Layout ────────────────────────────────────────── */
+.container {
+  display: flex;
+  height: 100vh;
+  font-family: "Inter", Arial, sans-serif;
+  background: #f4f6f5;
+}
+
+/* ─── Sidebar ───────────────────────────────────────── */
+.sidebar {
+  width: 270px;
+  background: #ffffff;
+  padding: 24px 16px;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+/* ─── Upload Box ────────────────────────────────────── */
+.uploadBox {
+  border: 2px dashed #2bb3a3;
+  padding: 40px 20px;
+  text-align: center;
+  border-radius: 14px;
+  background: #f0faf9;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.uploadBox:hover {
+  background: #e0f5f3;
+  border-color: #249e90;
+}
+
+.uploadBox p {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.uploadBox button {
+  margin-top: 10px;
+  padding: 9px 16px;
+  background: linear-gradient(135deg, #2bb3a3, #34c5a8);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s, transform 0.15s;
+  box-shadow: 0 3px 10px rgba(43, 179, 163, 0.3);
+}
+
+.uploadBox button:hover {
+  background: linear-gradient(135deg, #249e90, #2bb3a3);
+  transform: translateY(-1px);
+}
+
+/* ─── Upload Error ──────────────────────────────────── */
+.uploadError {
+  margin-top: 8px;
+  color: #e53e3e;
+  font-size: 12px;
+  background: #fff5f5;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 3px solid #e53e3e;
+}
+
+/* ─── Dataset Card ──────────────────────────────────── */
+.datasetCard {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+  transition: box-shadow 0.2s;
+}
+
+.datasetCard:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+.datasetCard h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.datasetCard p {
+  font-size: 13px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ─── Dataset Info Buttons ──────────────────────────── */
+.datasetInfo button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: #f3f4f6;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #374151;
+}
+
+.datasetInfo button:hover {
+  background: #dff5f2;
+  color: #2bb3a3;
+}
+
+.datasetInfo .reset {
+  background: #fff0f0;
+  color: #e53e3e;
+}
+
+.datasetInfo .reset:hover {
+  background: #ffe0e0;
+  color: #c53030;
+}
+
+/* ─── Main Area ─────────────────────────────────────── */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─── Header ────────────────────────────────────────── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon {
+  width: 44px;
+  height: 44px;
+  background: #dff3ef;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2bb3a3;
+}
+
+.header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.header p {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+
+.header button {
+  padding: 7px 18px;
+  border-radius: 20px;
+  border: 1.5px solid #e5e7eb;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  transition: all 0.2s;
+}
+
+.header button:hover {
+  background: #dff5f2;
+  color: #2bb3a3;
+  border-color: #2bb3a3;
+}
+
+/* ─── Chat Area ─────────────────────────────────────── */
+.chat {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ─── Message Bubble ────────────────────────────────── */
+.message {
+  background: #ffffff;
+  padding: 14px 18px;
+  border-radius: 14px;
+  max-width: 520px;
+  font-size: 14px;
+  color: #1f2937;
+  line-height: 1.6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+}
+
+/* ─── Action Pills ──────────────────────────────────── */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.action {
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: #f3f4f6;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  border: 1.5px solid transparent;
+  transition: all 0.2s;
+}
+
+.action:hover {
+  background: #dff5f2;
+  color: #2bb3a3;
+  border-color: #2bb3a3;
+}
+
+.action.active {
+  background: #2bb3a3;
+  color: white;
+  border-color: #2bb3a3;
+  box-shadow: 0 3px 10px rgba(43, 179, 163, 0.3);
+}
+
+/* ─── Input Area ────────────────────────────────────── */
+.inputArea {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+  gap: 10px;
+}
+
+.inputArea input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #e5e7eb;
+  font-size: 14px;
+  color: #1f2937;
+  background: #fafafa;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.inputArea input:focus {
+  border-color: #2bb3a3;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(43, 179, 163, 0.12);
+}
+
+.inputArea input::placeholder {
+  color: #c4c9d1;
+  font-size: 13px;
+}
+
+.inputArea button {
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #2bb3a3, #34c5a8);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  box-shadow: 0 3px 10px rgba(43, 179, 163, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inputArea button:hover {
+  background: linear-gradient(135deg, #249e90, #2bb3a3);
+  transform: translateY(-1px);
+}
+
+.inputArea button:active {
+  transform: translateY(0);
+}
+
+/* ─── Modal ─────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  width: 85%;
+  max-width: 1000px;
+  background: white;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.close-btn {
+  cursor: pointer;
+  color: #9ca3af;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #e53e3e;
+}
+
+/* ─── Table ─────────────────────────────────────────── */
+.table-container {
+  max-height: 420px;
+  overflow-y: auto;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+thead {
+  position: sticky;
+  top: 0;
+  background: #f3f4f6;
+  z-index: 1;
+}
+
+th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #374151;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: #f9fafb;
+}
+
+/* ─── Missing Badge ─────────────────────────────────── */
+.missing {
+  background: #dff3ef;
+  color: #2ca58d;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ─── Table Footer ──────────────────────────────────── */
+.table-footer {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* ─── chat ──────────────────────────────────────────── */
+/* ─── Message Row ───────────────────────────────────── */
+
+.message-row {
+  display: flex;
+  align-items: flex-start; /* Keeps icons at the top of the bubble */
+  gap: 12px;               /* Space between bubble and icon */
+  margin-bottom: 16px;     /* Space between different messages */
+  width: 100%;
+}
+
+.row-user {
+  flex-direction: row;      /* Keep standard flow */
+  justify-content: flex-end; /* Push everything to the right side */
+}
+
+.row-bot {
+  flex-direction: row;         /* avatar on left */
+}
+
+/* This ensures the user avatar is the last element on the right */
+.row-user .avatar-user {
+  order: 2; 
+}
+
+.row-user .message-user {
+  order: 1;
+}
+
+
+
+/* ─── Avatars ───────────────────────────────────────── */
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatar-bot {
+  background: #dff3ef;
+  color: #2bb3a3;
+  border: 1.5px solid #b2e4de;
+}
+
+.avatar-user {
+  background: linear-gradient(135deg, #2bb3a3, #34c5a8);
+  color: white;
+}
+
+/* ─── Bubbles ───────────────────────────────────────── */
+.message-bot {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 4px 14px 14px 14px;
+  padding: 12px 16px;
+  max-width: 520px;
+  width: fit-content;        /* ← add this */
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1f2937;
+}
+
+.message-user {
+  background: linear-gradient(135deg, #2bb3a3, #34c5a8);
+  color: white;
+  border-radius: 14px 4px 14px 14px;
+  padding: 12px 16px;
+  max-width: 520px;
+  width: fit-content;        /* ← add this */
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.message-bot ul {
+  margin-top: 8px;
+  padding-left: 18px;
+}
+
+.message-bot ul li {
+  margin-bottom: 4px;
+}
+
+/* ─── Timestamp ─────────────────────────────────────── */
+.msg-time {
+  display: block;
+  font-size: 11px;
+  margin-top: 6px;
+  opacity: 0.55;
+}

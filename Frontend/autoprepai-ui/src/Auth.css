@@ -1,0 +1,217 @@
+/* ─── Reset / Base ─────────────────────────────────── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Page Background ───────────────────────────────── */
+.auth-wrapper {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #e8f5f2 0%, #f4f6f5 60%, #eaf4f8 100%);
+}
+
+/* ─── Card ──────────────────────────────────────────── */
+.auth-container {
+  width: 380px;
+  padding: 40px 36px;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.04),
+    0 12px 30px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+/* ─── Top Icon ──────────────────────────────────────── */
+.icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, #dff3ef, #c8ece6);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2ca58d;
+  box-shadow: 0 4px 12px rgba(44, 165, 141, 0.2);
+}
+
+/* ─── Title ─────────────────────────────────────────── */
+.auth-container h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 6px;
+}
+
+/* ─── Subtitle ──────────────────────────────────────── */
+.subtitle {
+  color: #9ca3af;
+  font-size: 14px;
+  margin-bottom: 28px;
+  letter-spacing: 0.2px;
+}
+
+/* ─── Input Group ───────────────────────────────────── */
+.input-group {
+  text-align: left;
+  margin-bottom: 18px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+  letter-spacing: 0.1px;
+}
+
+/* ─── Inputs ────────────────────────────────────────── */
+.auth-container input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #e5e7eb;
+  outline: none;
+  font-size: 14px;
+  color: #1f2937;
+  background: #fafafa;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.auth-container input:focus {
+  border-color: #2ca58d;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(44, 165, 141, 0.12);
+}
+
+.auth-container input::placeholder {
+  color: #c4c9d1;
+  font-size: 13px;
+}
+
+/* ─── Password Row ──────────────────────────────────── */
+.password-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+/* ─── Forgot Password ───────────────────────────────── */
+.forgot {
+  font-size: 12px;
+  color: #2ca58d;
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.forgot:hover {
+  color: #249e85;
+  text-decoration: underline;
+}
+
+/* ─── Button ────────────────────────────────────────── */
+.login-btn {
+  width: 100%;
+  padding: 13px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2ca58d, #34c5a8);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: background 0.3s, transform 0.15s, box-shadow 0.3s;
+  box-shadow: 0 4px 14px rgba(44, 165, 141, 0.35);
+}
+
+.login-btn:hover {
+  background: linear-gradient(135deg, #249e85, #2ab89d);
+  box-shadow: 0 6px 18px rgba(44, 165, 141, 0.45);
+  transform: translateY(-1px);
+}
+
+.login-btn:active {
+  transform: translateY(0px);
+  box-shadow: 0 3px 10px rgba(44, 165, 141, 0.3);
+}
+
+/* ─── Bottom Text ───────────────────────────────────── */
+.bottom-text {
+  margin-top: 20px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.bottom-text a {
+  color: #2ca58d;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.bottom-text a:hover {
+  color: #249e85;
+  text-decoration: underline;
+}
+
+
+
+
+
+/* ─── Code Input Boxes ──────────────────────────────── */
+.code-inputs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.code-box {
+  width: 46px !important;
+  height: 54px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  outline: none;
+  background: #fafafa;
+  color: #1f2937;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  padding: 0 !important;
+}
+
+.code-box:focus {
+  border-color: #2ca58d;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(44, 165, 141, 0.12);
+}
+
+/* ─── Timer ─────────────────────────────────────────── */
+.timer-text {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 16px;
+}
+
+.resend-link {
+  color: #2ca58d;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.resend-link:hover {
+  color: #249e85;
+  text-decoration: underline;
+}
