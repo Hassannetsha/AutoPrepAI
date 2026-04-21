@@ -535,3 +535,66 @@ tr:hover td {
   margin-top: 6px;
   opacity: 0.55;
 }
+
+.autoCleanBtn {
+  width: 100%;
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 10px;
+  border-color: #34c5a8;
+  background: linear-gradient(135deg, #2bb3a3, #34c5a8);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+  font-size: 14px;
+  box-shadow: 0 3px 10px rgba(43, 179, 163, 0.18);
+}
+
+.autoCleanBtn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #249e90, #2bb3a3);
+  border-color: #2bb3a3;
+}
+
+.autoSection {
+  margin-top: 160px;
+  padding-top: 14px;
+}
+
+.history-container {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-item {
+  padding: 10px 14px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #2bb3a3;
+}
+
+.history-text {
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.history-time {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 4px;
+  display: block;
+}
+
+.empty-history {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+}
