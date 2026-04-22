@@ -215,3 +215,35 @@
   color: #249e85;
   text-decoration: underline;
 }
+.login-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+}
+
+.auth-message {
+  margin: 4px 0 12px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.auth-message-error {
+  color: #b42318;
+  background: #fff3f0;
+  border: 1px solid #ffd6cf;
+}
+
+.auth-message-success {
+  color: #13795b;
+  background: #edfdf7;
+  border: 1px solid #bfeedd;
+}
+
+.auth-message-info {
+  color: #22577a;
+  background: #eef8ff;
+  border: 1px solid #c7e8ff;
+}

@@ -5,11 +5,12 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
-from backend.database import Base, engine, get_db
+from backend.database import Base, engine, ensure_auth_columns, get_db
 from backend.ml_service import MLPipelineService
 from backend.models import Conversation, ConversationMessage, User
 from backend.schemas import ChatResponse, ConversationOut
@@ -26,10 +27,22 @@ from fastapi.responses import FileResponse, RedirectResponse
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_auth_columns()
     yield
 
 
 app = FastAPI(title="AutoPrepAI Backend", version="1.0.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(signup.router, prefix="/auth")
 app.include_router(login.router, prefix="/auth")
 app.include_router(admin.router)
