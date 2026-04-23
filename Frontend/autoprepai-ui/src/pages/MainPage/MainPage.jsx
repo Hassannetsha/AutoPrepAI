@@ -1,23 +1,15 @@
 import React, { useRef, useState, useEffect } from "react";
-import {
-  Upload,
-  FileSpreadsheet,
-  X,
-  FileJson,
-  File,
-  Eye,
-  Download,
-  Rows3,
-  Columns3,
-  User,
-  Database,
-  Bot,
-  MessageSquare,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import "./style.css";
+import { File, FileJson, FileSpreadsheet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import "../../styles/style.css";
+import ActionList from "../../components/main/ActionList";
+import AppHeader from "../../components/main/AppHeader";
+import ChatInput from "../../components/main/ChatInput";
+import ChatSidebar from "../../components/main/ChatSidebar";
+import ChatWindow from "../../components/main/ChatWindow";
+import DataPreviewModal from "../../components/main/DataPreviewModal";
+import DatasetSidebar from "../../components/main/DatasetSidebar";
+import HistoryModal from "../../components/main/HistoryModal";
 
 export default function MainPage() {
   const [uploaded, setUploaded] = useState(false);
@@ -119,6 +111,17 @@ export default function MainPage() {
     setActiveChatId(newId);
   };
 
+  const handleRenameChat = (chatId, title) => {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+
+    setChats((prev) =>
+      prev.map((chat) =>
+        chat.id === chatId ? { ...chat, title: trimmedTitle } : chat,
+      ),
+    );
+  };
+
   const parseCSV = (text) => {
     const lines = text
       .replace(/\r\n/g, "\n")
@@ -197,7 +200,7 @@ export default function MainPage() {
     setSelectedActions([]);
   };
 
-  // ✅ Download as CSV
+  // âœ… Download as CSV
   const handleDownload = () => {
     if (!tableData.length) return;
     const csvContent = [
@@ -213,33 +216,6 @@ export default function MainPage() {
     URL.revokeObjectURL(url);
   };
 
-  function HistoryModal({ onClose, logs }) {
-    return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-header">
-            <h3>Operations History</h3>
-            <span className="close-btn" onClick={onClose}>
-              ✕
-            </span>
-          </div>
-
-          <div className="history-container">
-            {logs.length === 0 ? (
-              <p className="empty-history">No operations yet.</p>
-            ) : (
-              logs.map((log, index) => (
-                <div key={index} className="history-item">
-                  <p className="history-text">{log.message}</p>
-                  <span className="history-time">{log.time}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
   const handleShowHistory = async () => {
     // Production flow: open modal and try to fetch logs from backend.
     setShowHistory(true);
@@ -272,7 +248,7 @@ export default function MainPage() {
         ...prev,
         {
           sender: "bot",
-          text: "✨ Your data has been automatically cleaned!",
+          text: "âœ¨ Your data has been automatically cleaned!",
           time: new Date().toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
@@ -284,7 +260,7 @@ export default function MainPage() {
     }
   };
 
-  // ✅ Send message
+  // âœ… Send message
   const handleSend = () => {
     if (!inputValue.trim()) return;
 
@@ -350,187 +326,49 @@ export default function MainPage() {
 
   return (
     <div className="container">
-      {/* ── Sidebar ── */}
-      <div className={`chat-sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
-        {/* Always visible — even when collapsed */}
-        <button
-          className="sidebar-toggle"
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        >
-          {sidebarCollapsed ? (
-            <ChevronRight size={16} />
-          ) : (
-            <ChevronLeft size={16} />
-          )}
-        </button>
+      <ChatSidebar
+        sidebarCollapsed={sidebarCollapsed}
+        setSidebarCollapsed={setSidebarCollapsed}
+        handleNewChat={handleNewChat}
+        chats={chats}
+        activeChatId={activeChatId}
+        setActiveChatId={setActiveChatId}
+        handleRenameChat={handleRenameChat}
+      />
 
-        {!sidebarCollapsed && (
-          <>
-            {/* New Chat Button */}
-            <button className="new-chat-btn" onClick={handleNewChat}>
-              <MessageSquare size={16} />
-              New Chat
-            </button>
+      <DatasetSidebar
+        fileInputRef={fileInputRef}
+        handleFileUpload={handleFileUpload}
+        uploaded={uploaded}
+        handleUploadClick={handleUploadClick}
+        uploadError={uploadError}
+        DatasetIcon={DatasetIcon}
+        datasetName={datasetName}
+        rows={rows}
+        columns={columns}
+        setShowPreview={setShowPreview}
+        handleDownload={handleDownload}
+        handleShowHistory={handleShowHistory}
+        handleReset={handleReset}
+        handleAutoClean={handleAutoClean}
+      />
 
-            {/* Chats Label */}
-            <p className="chats-label">CHATS</p>
-
-            <div className="chat-list-container">
-              {/* Chat List */}
-              {chats.map((chat) => (
-                <div
-                  key={chat.id}
-                  onClick={() => setActiveChatId(chat.id)}
-                  className={`chat-item ${chat.id === activeChatId ? "chat-item-active" : ""}`}
-                >
-                  <MessageSquare size={14} />
-                  {chat.title}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="sidebar">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,.json"
-          onChange={handleFileUpload}
-          style={{ display: "none" }}
-        />
-
-        {!uploaded ? (
-          <div className="uploadBox">
-            <p>Upload your dataset to get started</p>
-            <button onClick={handleUploadClick}>
-              <Upload size={16} /> Upload Dataset
-            </button>
-            {uploadError && <p className="uploadError">{uploadError}</p>}
-          </div>
-        ) : (
-          <div className="datasetInfo">
-            <div className="datasetCard">
-              <h3>
-                <DatasetIcon size={18} />
-                {datasetName}
-              </h3>
-              <p>
-                <Rows3 size={15} /> Rows: {rows}
-              </p>
-              <p>
-                <Columns3 size={15} /> Columns: {columns}
-              </p>
-            </div>
-
-            <button onClick={() => setShowPreview(true)}>
-              <Eye size={16} /> Preview Data
-            </button>
-
-            <button onClick={handleDownload}>
-              <Download size={16} /> Download Cleaned Data
-            </button>
-
-            <button onClick={handleShowHistory}>
-              <Rows3 size={16} /> Cleaning History
-            </button>
-            <button onClick={handleReset} className="reset">
-              <X size={16} /> Reset Data
-            </button>
-
-            <div className="autoSection">
-              <button className="autoCleanBtn" onClick={handleAutoClean}>
-                <Bot size={16} /> Automatic Data Cleaning 🪄
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── Main ── */}
       <div className="main">
-        <div className="header">
-          <div className="header-brand">
-            <div className="header-icon">
-              <Database size={22} />
-            </div>
-            <div>
-              <h2>AutoPrepAI</h2>
-              <p>AI-Powered Data Cleaning & Preparation</p>
-            </div>
-          </div>
-
-          <button onClick={() => navigate("/login")}>Login</button>
-        </div>
-
-        <div className="chat">
-          {activeChat?.messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`message-row ${msg.sender === "user" ? "row-user" : "row-bot"}`}
-            >
-              {/* Bot avatar — left */}
-              {msg.sender === "bot" && (
-                <div className="avatar avatar-bot">
-                  <Bot size={16} />
-                </div>
-              )}
-
-              {/* Bubble */}
-              <div
-                className={`message ${msg.sender === "user" ? "message-user" : "message-bot"}`}
-              >
-                <p>{msg.text}</p>
-                {msg.list && (
-                  <ul>
-                    {msg.list.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                )}
-                <span className="msg-time">{msg.time}</span>
-              </div>
-
-              {/* User avatar — right */}
-              {msg.sender === "user" && (
-                <div className="avatar avatar-user">
-                  <User size={16} />
-                </div>
-              )}
-            </div>
-          ))}
-          <div ref={chatEndRef} />
-        </div>
-
-        {/* ── Action Pills ── */}
-        <div className="actions">
-          {actions.map((action) => (
-            <div
-              key={action}
-              onClick={() => uploaded && toggleAction(action)}
-              className={`action ${selectedActions.includes(action) ? "active" : ""} ${!uploaded ? "disabled" : ""}`}
-            >
-              {action}
-            </div>
-          ))}
-        </div>
-
-        {/* ── Input ── */}
-        <div className="inputArea">
-          <input
-            placeholder="Ask me about your data..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          />
-          <button onClick={handleSend} disabled={!inputValue.trim()}>
-            Send
-          </button>
-        </div>
+        <AppHeader onLoginClick={() => navigate("/login")} />
+        <ChatWindow activeChat={activeChat} chatEndRef={chatEndRef} />
+        <ActionList
+          actions={actions}
+          uploaded={uploaded}
+          selectedActions={selectedActions}
+          toggleAction={toggleAction}
+        />
+        <ChatInput
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          handleSend={handleSend}
+        />
       </div>
 
-      {/* ── Modal ── */}
       {showPreview && (
         <DataPreviewModal
           onClose={() => setShowPreview(false)}
@@ -545,58 +383,6 @@ export default function MainPage() {
           logs={historyLogs}
         />
       )}
-    </div>
-  );
-}
-
-/* ─── Modal Component ───────────────────────────────── */
-function DataPreviewModal({ onClose, data, headers, datasetName }) {
-  const visibleRows = data.slice(0, 50);
-
-  return (
-    // ✅ Close on outside click
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Preview: {datasetName}</h3>
-          <span className="close-btn" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                {headers.map((h, i) => (
-                  <th key={i}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visibleRows.map((row, index) => (
-                <tr key={index}>
-                  <td>{index + 1}</td>
-                  {headers.map((h, i) => (
-                    <td key={i}>
-                      {row[h] === "" ? (
-                        <span className="missing">missing</span>
-                      ) : (
-                        row[h]
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="table-footer">
-          Showing 1–{visibleRows.length} of {data.length} rows
-        </div>
-      </div>
     </div>
   );
 }

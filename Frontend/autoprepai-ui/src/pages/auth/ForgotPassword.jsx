@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Database } from "lucide-react";
-import "./Auth.css";
+import "../../styles/Auth.css";
 
 function ForgotPassword() {
   const navigate = useNavigate();

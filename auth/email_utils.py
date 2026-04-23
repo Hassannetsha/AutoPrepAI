@@ -1,4 +1,5 @@
 import smtplib
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -7,6 +8,7 @@ SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 EMAIL_ADDRESS = "1243hassan@gmail.com"
 EMAIL_PASSWORD = "duqkeoraqfukoypj"  # NOT your real password
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 def send_welcome_email(to_email: str, first_name: str, last_name: str):
@@ -46,8 +48,7 @@ Happy building! 🚀
 def send_verification_email(to_email: str, first_name: str, token: str):
     subject = "Verify your AutoPrepAI Account 🚀"
     
-    # Change this to your actual frontend URL in production
-    verification_link = f"http://localhost:8022/auth/verify-email?token={token}"
+    verification_link = f"{FRONTEND_URL}/verify-email?token={token}"
 
     body = f"""
 Hi {first_name},
