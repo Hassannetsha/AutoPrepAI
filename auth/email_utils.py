@@ -77,3 +77,33 @@ This link will expire in 1 hour.
         server.quit()
     except Exception as e:
         print(f"Email sending failed: {e}")
+
+def send_password_reset_email(to_email: str, first_name: str, token: str):
+    subject = "Reset Your AutoPrepAI Password"
+    # Change this port to match where React app is running
+    reset_link = f"http://localhost:3000/reset-password?token={token}"
+
+    body = f"""
+Hi {first_name},
+
+We received a request to reset your password. Click the link below to set a new one:
+{reset_link}
+
+This link will expire in 15 minutes. If you did not request this, please ignore this email.
+
+— AutoPrepAI Team
+"""
+    msg = MIMEMultipart()
+    msg["From"] = EMAIL_ADDRESS
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
+    try:
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+    except Exception as e:
+        print(f"Email sending failed: {e}")

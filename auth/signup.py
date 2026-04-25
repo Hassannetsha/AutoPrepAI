@@ -54,7 +54,9 @@ def verify_email(token: str, db: Session = Depends(get_db)):
         
     if user.is_verified:
         return {"message": "Email is already verified"}
-        
+    
+    now = datetime.now(timezone.utc)
+    user.last_verification_sent = now
     user.is_verified = True
     db.commit()
     
@@ -94,5 +96,4 @@ def resend_verification(request: ResendVerificationRequest, db: Session = Depend
 
     user.last_verification_sent = now
     db.commit()
-
     return {"message": "A new verification link has been sent to your email."}
