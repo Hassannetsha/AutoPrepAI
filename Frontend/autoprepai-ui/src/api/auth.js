@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:8022";
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL || "http://localhost:8022";
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -17,8 +18,15 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    const message = data?.detail || data?.message || "Something went wrong. Please try again.";
-    throw new Error(Array.isArray(message) ? message.map((item) => item.msg).join(" ") : message);
+    const message =
+      data?.detail ||
+      data?.message ||
+      "Something went wrong. Please try again.";
+    throw new Error(
+      Array.isArray(message)
+        ? message.map((item) => item.msg).join(" ")
+        : message,
+    );
   }
 
   return data;
@@ -31,7 +39,13 @@ export function loginUser({ email, password }) {
   });
 }
 
-export function signupUser({ email, password, firstName, lastName, phoneNumber }) {
+export function signupUser({
+  email,
+  password,
+  firstName,
+  lastName,
+  phoneNumber,
+}) {
   return request("/auth/signup", {
     method: "POST",
     body: JSON.stringify({
@@ -55,10 +69,28 @@ export function resendVerificationEmail(email) {
   });
 }
 
+export function forgotPassword({ email }) {
+  return request("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function resetPassword({ token, newPassword }) {
+  return request("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+}
+
 export function storeAuthToken(accessToken) {
   localStorage.setItem("autoprepai_access_token", accessToken);
 }
 
 export function getAuthToken() {
   return localStorage.getItem("autoprepai_access_token");
+}
+
+export function removeAuthToken() { // for logout
+  localStorage.removeItem("autoprepai_access_token");
 }

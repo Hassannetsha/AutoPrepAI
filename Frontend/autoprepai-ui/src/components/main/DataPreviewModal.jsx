@@ -7,7 +7,7 @@ export default function DataPreviewModal({ onClose, data, headers, datasetName }
         <div className="modal-header">
           <h3>Preview: {datasetName}</h3>
           <span className="close-btn" onClick={onClose}>
-            âœ•
+            &times;
           </span>
         </div>
 
@@ -41,7 +41,7 @@ export default function DataPreviewModal({ onClose, data, headers, datasetName }
         </div>
 
         <div className="table-footer">
-          Showing 1â€“{visibleRows.length} of {data.length} rows
+          Showing 1 to {visibleRows.length} of {data.length} rows
         </div>
       </div>
     </div>

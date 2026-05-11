@@ -216,7 +216,7 @@ export default function MainPage() {
     const tempId = Date.now();
     const newChat = {
       id: tempId,
-      title: `Chat ${chats.length + 1}`,
+      title: "New Chat",
       messages: [
         {
           ...INITIAL_BOT_MESSAGE,
@@ -476,12 +476,9 @@ export default function MainPage() {
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
 
-      const logs = response.result?.logs ?? [];
-      const logSummary = logs.length ? logs.join("\n") : "Auto-clean completed successfully.";
-      const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+       const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-      // ✅ Match on either old temp id or new backend id
-      setChats((prev) =>
+       setChats((prev) =>
         prev.map((chat) =>
           chat.id === thisChatId || chat.id === realConvId
             ? {
@@ -490,15 +487,14 @@ export default function MainPage() {
                   ...chat.messages,
                   {
                     sender: "bot",
-                    text: `✨ Auto-clean done!\n\n${logSummary}`,
+                    text: response.assistant_message || "✨ Auto-clean completed successfully.", // use this to get a cleaning message
                     time: botTime,
                     downloadUrl: response.result?.download_url ?? null,
                   },
                 ],
               }
             : chat
-        )
-      );
+        ));
     } catch (error) {
       console.error(error);
       setChatError(error.message);
@@ -615,17 +611,20 @@ export default function MainPage() {
     }
   };
 
-  // ─── Action button click ──────────────────────────────────────────────────────
-  const handleActionClick = async (action) => {
-    const isRemoving = selectedActions.includes(action);
-    const newSelectedActions = isRemoving
-      ? selectedActions.filter((a) => a !== action)
-      : [...selectedActions, action];
-    setSelectedActions(newSelectedActions);
 
-    if (isRemoving || !tableData.length || !headers.length) return;
+  // ─── Action button click (selection only, no API call) ────────────────────────
+  const handleActionClick = (action) => {
+    toggleAction(action); // just toggle, nothing else
+  };
 
-    // ✅ Capture ids before any async/state changes
+  // ─── Apply all selected actions at once ───────────────────────────────────────
+  const handleApplySelected = async () => {
+    if (!selectedActions.length) return;
+    if (!tableData.length || !headers.length) {
+      setChatError("Please upload a dataset first.");
+      return;
+    }
+
     const thisChatId = activeChatId;
     const thisConvId = currentConversationId;
 
@@ -633,6 +632,8 @@ export default function MainPage() {
     setIsLoadingChat(true);
 
     const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const actionLabel = selectedActions.join(", ");
+
     setChats((prev) =>
       prev.map((chat) =>
         chat.id === thisChatId
@@ -640,7 +641,7 @@ export default function MainPage() {
               ...chat,
               messages: [
                 ...chat.messages,
-                { sender: "user", text: `Please ${action}`, time },
+                { sender: "user", text: `Please apply: ${actionLabel}`, time },
               ],
             }
           : chat
@@ -655,9 +656,9 @@ export default function MainPage() {
       const datasetFile = new File([csvContent], datasetName || "data.csv", { type: "text/csv" });
 
       const response = await sendChatMessage({
-        message: `Please ${action.toLowerCase()}`,
+        message: `Please apply: ${actionLabel}`,
         mode: "manual",
-        selectedIntents: [ACTION_TO_INTENT[action]],
+        selectedIntents: selectedActions.map((a) => ACTION_TO_INTENT[a] || a),
         conversationId: thisConvId,
         dataset: datasetFile,
       });
@@ -675,7 +676,7 @@ export default function MainPage() {
                   ...chat.messages,
                   {
                     sender: "bot",
-                    text: response.assistant_message || `✓ ${action} applied`,
+                    text: response.assistant_message || `✓ Applied: ${actionLabel}`,
                     time: botTime,
                     downloadUrl: response.result?.download_url ?? null,
                   },
@@ -692,6 +693,9 @@ export default function MainPage() {
         setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
+
+      setSelectedActions([]); // ✅ clear after successful apply
+
     } catch (error) {
       console.error("Action error:", error);
       setChatError(error.message);
@@ -767,6 +771,8 @@ export default function MainPage() {
           selectedActions={selectedActions}
           toggleAction={toggleAction}
           onActionClick={handleActionClick}
+          onApplySelected={handleApplySelected}   // new
+          isLoading={isLoadingChat}               // new
         />
         {chatError && (
           <div

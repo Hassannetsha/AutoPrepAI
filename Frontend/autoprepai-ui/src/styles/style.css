@@ -248,6 +248,8 @@
   padding: 12px 16px;
   border-top: 1px solid #e5e7eb;
   background: #fafafa;
+  align-items: center;        
+  justify-content: flex-end;
 }
 
 .action {
@@ -273,6 +275,35 @@
   color: white;
   border-color: #2bb3a3;
   box-shadow: 0 3px 10px rgba(43, 179, 163, 0.3);
+}
+
+.actions-left {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;  /* takes all available space, pushes apply btn to the right */
+}
+
+.apply-action {
+  background: linear-gradient(135deg, #2bb3a3, #34c5a8);
+  color: white !important;
+  font-weight: 600;
+  border-color: transparent !important;
+  box-shadow: 0 4px 15px rgba(43, 179, 163, 0.4);
+  animation: tealPulse 2s infinite;
+}
+
+.apply-action:hover {
+  background: linear-gradient(135deg, #249e90, #2bb3a3) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(43, 179, 163, 0.6) !important;
+  transition: all 0.2s ease;
+}
+
+@keyframes tealPulse {
+  0%   { box-shadow: 0 4px 15px rgba(43, 179, 163, 0.4); }
+  50%  { box-shadow: 0 4px 25px rgba(43, 179, 163, 0.75); }
+  100% { box-shadow: 0 4px 15px rgba(43, 179, 163, 0.4); }
 }
 
 /* ─── Input Area ────────────────────────────────────── */

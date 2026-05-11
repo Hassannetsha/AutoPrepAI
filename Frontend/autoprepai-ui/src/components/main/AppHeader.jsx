@@ -1,6 +1,24 @@
+import { useEffect, useState } from "react";
 import { Database } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { getAuthToken, removeAuthToken } from "../../api/auth";
 
 export default function AppHeader({ onLoginClick }) {
+  const [isLoggedIn, setIsLoggedIn] = useState(!!getAuthToken());
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleStorage = () => setIsLoggedIn(!!getAuthToken());
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  function handleLogout() {
+    removeAuthToken();
+    setIsLoggedIn(false);
+    navigate("/login");
+  }
+
   return (
     <div className="header">
       <div className="header-brand">
@@ -13,7 +31,11 @@ export default function AppHeader({ onLoginClick }) {
         </div>
       </div>
 
-      <button onClick={onLoginClick}>Login</button>
+      {!isLoggedIn ? (
+        <button onClick={() => navigate("/login")}>Login</button>
+      ) : (
+        <button onClick={handleLogout}>Logout</button>
+      )}
     </div>
   );
 }
