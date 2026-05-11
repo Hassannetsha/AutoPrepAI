@@ -25,6 +25,36 @@ def ensure_auth_columns():
         )
 
 
+def ensure_conversation_columns():
+    """Ensure conversations table has all required columns."""
+    commands = [
+        "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS title VARCHAR DEFAULT 'New Chat'",
+        "UPDATE conversations SET title = 'New Chat' WHERE title IS NULL",
+        "ALTER TABLE conversations ALTER COLUMN title SET NOT NULL",
+        "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS user_id UUID",
+        "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP",
+        "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL",
+        "ALTER TABLE conversations ALTER COLUMN updated_at SET NOT NULL",
+    ]
+    
+    # Execute each command in its own transaction to avoid aborting on errors
+    for cmd in commands:
+        try:
+            with engine.begin() as connection:
+                connection.execute(text(cmd))
+        except Exception as e:
+            # Log but continue - column might already exist or constraint already in place
+            print(f"Note: {cmd[:50]}... - {type(e).__name__}")
+    
+    # Try to add foreign key constraint in its own transaction
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE conversations ADD CONSTRAINT fk_conversations_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"))
+    except Exception:
+        # Constraint already exists, that's fine
+        pass
+
+
 def get_db():
     db = SessionLocal()
     try:

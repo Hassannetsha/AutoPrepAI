@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight, MessageSquare, Pencil, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, MessageSquare, Pencil, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 export default function ChatSidebar({
@@ -9,6 +9,7 @@ export default function ChatSidebar({
   activeChatId,
   setActiveChatId,
   handleRenameChat,
+  handleDeleteChat,
 }) {
   const [editingChatId, setEditingChatId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -111,6 +112,20 @@ export default function ChatSidebar({
                       >
                         <Pencil size={13} />
                       </button>
+                      {handleDeleteChat && (
+                        <button
+                          className="chat-delete-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (window.confirm(`Delete "${chat.title}"?`)) {
+                              handleDeleteChat(chat.id);
+                            }
+                          }}
+                          aria-label="Delete chat"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </>
                   )}
                 </div>

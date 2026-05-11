@@ -1,5 +1,5 @@
 # ...existing code...
-import streamlit as st
+# import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.impute import SimpleImputer, KNNImputer
@@ -124,80 +124,80 @@ class MissingValuesDemo:
 
         return pd.DataFrame(df_imputed, columns=df.columns)
 
-    def runUI(self):
-        """Streamlit UI entrypoint that calls run(...) and displays results."""
-        st.title("🛠️ AutoPrepAI - Missing Values Handling Demo")
+    # def runUI(self):
+    #     """Streamlit UI entrypoint that calls run(...) and displays results."""
+    #     st.title("🛠️ AutoPrepAI - Missing Values Handling Demo")
 
-        st.write("""
-        This app demonstrates different strategies to handle **missing values** in datasets:  
-        - **Mean Imputation**  
-        - **Median Imputation**  
-        - **Most Frequent Imputation**  
-        - **Constant (Fill with fixed value)**  
-        - **KNN Imputation**
-        """)
+    #     st.write("""
+    #     This app demonstrates different strategies to handle **missing values** in datasets:  
+    #     - **Mean Imputation**  
+    #     - **Median Imputation**  
+    #     - **Most Frequent Imputation**  
+    #     - **Constant (Fill with fixed value)**  
+    #     - **KNN Imputation**
+    #     """)
 
-        example_data = {
-            "Age": [25, 30, np.nan, 22, 28, np.nan],
-            "Salary": [50000, 54000, 58000, np.nan, 60000, 62000],
-            "Department": ["HR", np.nan, "IT", "Finance", np.nan, "IT"]
-        }
-        example_df = pd.DataFrame(example_data)
+    #     example_data = {
+    #         "Age": [25, 30, np.nan, 22, 28, np.nan],
+    #         "Salary": [50000, 54000, 58000, np.nan, 60000, 62000],
+    #         "Department": ["HR", np.nan, "IT", "Finance", np.nan, "IT"]
+    #     }
+    #     example_df = pd.DataFrame(example_data)
 
-        uploaded_file = st.file_uploader("📂 Upload your CSV file", type="csv")
+    #     uploaded_file = st.file_uploader("📂 Upload your CSV file", type="csv")
 
-        if uploaded_file is not None:
-            df = pd.read_csv(uploaded_file)
-            st.success(f"✅ Loaded dataset with {len(df)} rows and {len(df.columns)} columns.")
-        else:
-            st.info("ℹ️ No file uploaded. Using built-in example dataset.")
-            df = example_df
+    #     if uploaded_file is not None:
+    #         df = pd.read_csv(uploaded_file)
+    #         st.success(f"✅ Loaded dataset with {len(df)} rows and {len(df.columns)} columns.")
+    #     else:
+    #         st.info("ℹ️ No file uploaded. Using built-in example dataset.")
+    #         df = example_df
 
-        st.subheader("📑 Data Preview")
-        st.dataframe(df.head())
+    #     st.subheader("📑 Data Preview")
+    #     st.dataframe(df.head())
 
-        st.write("**Missing values per column:**")
-        st.write(df.isna().sum())
+    #     st.write("**Missing values per column:**")
+    #     st.write(df.isna().sum())
 
-        strategy = st.selectbox(
-            "Choose an imputation strategy",
-            ["Mean", "Median", "Most Frequent", "Constant", "KNN (3 Neighbors)"]
-        )
+    #     strategy = st.selectbox(
+    #         "Choose an imputation strategy",
+    #         ["Mean", "Median", "Most Frequent", "Constant", "KNN (3 Neighbors)"]
+    #     )
 
-        fill_value = "missing"
-        if strategy == "Constant":
-            fill_value = st.text_input("Enter constant value for missing data:", "missing")
+    #     fill_value = "missing"
+    #     if strategy == "Constant":
+    #         fill_value = st.text_input("Enter constant value for missing data:", "missing")
 
-        if st.button("Run Imputation"):
-            try:
-                imputed = self.run(df, strategy, fill_value=fill_value)
-                st.subheader("✅ Imputed Data")
-                st.dataframe(imputed.head(20))
+    #     if st.button("Run Imputation"):
+    #         try:
+    #             imputed = self.run(df, strategy, fill_value=fill_value)
+    #             st.subheader("✅ Imputed Data")
+    #             st.dataframe(imputed.head(20))
 
-                st.write("**Missing values after imputation:**")
-                st.write(imputed.isna().sum())
+    #             st.write("**Missing values after imputation:**")
+    #             st.write(imputed.isna().sum())
 
-                csv = imputed.to_csv(index=False).encode("utf-8")
-                st.download_button("💾 Download Imputed CSV", data=csv, file_name="imputed_dataset.csv", mime="text/csv")
-            except Exception as e:
-                st.error(f"Error during imputation: {e}")
+    #             csv = imputed.to_csv(index=False).encode("utf-8")
+    #             st.download_button("💾 Download Imputed CSV", data=csv, file_name="imputed_dataset.csv", mime="text/csv")
+    #         except Exception as e:
+    #             st.error(f"Error during imputation: {e}")
 
 
-if __name__ == "__main__":
-    demo = MissingValuesDemo()
-    # To run UI: `streamlit run missingvalues_demo.py` will execute runUI via Streamlit.
-    # Here, call runUI if executed directly (streamlit will still import and call top-level)
-    try:
-        # detect if running under streamlit by checking for Streamlit runtime env
-        if "streamlit" in __import__("sys").argv[0] or True:
-            demo.runUI()
-    except Exception:
-        # fallback for direct programmatic run: show demonstration of run()
-        df = pd.DataFrame({
-            "A": [1, 2, np.nan, 4],
-            "B": ["x", np.nan, "y", "z"]
-        })
-        print("Original:\n", df)
-        out = demo.run(df, "Mean")
-        print("Imputed:\n", out)
-# ...existing code...
+# if __name__ == "__main__":
+#     demo = MissingValuesDemo()
+#     # To run UI: `streamlit run missingvalues_demo.py` will execute runUI via Streamlit.
+#     # Here, call runUI if executed directly (streamlit will still import and call top-level)
+#     try:
+#         # detect if running under streamlit by checking for Streamlit runtime env
+#         if "streamlit" in __import__("sys").argv[0] or True:
+#             demo.runUI()
+#     except Exception:
+#         # fallback for direct programmatic run: show demonstration of run()
+#         df = pd.DataFrame({
+#             "A": [1, 2, np.nan, 4],
+#             "B": ["x", np.nan, "y", "z"]
+#         })
+#         print("Original:\n", df)
+#         out = demo.run(df, "Mean")
+#         print("Imputed:\n", out)
+# # ...existing code...

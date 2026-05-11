@@ -14,6 +14,64 @@ from backend.schemas import ConversationRenameRequest
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
+@router.get("/")
+def list_conversations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List all conversations for the current user"""
+    conversations = db.query(Conversation).filter(
+        Conversation.user_id == current_user.id
+    ).all()
+    return [
+        {
+            "id": str(conv.id),
+            "title": conv.title,
+            "created_at": conv.created_at,
+            "updated_at": conv.updated_at,
+            "message_count": len(conv.messages) if conv.messages else 0,
+        }
+        for conv in conversations
+    ]
+
+
+@router.get("/{conversation_id}")
+def get_conversation(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get a specific conversation with all its messages"""
+    try:
+        conversation_uuid = uuid.UUID(conversation_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid conversation_id")
+
+    conversation = db.get(Conversation, conversation_uuid)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if conversation.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    return {
+        "id": str(conversation.id),
+        "title": conversation.title,
+        "created_at": conversation.created_at,
+        "updated_at": conversation.updated_at,
+        "messages": [
+            {
+                "id": str(msg.id),
+                "content": msg.content,
+                "sender": msg.role,
+                "created_at": msg.created_at,
+                "payload": msg.payload,
+            }
+            for msg in (conversation.messages or [])
+        ],
+    }
+
+
 @router.delete("/{conversation_id}")
 def delete_conversation(
     conversation_id: str,

@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
-from backend.database import Base, engine, ensure_auth_columns, get_db
+from backend.database import Base, engine, ensure_auth_columns, ensure_conversation_columns, get_db
 from backend.ml_service import MLPipelineService
 from backend.models import Conversation, ConversationMessage, User
 from backend.schemas import ChatResponse, ConversationOut
@@ -28,6 +28,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_auth_columns()
+    ensure_conversation_columns()
     yield
 
 
@@ -64,7 +65,6 @@ app.include_router(conversations.router)
 def health() -> dict:
     return {"status": "ok"}
 
-
 @app.post("/chat", response_model=ChatResponse)
 async def chat(
     message: str | None = Form(default=None),
@@ -96,8 +96,7 @@ async def chat(
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
     else:
-        conversation = Conversation( title="New Chat",
-        user_id=current_user.id)
+        conversation = Conversation(title="New Chat", user_id=current_user.id)
         db.add(conversation)
         db.flush()
 
@@ -107,8 +106,8 @@ async def chat(
     file_bytes = await dataset.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Uploaded dataset is empty")
-    
-    # upload input dataset to B2
+
+    # Upload input dataset to B2
     input_key = f"inputs/{conversation.id}/{int(time.time())}_{dataset.filename}"
     try:
         upload_file_to_b2(
@@ -119,15 +118,63 @@ async def chat(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to upload dataset to storage: {exc}") from exc
 
-    
     try:
         dataset_df = MLPipelineService.dataframe_from_upload(file_bytes, dataset.filename)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to parse dataset: {exc}") from exc
 
+    # ── UPLOAD-ONLY GUARD ──────────────────────────────────────────────────────
+    # When the frontend uploads a file it sends a descriptive sentence like
+    # "I've uploaded a dataset: foo.csv …". This is not a preprocessing command,
+    # so we return early without touching the NLP pipeline.
+    clean_message = (message or "").strip()
+    IS_UPLOAD_MESSAGE = (
+        mode == "chat"  and (
+        not clean_message
+        or clean_message.lower().startswith("i've uploaded a dataset")
+        or clean_message.lower().startswith("i have uploaded a dataset"))
+    )
+
+    if IS_UPLOAD_MESSAGE:
+        upload_result = {
+            "shape": list(dataset_df.shape),
+            "logs": ["Dataset received and ready for processing."],
+            "metadata": {},
+            "data_preview": dataset_df.head(10).to_dict(orient="records"),
+            "output_file": None,
+            "download_url": None,
+        }
+        assistant_message = (
+            f"Dataset loaded successfully! "
+            f"I can see **{dataset_df.shape[0]} rows** and **{dataset_df.shape[1]} columns**. "
+            f"Columns: {', '.join(dataset_df.columns.tolist())}. "
+            f"What would you like me to do with it?"
+        )
+        safe_result = MLPipelineService._to_jsonable(upload_result)  # ← sanitize NaN → None
+
+        db.add(ConversationMessage(
+            conversation_id=conversation.id,
+            role="user",
+            content=clean_message or f"[uploaded: {dataset.filename}]",
+            payload=None,
+        ))
+        db.add(ConversationMessage(
+            conversation_id=conversation.id,
+            role="assistant",
+            content=assistant_message,
+            payload=json.loads(json.dumps(safe_result)),  # ← use sanitized version
+        ))
+        db.commit()
+        return ChatResponse(
+            conversation_id=conversation.id,
+            assistant_message=assistant_message,
+            result=safe_result,  
+        )
+    # ── END UPLOAD-ONLY GUARD ──────────────────────────────────────────────────
+
     try:
         result = MLPipelineService.process_message(
-            user_message=message or "",
+            user_message=clean_message,
             dataset_df=dataset_df,
             mode=mode,
             selected_intents=parsed_selected_intents,
@@ -136,7 +183,6 @@ async def chat(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    # Replace local download URL with a presigned B2 URL (valid for 1 hour)
     output_key = result.get("output_file")
     if output_key:
         try:
@@ -144,26 +190,22 @@ async def chat(
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {exc}") from exc
 
+    assistant_message = result.pop("assistant_message", "Processing completed successfully.")
 
-    assistant_message = "Processing completed successfully."
-    stored_message = (message or "").strip() or f"[{mode}]"
+    stored_message = clean_message or f"[{mode}]"
 
-    db.add(
-        ConversationMessage(
-            conversation_id=conversation.id,
-            role="user",
-            content=stored_message,
-            payload=None,
-        )
-    )
-    db.add(
-        ConversationMessage(
-            conversation_id=conversation.id,
-            role="assistant",
-            content=assistant_message,
-            payload=json.loads(json.dumps(result, default=str)),
-        )
-    )
+    db.add(ConversationMessage(
+        conversation_id=conversation.id,
+        role="user",
+        content=stored_message,
+        payload=None,
+    ))
+    db.add(ConversationMessage(
+        conversation_id=conversation.id,
+        role="assistant",
+        content=assistant_message,
+        payload=json.loads(json.dumps(MLPipelineService._to_jsonable(result))),
+    ))
     db.commit()
 
     return ChatResponse(

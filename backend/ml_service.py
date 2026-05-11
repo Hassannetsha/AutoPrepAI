@@ -10,8 +10,17 @@ import pandas as pd
 from data_context import DataContext
 from pipeline_builder import PipelineBuilder
 
+from pipeline import Pipeline
+
 from backend.b2_service import upload_file_to_b2
 
+_cached_pipeline = None
+
+def _get_pipeline() -> Pipeline:
+    global _cached_pipeline
+    if _cached_pipeline is None:
+        _cached_pipeline = PipelineBuilder.build_default_pipeline()
+    return _cached_pipeline
 
 class MLPipelineService:
     OUTPUT_DIR = Path(__file__).resolve().parents[1] / "output"
@@ -186,6 +195,7 @@ class MLPipelineService:
             raise ValueError("Dataset is required for processing")
 
         normalized_mode = MLPipelineService._normalize_mode(mode)
+        effective_command = (user_message or "").strip()
 
         context = DataContext(
             data=dataset_df.copy(),
@@ -193,26 +203,42 @@ class MLPipelineService:
                 "has_text": True,
                 "has_numeric": True,
                 "has_categorical": True,
+                "user_command": effective_command,  # Store user_command early for NLP agent
             },
         )
-
-        effective_command = (user_message or "").strip() # for chat mode
-        if normalized_mode == "manual":
-            manual_intents = MLPipelineService._clean_manual_intents(selected_intents)
-            if not manual_intents:
-                manual_intents = MLPipelineService.TARGET_INTENTS.copy()
-            context.metadata["nlp_done"] = True
-            context.metadata["intents"] = [(intent,) for intent in manual_intents]
-            effective_command = ""
-        elif normalized_mode == "full_auto":
+        
+        if normalized_mode == "full_auto":
             context.metadata["nlp_done"] = True
             context.metadata["intents"] = [(intent,) for intent in MLPipelineService.FULL_AUTO_INTENTS]
             effective_command = MLPipelineService.AUTO_COMMAND
+        elif normalized_mode == "manual":
+            cleaned = MLPipelineService._clean_manual_intents(selected_intents)
+            if not cleaned:
+                raise ValueError("No valid intents provided for manual mode")
+            context.metadata["nlp_done"] = True
+            context.metadata["intents"] = [(intent,) for intent in cleaned]
+            if not effective_command:
+                effective_command = f"Apply: {', '.join(cleaned)}"
         elif not effective_command:
             raise ValueError("Message cannot be empty in chat mode")
+        
+        # For chat mode: let NLP extract intents from the message
+        # (nlp_done is NOT set, so NLP agent will run)
 
-        pipeline = PipelineBuilder.build_default_pipeline()
+        print(f"[DEBUG] effective_command='{effective_command}'")
+        print(f"[DEBUG] metadata user_command='{context.metadata.get('user_command')}'")
+
+        pipeline = _get_pipeline()
         final_context = pipeline.run(context=context, user_command=effective_command)
+
+        if normalized_mode == "chat":
+            detected_intents = final_context.metadata.get("intents") or []
+            if not detected_intents:
+                raise ValueError(
+                    "No preprocessing intent was detected from your chat message. "
+                    "Please mention a data-cleaning action such as missing values, outliers, duplicates, scaling, or encoding."
+                )
+
         output_file = MLPipelineService.save_processed_dataframe(final_context.data, conversation_id)
 
         result = {
@@ -223,7 +249,9 @@ class MLPipelineService:
             "output_file": output_file,
             "download_url": None,
         }
-        return MLPipelineService._to_jsonable(result)
+        jsonable = MLPipelineService._to_jsonable(result)
+        jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
+        return jsonable
 
     @classmethod
     def save_processed_dataframe(cls, dataframe: pd.DataFrame, conversation_id: str) -> str:
@@ -231,3 +259,89 @@ class MLPipelineService:
         csv_bytes = dataframe.to_csv(index=False).encode("utf-8")
         upload_file_to_b2(csv_bytes, key=filename, content_type="text/csv")
         return filename
+
+    @staticmethod
+    def _build_assistant_message(result: dict) -> str:
+        logs = result.get("logs") or []
+        shape = result.get("shape")
+        intents = result.get("metadata", {}).get("intents") or []
+        # Extract intent names and consolidate related intents into friendly labels
+        intent_names = []
+        seen_groups = set()
+
+        # Map specific intent identifiers to a canonical group
+        intent_groups = {
+            # Outliers
+            "remove_outliers": "outliers",
+            "detect_outliers": "outliers",
+            # Missing values
+            "handle_missing_values": "missing_values",
+            # Duplicates
+            "remove_duplicates": "duplicates",
+            # Encoding
+            "encode_categorical": "encoding",
+            # Scaling
+            "scale_numerical": "scaling",
+            # Feature engineering / suggestion
+            "suggest_features": "feature_engineering",
+            "feature_engineering": "feature_engineering",
+            # Feature selection
+            "select_features": "feature_selection",
+            "feature_selection": "feature_selection",
+            # Data type fixes
+            "fix_data_types": "data_types",
+            "remove_inconsistencies": "data_types",
+            # Spelling / standardization
+            "correct_spelling": "spelling",
+            "standardize_data": "standardization",
+        }
+
+        # Friendly display labels for groups
+        display_labels = {
+            "outliers": "Remove Outliers",
+            "missing_values": "Handle Missing Values",
+            "duplicates": "Remove Duplicates",
+            "encoding": "Encoding",
+            "scaling": "Scaling",
+            "feature_engineering": "Feature Engineering",
+            "feature_selection": "Feature Selection",
+            "data_types": "Data Types",
+            "spelling": "Spelling Correction",
+            "standardization": "Standardization",
+        }
+
+        for intent in intents:
+            name = intent[0] if isinstance(intent, (list, tuple)) and intent else str(intent)
+            if not name:
+                continue
+            name = str(name).strip()
+            if not name or name.lower() == "none":
+                continue
+
+            # canonicalize to lowercase key
+            key = name.lower()
+            group = intent_groups.get(key, key)
+
+            # Only add one representative per group
+            if group in seen_groups:
+                continue
+            seen_groups.add(group)
+
+            # Use friendly label if available, otherwise prettify the raw intent
+            label = display_labels.get(group)
+            if not label:
+                label = key.replace("_", " ").title()
+            intent_names.append(label)
+
+        parts = []
+
+        if intent_names:
+            parts.append(f"✅ Applied: **{', '.join(intent_names)}**.")
+
+        if logs:
+            parts.append("\n".join(f"• {log}" for log in logs))
+
+        if shape:
+            parts.append(f"📊 Dataset now has **{shape[0]} rows** and **{shape[1]} columns**.")
+
+        return "\n\n".join(parts) if parts else "Processing completed successfully."

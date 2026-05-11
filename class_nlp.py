@@ -506,7 +506,6 @@ class NLPService:
             if result.get("other_params"):
                 temp.append(result.get("other_params"))
             intents.append(temp)
-        print(intents)
         return df,intents
     def runUI(self):
         """Public entrypoint that renders the Streamlit app and wires everything."""

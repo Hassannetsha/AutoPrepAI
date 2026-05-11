@@ -24,16 +24,49 @@ class NLPService:
     - Interface Segregation: consumer (new.py) uses only run(); internals are split into helpers.
     - Dependency Inversion: external deps (env, streamlit, dspy) are injected via environment or parameters where practical.
     """
+    
+    _lm = None
+    _pipeline = None
+    _training_data_loaded = False
 
-    def __init__(self, groq_api_key: Optional[str] = None, training_csv: str = "intents_augmented.csv"):
+    def __init__(self, groq_api_key=None, training_csv="intents_augmented.csv"):
         self.training_csv = training_csv
         self.api_key = groq_api_key or os.getenv("GROQ_API_KEY")
-        self.lm = None
-        self.pipeline = None
-        # keep training data in memory for the pipeline
-        self.training_data = None
+        
+        # Initialize shared resources once
+        if NLPService._lm is None:
+            self._init_lm()
+        self.lm = NLPService._lm
+        if NLPService._pipeline is None:
+            self._init_pipeline()
 
-    @st.cache_resource
+    def _init_lm(self):
+        api_key = _key_manager.get_current_key()
+        os.environ["GROQ_API_KEY"] = api_key
+        lm = dspy.LM(
+            model="groq/llama-3.3-70b-versatile",
+            api_key=api_key,
+            max_tokens=1000
+        )
+        dspy.settings.configure(lm=lm)
+        NLPService._lm = lm
+        self.lm = lm
+        print(f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}")
+
+    def _init_pipeline(self):
+        try:
+            training_data = pd.read_csv(self.training_csv)
+        except Exception:
+            training_data = None
+        NLPService._pipeline = self.build_pipeline(training_data)
+
+    def build_pipeline(self, training_data):
+        """No longer uses @st.cache_resource - plain method."""
+        if training_data is not None and len(training_data) > 0:
+            return NLPService.OptimizedIntentPipeline(training_examples=training_data)
+        return NLPService.OptimizedIntentPipeline(training_examples=None)
+
+
     def setup_dspy(_self) -> dspy.LM:
         """Initialize and cache DSPy LM resource with key rotation support."""
         api_key = None
@@ -84,7 +117,6 @@ class NLPService:
                     st.error(f"❌ Setup Error: {e}")
                     st.stop()
 
-    @st.cache_data
     def load_training_data(_self) -> Optional[pd.DataFrame]:
         """Load training CSV if present; cache result."""
         try:
@@ -94,13 +126,6 @@ class NLPService:
             st.sidebar.warning(f"⚠️ Training file '{_self.training_csv}' not found. Using basic mode.")
             return None
         
-    @st.cache_resource
-    def build_pipeline(_self, training_data: Optional[pd.DataFrame]):
-        """Create and cache the pipeline module."""
-        if training_data is not None and len(training_data) > 0:
-            return NLPService.OptimizedIntentPipeline(training_examples=training_data)
-        return NLPService.OptimizedIntentPipeline(training_examples=None)
-
     # ---------- DSPy Signatures ----------
     # Keep these as inner classes for encapsulation but accessible by dspy
     class SplitIntoTasks(dspy.Signature):
@@ -433,14 +458,17 @@ class NLPService:
                     raise
 
         # 2) Load training data (headless: read from disk if not provided)
-        try:
-            training_data = pd.read_csv(self.training_csv)
-        except Exception:
-            training_data = None
-        self.training_data = training_data
+        # try:
+        #     training_data = pd.read_csv(self.training_csv)
+        # except Exception:
+        #     training_data = None
+        # self.training_data = training_data
 
         # 3) Build pipeline
-        self.pipeline = self.build_pipeline(self.training_data)
+        # self.pipeline = self.build_pipeline(self.training_data)
+
+        # Use the class-level cached pipeline instead:
+        self.pipeline = NLPService._pipeline 
 
         # 4) Load dataset columns (if a dataset provided)
         df = None
@@ -464,10 +492,7 @@ class NLPService:
         
         while pipeline_retry < max_pipeline_retries:
             try:
-                if hasattr(self.pipeline, "forward"):
-                    results = self.pipeline.forward(user_command=user_input, dataset_columns=columns_str)
-                else:
-                    results = self.pipeline(user_command=user_input, dataset_columns=columns_str)
+                results = self.pipeline(user_command=user_input, dataset_columns=columns_str)
                 break
                 
             except Exception as e:

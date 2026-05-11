@@ -37,3 +37,5 @@ pip install python-jose
 pip install passlib
 
 pip install boto3
+
+pip install argon2_cffi

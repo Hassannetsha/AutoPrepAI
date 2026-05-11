@@ -1,4 +1,5 @@
 import { Bot, User } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 export default function ChatWindow({ activeChat, chatEndRef }) {
   return (
@@ -17,7 +18,26 @@ export default function ChatWindow({ activeChat, chatEndRef }) {
           <div
             className={`message ${msg.sender === "user" ? "message-user" : "message-bot"}`}
           >
-            <p>{msg.text}</p>
+            {msg.sender === "bot" ? (
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => (
+                    <p style={{ margin: "4px 0", whiteSpace: "pre-wrap" }}>{children}</p>
+                  ),
+                  ul: ({ children }) => (
+                    <ul style={{ paddingLeft: "16px", margin: "4px 0" }}>{children}</ul>
+                  ),
+                  li: ({ children }) => (
+                    <li style={{ margin: "2px 0" }}>{children}</li>
+                  ),
+                }}
+              >
+                {msg.text}
+              </ReactMarkdown>
+            ) : (
+              <p style={{ whiteSpace: "pre-wrap" }}>{msg.text}</p>
+            )}
+
             {msg.list && (
               <ul>
                 {msg.list.map((item, i) => (

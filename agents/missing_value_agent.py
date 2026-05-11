@@ -12,11 +12,20 @@ class MissingValueAgent(PipelineAgent):
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
         # Get columns from resolver params
         columns = params.columns or []
-        
-        # Get strategy from params (default to "mean")
-        strategy = params.strategy or params.get_option("strategy", "mean")
-        
-        # If user didn't specify strategy, default to mean
+        strategy = params.strategy
+    
+        # Fallback: read method directly from the raw intent in metadata
+        for intent in context.metadata.get("intents", []):
+            if isinstance(intent, (list, tuple)) and len(intent) > 0:
+                if intent[0] == "handle_missing_values":
+                    if len(intent) > 2 and isinstance(intent[2], str):
+                        strategy = intent[2]
+                    break
+                    
+        print(f"MissingValueAgent: strategy={strategy}, columns={columns}")
+        print(context)
+
+        # Final default
         if not strategy or not isinstance(strategy, str):
             strategy = "mean"
         

@@ -74,7 +74,7 @@ export default function DatasetSidebar({
 
           <div className="autoSection">
             <button className="autoCleanBtn" onClick={handleAutoClean}>
-              <Bot size={16} /> Automatic Data Cleaning ðŸª„
+              <Bot size={16} /> Automatic Data Cleaning 
             </button>
           </div>
         </div>
