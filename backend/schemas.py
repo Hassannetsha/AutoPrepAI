@@ -12,7 +12,10 @@ class ChatResponsePayload(BaseModel):
     output_file: str | None = None
     download_url: str | None = None
 
-
+class FeedbackRequest(BaseModel):
+    conversation_id: str
+    accept: bool
+    
 class ChatResponse(BaseModel):
     conversation_id: UUID
     assistant_message: str

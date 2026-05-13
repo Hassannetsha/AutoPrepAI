@@ -27,3 +27,8 @@ class PipelineAgent(ABC):
             Updated DataContext
         """
         pass
+    def get_agent_name(self) -> str:
+        """
+        Return the name of the agent.
+        """
+        return self.name

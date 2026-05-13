@@ -8,19 +8,21 @@ import numpy as np
 import pandas as pd
 
 from data_context import DataContext
+import pipeline
 from pipeline_builder import PipelineBuilder
 
 from pipeline import Pipeline
 
 from backend.b2_service import upload_file_to_b2
+import utilities
 
-_cached_pipeline = None
+# _cached_pipeline = None
 
-def _get_pipeline() -> Pipeline:
-    global _cached_pipeline
-    if _cached_pipeline is None:
-        _cached_pipeline = PipelineBuilder.build_default_pipeline()
-    return _cached_pipeline
+# def _get_pipeline() -> Pipeline:
+#     global _cached_pipeline
+#     if _cached_pipeline is None:
+#         _cached_pipeline = PipelineBuilder.build_default_pipeline()
+#     return _cached_pipeline
 
 class MLPipelineService:
     OUTPUT_DIR = Path(__file__).resolve().parents[1] / "output"
@@ -137,7 +139,11 @@ class MLPipelineService:
             if intent_name and intent_name in cls.ALLOWED_MANUAL_INTENTS and intent_name not in cleaned:
                 cleaned.append(intent_name)
         return cleaned
-
+    @staticmethod
+    def load_dataframe_from_b2(key: str) -> pd.DataFrame:
+        from backend.b2_service import download_file_from_b2
+        raw = download_file_from_b2(key)
+        return pd.read_csv(io.BytesIO(raw))
     @staticmethod
     def _to_jsonable(value):
         if isinstance(value, dict):
@@ -184,17 +190,68 @@ class MLPipelineService:
         return str(value)
 
     @staticmethod
+    def _prepare_full_auto(
+        context: DataContext,
+        effective_command: str,
+    ) -> tuple[DataContext, str]:
+        context.metadata["nlp_done"] = True
+        context.metadata["intents"] = [
+            (intent,) for intent in MLPipelineService.FULL_AUTO_INTENTS
+        ]
+        effective_command = MLPipelineService.AUTO_COMMAND
+        return context, effective_command
+
+
+    @staticmethod
+    def _prepare_manual(
+        context: DataContext,
+        effective_command: str,
+        selected_intents: list[str] | None,
+    ) -> tuple[DataContext, str]:
+        cleaned = MLPipelineService._clean_manual_intents(selected_intents)
+        if not cleaned:
+            raise ValueError("No valid intents provided for manual mode")
+        context.metadata["nlp_done"] = True
+        context.metadata["intents"] = [(intent,) for intent in cleaned]
+        if not effective_command:
+            effective_command = f"Apply: {', '.join(cleaned)}"
+        return context, effective_command
+
+
+    @staticmethod
+    def _prepare_chat(
+        effective_command: str,
+    ) ->  str:
+        # NLP agent will extract intents from the message (nlp_done is NOT set)
+        if not effective_command:
+            raise ValueError("Message cannot be empty in chat mode")
+        return  effective_command
+
+    @staticmethod
+    def session_builder(conversation_id: str) -> dict:
+        return {
+            "pipeline": PipelineBuilder.build_default_pipeline(),
+            "dataset_before": None,
+            "dataset_after": None,
+            "previous_logs": [],
+            "context_metadata": {},
+            "finished": False,
+            "mode": "",
+            "result": None,
+        }
+    @staticmethod
     def process_message(
         user_message: str,
         dataset_df: pd.DataFrame | None = None,
         mode: str = "chat",
         selected_intents: list[str] | None = None,
         conversation_id: str = "",
-    ) -> dict:
+    ) -> tuple[dict, bool]:
+        # ── Shared start ──────────────────────────────────────────────────────────
         if dataset_df is None:
             raise ValueError("Dataset is required for processing")
 
-        normalized_mode = MLPipelineService._normalize_mode(mode)
+        normalized_mode = mode
         effective_command = (user_message or "").strip()
 
         context = DataContext(
@@ -203,56 +260,130 @@ class MLPipelineService:
                 "has_text": True,
                 "has_numeric": True,
                 "has_categorical": True,
-                "user_command": effective_command,  # Store user_command early for NLP agent
+                "user_command": effective_command,
             },
         )
-        
-        if normalized_mode == "full_auto":
-            context.metadata["nlp_done"] = True
-            context.metadata["intents"] = [(intent,) for intent in MLPipelineService.FULL_AUTO_INTENTS]
-            effective_command = MLPipelineService.AUTO_COMMAND
+        session = utilities.sessions.get(conversation_id)
+
+        if session is None:
+            # First call for this conversation — build a fresh pipeline
+            session = MLPipelineService.session_builder(conversation_id)
+        # if session is None:
+        #     # First call for this conversation — build a fresh pipeline
+        #     session = {
+        #         "pipeline": PipelineBuilder.build_default_pipeline(),
+        #         "dataset_before": None,
+        #         "dataset_after": None,
+        #         "previous_logs": [],
+        #         "context_metadata": {},
+        #         "finished": False,
+        #         "mode": normalized_mode,
+        #     }
+        #     utilities.sessions[conversation_id] = session
+        session["dataset_before"] = dataset_df.copy()
+        pipeline = session["pipeline"]
+        print(f"[DEBUG] Loaded pipeline for conversation {conversation_id}: {pipeline},{session['context_metadata']}")
+        # ── Mode-specific heart ───────────────────────────────────────────────────
+        # If NLP already ran in a previous call, skip all prepare steps
+        if session["context_metadata"].get("nlp_done") and not session["finished"]:
+            context = DataContext(
+                data=dataset_df.copy(),
+                metadata=dict(session["context_metadata"]),
+            )
+            final_context, finished = pipeline.run_single_agent(context=context, user_command="")
+            # then fall through to the shared-end block below
+        elif normalized_mode == "full_auto":
+            context, effective_command = MLPipelineService._prepare_full_auto(
+                context, effective_command
+            )
+            final_context = pipeline.run(context=context, user_command=effective_command)
         elif normalized_mode == "manual":
-            cleaned = MLPipelineService._clean_manual_intents(selected_intents)
-            if not cleaned:
-                raise ValueError("No valid intents provided for manual mode")
-            context.metadata["nlp_done"] = True
-            context.metadata["intents"] = [(intent,) for intent in cleaned]
-            if not effective_command:
-                effective_command = f"Apply: {', '.join(cleaned)}"
-        elif not effective_command:
-            raise ValueError("Message cannot be empty in chat mode")
+            context, effective_command = MLPipelineService._prepare_manual(
+                context, effective_command, selected_intents
+            )
+            final_context, finished = pipeline.run_single_agent(context=context, user_command=effective_command)
+            if not finished:
+                session["dataset_after"] = final_context.data.copy()
+                session["context_metadata"] = dict(final_context.metadata)
+                session["finished"] = False
+                session["previous_logs"] = final_context.logs.copy()
+                result = {
+                    "shape": final_context.data.shape,
+                    "logs": session["previous_logs"] + final_context.logs,
+                    "metadata": final_context.metadata,
+                    "data_preview": final_context.data.head(10).to_dict(orient="records"),
+                    "output_file": None,
+                    "download_url": None,
+                }
+                session["result"] = result
+                jsonable = MLPipelineService._to_jsonable(result)
+                jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
+                return jsonable, False
+            
+        else:
+            effective_command = MLPipelineService._prepare_chat(
+                effective_command
+            )
+            print("[DEBUG] Starting chat-mode execution with command:", effective_command)
+            final_context, finished = pipeline.run_single_agent(context=context, user_command=effective_command)
+            final_context, finished = pipeline.run_single_agent(context=final_context, user_command=effective_command)
+            if not finished:
+                result = {
+                    "shape": final_context.data.shape,
+                    "logs": session["previous_logs"] + final_context.logs,
+                    "metadata": final_context.metadata,
+                    "data_preview": final_context.data.head(10).to_dict(orient="records"),
+                    "output_file": None,
+                    "download_url": None,
+                }
+                jsonable = MLPipelineService._to_jsonable(result)
+                jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
+                session["dataset_after"] = final_context.data.copy()
+                session["context_metadata"] = dict(final_context.metadata)
+                session["finished"] = False
+                session["previous_logs"] = final_context.logs.copy()
+                session["result"] = result
+                return jsonable,False
+                
+            
+
+        # ── Shared end ────────────────────────────────────────────────────────────
+        # print(f"[DEBUG] effective_command='{effective_command}'")
+        # print(f"[DEBUG] metadata user_command='{context.metadata.get('user_command')}'")
+
         
-        # For chat mode: let NLP extract intents from the message
-        # (nlp_done is NOT set, so NLP agent will run)
-
-        print(f"[DEBUG] effective_command='{effective_command}'")
-        print(f"[DEBUG] metadata user_command='{context.metadata.get('user_command')}'")
-
-        pipeline = _get_pipeline()
-        final_context = pipeline.run(context=context, user_command=effective_command)
+        
 
         if normalized_mode == "chat":
             detected_intents = final_context.metadata.get("intents") or []
             if not detected_intents:
                 raise ValueError(
                     "No preprocessing intent was detected from your chat message. "
-                    "Please mention a data-cleaning action such as missing values, outliers, duplicates, scaling, or encoding."
+                    "Please mention a data-cleaning action such as missing values, "
+                    "outliers, duplicates, scaling, or encoding."
                 )
 
-        output_file = MLPipelineService.save_processed_dataframe(final_context.data, conversation_id)
+        output_file = MLPipelineService.save_processed_dataframe(
+            final_context.data, conversation_id
+        )
 
         result = {
             "shape": final_context.data.shape,
-            "logs": final_context.logs,
+            "logs": session["previous_logs"] + final_context.logs,
             "metadata": final_context.metadata,
             "data_preview": final_context.data.head(10).to_dict(orient="records"),
             "output_file": output_file,
             "download_url": None,
         }
+        session["dataset_after"] = final_context.data.copy()
+        session["context_metadata"] = dict(final_context.metadata)
+        session["finished"] = True
+        session["previous_logs"] = result["logs"].copy()
+        session["output_file"] = output_file
+        session["result"] = result
         jsonable = MLPipelineService._to_jsonable(result)
         jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
-        return jsonable
-
+        return jsonable,True
     @classmethod
     def save_processed_dataframe(cls, dataframe: pd.DataFrame, conversation_id: str) -> str:
         filename = f"processed/{conversation_id}/{uuid.uuid4().hex}.csv"
