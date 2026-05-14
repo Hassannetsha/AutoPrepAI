@@ -12,7 +12,6 @@ class OutliersAgent(PipelineAgent):
         context.log("Handling outliers")
         context.metadata["outliers_handled"] = True
         c = OutliersService(dataframe=context.data)
-        c.run_isolation_forest()
-        cleaned = c.get_cleaned()
+        cleaned = c.process()
         context.data = cleaned
         return context
