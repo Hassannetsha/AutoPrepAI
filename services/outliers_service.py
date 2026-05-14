@@ -1,6 +1,6 @@
 import pandas as pd
 
-from outliers.selectors.strategy_selector import StrategySelector
+from outliers.selectors.strategy_selector import (StrategySelector)
 
 
 class OutliersService:

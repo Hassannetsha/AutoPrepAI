@@ -5,7 +5,11 @@ import pandas as pd
 class OutlierStrategy(ABC):
 
     @abstractmethod
-    def detect(self, df: pd.DataFrame) -> pd.Series:
+    def detect(
+    self,
+    df: pd.DataFrame,
+    target_column: str = None
+    ) -> pd.Series:
         """
         Returns:
             True  -> inlier
