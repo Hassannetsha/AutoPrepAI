@@ -282,7 +282,7 @@ class MLPipelineService:
         #     utilities.sessions[conversation_id] = session
         session["dataset_before"] = dataset_df.copy()
         pipeline = session["pipeline"]
-        print(f"[DEBUG] Loaded pipeline for conversation {conversation_id}: {pipeline},{session['context_metadata']}")
+        # print(f"[DEBUG] Loaded pipeline for conversation {conversation_id}: {pipeline},{session['context_metadata']}")
         # ── Mode-specific heart ───────────────────────────────────────────────────
         # If NLP already ran in a previous call, skip all prepare steps
         if session["context_metadata"].get("nlp_done") and not session["finished"]:
@@ -324,7 +324,7 @@ class MLPipelineService:
             effective_command = MLPipelineService._prepare_chat(
                 effective_command
             )
-            print("[DEBUG] Starting chat-mode execution with command:", effective_command)
+            # print("[DEBUG] Starting chat-mode execution with command:", effective_command)
             final_context, finished = pipeline.run_single_agent(context=context, user_command=effective_command)
             final_context, finished = pipeline.run_single_agent(context=final_context, user_command=effective_command)
             if not finished:
@@ -384,6 +384,15 @@ class MLPipelineService:
         jsonable = MLPipelineService._to_jsonable(result)
         jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
         return jsonable,True
+    @staticmethod
+    def change_output_file(conversation_id: str, dataframe: pd.DataFrame) -> None:
+        session = utilities.sessions.get(conversation_id)
+        if session is None:
+            raise ValueError("Conversation session not found")
+        
+        session["output_file"] = MLPipelineService.save_processed_dataframe(
+            dataframe, conversation_id
+        )
     @classmethod
     def save_processed_dataframe(cls, dataframe: pd.DataFrame, conversation_id: str) -> str:
         filename = f"processed/{conversation_id}/{uuid.uuid4().hex}.csv"

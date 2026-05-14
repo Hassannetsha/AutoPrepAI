@@ -320,18 +320,13 @@ class NLPService:
         
         while retry_count < max_retries:
             try:
-                # Ensure LM is configured
+                # Ensure LM is available
                 if not self.lm:
-                    try:
-                        self.setup_dspy()
-                    except Exception:
-                        # try to configure directly if setup_dspy relied on Streamlit
-                        api_key = _key_manager.get_current_key()
-                        if not api_key:
-                            return "Explanation failed: No API key available."
-                        lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-                        dspy.settings.configure(lm=lm)
-                        self.lm = lm
+                    api_key = _key_manager.get_current_key()
+                    if not api_key:
+                        return "Explanation failed: No API key available."
+                    lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+                    self.lm = lm
 
                 # Prepare JSON strings for metadata fields (shorten if very large)
                 mb = json.dumps(metadata_before or {}, indent=2, default=str)
@@ -345,12 +340,13 @@ class NLPService:
 
                 # Create a ChainOfThought for the ExplainStep signature and call it
                 explain_chain = dspy.ChainOfThought(NLPService.ExplainStep)
-                resp = explain_chain(
-                    step_name=step_name,
-                    task=task or "",
-                    metadata_before=mb,
-                    metadata_after=ma,
-                )
+                with dspy.context(lm=self.lm):
+                    resp = explain_chain(
+                        step_name=step_name,
+                        task=task or "",
+                        metadata_before=mb,
+                        metadata_after=ma,
+                    )
                 # The returned object usually exposes .explanation
                 explanation = getattr(resp, "explanation", None)
                 if not explanation:
@@ -384,7 +380,6 @@ class NLPService:
                         api_key = _key_manager.rotate_key()
                         os.environ["GROQ_API_KEY"] = api_key
                         lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-                        dspy.settings.configure(lm=lm)
                         self.lm = lm
                         retry_count += 1
                         time.sleep(1)  # Brief delay before retry
@@ -436,7 +431,6 @@ class NLPService:
                 api_key = _key_manager.get_current_key()
                 os.environ["GROQ_API_KEY"] = api_key
                 lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-                dspy.settings.configure(lm=lm)
                 self.lm = lm
                 
                 print(f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}")
@@ -492,7 +486,8 @@ class NLPService:
         
         while pipeline_retry < max_pipeline_retries:
             try:
-                results = self.pipeline(user_command=user_input, dataset_columns=columns_str)
+                with dspy.context(lm=self.lm):
+                    results = self.pipeline(user_command=user_input, dataset_columns=columns_str)
                 break
                 
             except Exception as e:
@@ -504,7 +499,6 @@ class NLPService:
                         api_key = _key_manager.rotate_key()
                         os.environ["GROQ_API_KEY"] = api_key
                         lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-                        dspy.settings.configure(lm=lm)
                         self.lm = lm
                         # Rebuild pipeline with new key
                         self.pipeline = self.build_pipeline(self.training_data)
