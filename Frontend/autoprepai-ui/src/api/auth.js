@@ -42,15 +42,18 @@ export function loginUser({ email, password }) {
 export function signupUser({
   email,
   password,
+  confirmPassword,
   firstName,
   lastName,
   phoneNumber,
+  
 }) {
   return request("/auth/signup", {
     method: "POST",
     body: JSON.stringify({
       email,
       password,
+      confirm_password: confirmPassword,
       first_name: firstName,
       last_name: lastName,
       phone_number: phoneNumber || null,
