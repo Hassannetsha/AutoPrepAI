@@ -23,6 +23,8 @@ class FeatureSelectionService:
         - threshold: threshold to pass to SelectFromModel (e.g., 'median', 'mean')
         - n_features: if provided, select top-n by feature importance instead of threshold
         """
+        df = df.reset_index(drop=True)
+
         if target_col not in df.columns:
             raise ValueError(f"target_col '{target_col}' not found in DataFrame columns")
 
@@ -43,7 +45,13 @@ class FeatureSelectionService:
             selected = list(X_encoded.columns[selector.get_support()])
 
         # Build the pruned DataFrame (include selected features and the target column)
-        result_df = pd.concat([X_encoded[selected], df[[target_col]].reset_index(drop=True)], axis=1)
+        result_df = pd.concat(
+            [
+                X_encoded[selected].reset_index(drop=True),
+                df[[target_col]].reset_index(drop=True),
+            ],
+            axis=1,
+        )
         return selected, result_df
 
     def run(self, df: pd.DataFrame, columns: Optional[List] = None, threshold: Optional[str] = None, n_features: Optional[int] = None, metadata: Optional[dict] = None) -> Tuple[List[str], pd.DataFrame]:
@@ -100,4 +108,3 @@ if __name__ == "__main__":
     engine = FeatureSelectionService()
     res = engine.run(df, columns=[f"target={target}"])
     print(res)
-    

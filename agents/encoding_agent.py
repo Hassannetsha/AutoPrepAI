@@ -10,12 +10,20 @@ class EncodingAgent(PipelineAgent):
         super().__init__("Encoder")
 
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        context.data = context.data.reset_index(drop=True)
         context.log("Encoding categorical features")
 
         columns = params.columns or []
 
-        method = columns[1].lower() if len(columns) > 1 else "onehot"
+        known_methods = {"onehot", "label", "target"}
+        method = params.strategy.lower() if params.strategy else "onehot"
+        if len(columns) > 1 and isinstance(columns[1], str) and columns[1].lower() in known_methods:
+            method = columns[1].lower()
         cols_to_encode = self._parse_columns(columns, context)
+        cols_to_encode = [col for col in cols_to_encode if col in context.data.columns]
+        if not cols_to_encode:
+            context.log("No categorical columns available to encode")
+            return context
 
         try:
             encoder = EncoderFactory.get_encoder(method)

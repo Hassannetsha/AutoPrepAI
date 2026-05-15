@@ -61,20 +61,40 @@ class PipelineBuilder:
         # 3. Spelling Corrector
         spelling_node = PipelineNode(
             agent=SpellingCorrectorAgent(),
-            condition=IntentBasedCondition(["correct_spelling"], operator="any"),
-            resolver=IntentColumnResolver(["correct_spelling"], "")
+            condition=IntentBasedCondition(
+                ["correct_spelling", "remove_inconsistencies"],
+                operator="any"
+            ),
+            resolver=IntentColumnResolver(
+                ["correct_spelling", "remove_inconsistencies"],
+                ""
+            )
         )
         nodes.append(spelling_node)
         
         # 4. Data Standardizer
         standardizer_node = PipelineNode(
             agent=DataStandardizerAgent(),
-            condition=IntentBasedCondition(["standardize_data"], operator="any"),
-            resolver=IntentColumnResolver(["standardize_data"], "")
+            condition=IntentBasedCondition(
+                ["standardize_data", "remove_inconsistencies"],
+                operator="any"
+            ),
+            resolver=IntentColumnResolver(
+                ["standardize_data", "remove_inconsistencies"],
+                ""
+            )
         )
         nodes.append(standardizer_node)
         
-        # 5. Duplicate Remover
+        # 5. Missing Value Handler
+        missing_node = PipelineNode(
+            agent=MissingValueAgent(),
+            condition=IntentBasedCondition(["handle_missing_values"], operator="any"),
+            resolver=IntentColumnResolver(["handle_missing_values"], "mean")
+        )
+        nodes.append(missing_node)
+
+        # 6. Duplicate Remover
         duplicate_node = PipelineNode(
             agent=DuplicateRemoverAgent(),
             condition=IntentBasedCondition(["remove_duplicates"], operator="any"),
@@ -82,7 +102,7 @@ class PipelineBuilder:
         )
         nodes.append(duplicate_node)
         
-        # 6. Outlier Remover
+        # 7. Outlier Remover
         outlier_node = PipelineNode(
             agent=OutliersAgent(),
             condition=IntentBasedCondition(
@@ -92,14 +112,6 @@ class PipelineBuilder:
             resolver=IntentColumnResolver(["remove_outliers", "detect_outliers"], "")
         )
         nodes.append(outlier_node)
-        
-        # 7. Missing Value Handler
-        missing_node = PipelineNode(
-            agent=MissingValueAgent(),
-            condition=IntentBasedCondition(["handle_missing_values"], operator="any"),
-            resolver=IntentColumnResolver(["handle_missing_values"], "mean")
-        )
-        nodes.append(missing_node)
         
         # 8. Feature Engineering
         feature_eng_node = PipelineNode(
@@ -162,8 +174,8 @@ class PipelineBuilder:
         all_agents = {
             "nlp": (NLPAgent(), ["always"], []),
             "datatype": (DataTypeInconsistencyAgent(), ["fix_data_types", "remove_inconsistencies"], ["fix_data_types", "remove_inconsistencies"]),
-            "spelling": (SpellingCorrectorAgent(), ["correct_spelling"], ["correct_spelling"]),
-            "standardizer": (DataStandardizerAgent(), ["standardize_data"], ["standardize_data"]),
+            "spelling": (SpellingCorrectorAgent(), ["correct_spelling", "remove_inconsistencies"], ["correct_spelling", "remove_inconsistencies"]),
+            "standardizer": (DataStandardizerAgent(), ["standardize_data", "remove_inconsistencies"], ["standardize_data", "remove_inconsistencies"]),
             "duplicate": (DuplicateRemoverAgent(), ["remove_duplicates"], ["remove_duplicates"]),
             "outlier": (OutliersAgent(), ["remove_outliers", "detect_outliers"], ["remove_outliers", "detect_outliers"]),
             "missing": (MissingValueAgent(), ["handle_missing_values"], ["handle_missing_values"]),

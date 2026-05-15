@@ -64,6 +64,8 @@ class ExactDuplicateRemoverService:
         """
         Removes duplicates and provides a detailed report of the findings.
         """
+        df = df.reset_index(drop=True)
+
         if df.empty:
             if verbose: print("DataFrame is empty. No duplicates to remove.")
             return df.copy(), pd.DataFrame()
@@ -124,6 +126,7 @@ class ExactDuplicateRemoverService:
         cols_to_check = [col for col in (self.subset or df.columns) if col not in columns_to_exclude]
         if not cols_to_check: return pd.DataFrame()
 
+        df = df.reset_index(drop=True)
         df_with_groups = df.copy()
         df_with_groups['duplicate_group'] = df_with_groups.groupby(cols_to_check, dropna=False).ngroup()
         

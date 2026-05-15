@@ -7,11 +7,20 @@ Smoke-test for DataStandardizingService with UCI Adult dataset
 
 import os
 import json
+import sys
+from pathlib import Path
 import pandas as pd
 import numpy as np
 
 from groq import Groq
-from data_standardizing_service import DataStandardizingService, ValidationLayer
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from api_key_manager import get_key_manager
+from data_standardization.data_standardizing_service import DataStandardizingService
+from data_standardization.validation_layer import ValidationLayer
 
 
 # ── 1. Load dataset ───────────────────────────────────────────────────────────
@@ -204,51 +213,104 @@ GROUND_TRUTH = build_ground_truth(seed_occupations)
 
 # ── 4. Run pipeline ───────────────────────────────────────────────────────────
 
-api_key = "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"
+api_key = os.getenv("GROQ_API_KEY") or get_key_manager().get_current_key()
 if not api_key:
     raise EnvironmentError("Set GROQ_API_KEY environment variable.")
 
 client = Groq(api_key=api_key)
 
-service = DataStandardizingService(
-    df=df,
-    client=client,
-    model="openai/gpt-oss-120b",
-    confidence_threshold=0.75,
-    validation_layer=vl,
-)
+DELTAS = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+# DELTAS = [0.5]
+DETECTION_COLUMNS = ["age", "sex", "occupation", "income", "native_country"]
+NORMALIZATION_COLUMNS = ["sex", "occupation", "income", "native_country"]
 
-print("=== Running Detection ===")
-service.run_detection(columns=["age", "sex", "occupation", "income", "native_country"])
 
-print("\n=== Applying Categorical Fixes ===")
-service.apply_categorical_fixes(apply_invalid=True)
+def run_evaluation(delta: float) -> dict:
+    print("\n" + "=" * 80)
+    print(f"RUNNING UCI ADULT EVALUATION WITH delta={delta}")
+    print("=" * 80)
 
-print("\n=== Applying LLM Normalization ===")
-service.apply_llm_normalization(
-    columns=["sex", "occupation", "income", "native_country"]
-)
+    service = DataStandardizingService(
+        df=df.copy(),
+        client=client,
+        model="openai/gpt-oss-120b",
+        confidence_threshold=delta,
+        validation_layer=vl,
+    )
 
-print("\n=== Cleaned sample ===")
-print(service.df[["sex", "occupation", "income", "native_country", "age"]].head(15).to_string(index=False))
+    print("=== Running Standardization ===")
+    service.standardize(
+        numeric_columns=["age"],
+        categorical_columns=NORMALIZATION_COLUMNS,
+    )
 
-service.summary()
+    print("\n=== Cleaned sample ===")
+    print(
+        service.df[["sex", "occupation", "income", "native_country", "age"]]
+        .head(15)
+        .to_string(index=False)
+    )
 
-print("\n=== Evaluation ===")
-eval_results = service.evaluate(GROUND_TRUTH)
+    service.summary()
 
-output = {
-    "dataset": "UCI Adult",
-    "sample_size": len(df),
-    "cleaned_df_sample": service.df[
-        ["sex", "occupation", "income", "native_country", "age"]
-    ].head(15).to_dict(orient="records"),
-    "detection_results": service.results["categorical"],
-    "numeric_invalid": service.results["numeric_invalid"],
-    "evaluation": eval_results,
-}
+    print("\n=== Evaluation ===")
+    eval_results = service.evaluate(GROUND_TRUTH)
 
-with open("uci_adult_standardizing_results.json", "w", encoding="utf-8") as f:
-    json.dump(output, f, indent=2, ensure_ascii=False, default=str)
+    return {
+        "delta": delta,
+        "dataset": "UCI Adult",
+        "sample_size": len(df),
+        "cleaned_df_sample": service.df[
+            ["sex", "occupation", "income", "native_country", "age"]
+        ].head(15).to_dict(orient="records"),
+        "detection_results": service.results["standardization"],
+        "numeric_invalid": service.results["numeric_issues"],
+        "llm_normalization": service.results.get("llm_normalization", {}),
+        "validation_log": service.results["validation_log"],
+        "evaluation": eval_results,
+    }
 
-print("\nSaved results.")
+
+all_outputs = []
+sensitivity_results = []
+
+for delta in DELTAS:
+    output = run_evaluation(delta)
+    all_outputs.append(output)
+
+    overall = output["evaluation"]["overall"]
+    sensitivity_results.append(
+        {
+            "delta": delta,
+            "precision": overall["precision"],
+            "recall": overall["recall"],
+            "f1": overall["f1"],
+            "fallback_rate": overall["fallback_rate"],
+            "total_evaluated": overall["total_evaluated"],
+        }
+    )
+
+sensitivity_df = pd.DataFrame(sensitivity_results)
+
+print("\n=== THRESHOLD SENSITIVITY SUMMARY ===")
+print(sensitivity_df.to_string(index=False))
+
+with open("uci_adult_threshold_sensitivity.json", "w", encoding="utf-8") as f:
+    json.dump(
+        {
+            "dataset": "UCI Adult",
+            "deltas": DELTAS,
+            "sensitivity": sensitivity_results,
+            "runs": all_outputs,
+        },
+        f,
+        indent=2,
+        ensure_ascii=False,
+        default=str,
+    )
+
+sensitivity_df.to_csv("uci_adult_threshold_sensitivity.csv", index=False)
+
+print("\nSaved threshold sensitivity results:")
+print("- uci_adult_threshold_sensitivity.json")
+print("- uci_adult_threshold_sensitivity.csv")

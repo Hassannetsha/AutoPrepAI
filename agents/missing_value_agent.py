@@ -163,6 +163,7 @@ class MissingValueAgent(PipelineAgent):
         context: DataContext,
         params: AgentParams
     ) -> DataContext:
+        context.data = context.data.reset_index(drop=True)
 
         columns = params.columns or []
         strategy = params.strategy

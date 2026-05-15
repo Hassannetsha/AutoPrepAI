@@ -87,6 +87,7 @@ class SemanticDuplicateRemoverService:
     def remove_duplicates(
         self, df: pd.DataFrame, text_column: str
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        df = df.reset_index(drop=True)
         print("Encoding texts...")
         embeddings = self._encode(df[text_column].tolist())
         print("Finding semantic duplicates...")
@@ -193,6 +194,7 @@ class SemanticDuplicateRemoverService:
         Returns:
             (deduplicated DataFrame, duplicate-pairs DataFrame)
         """
+        df = df.reset_index(drop=True)
         print(f"Combining columns for multi-column matching: {text_columns}")
         combined_texts = self._combine_columns(df, text_columns)
 

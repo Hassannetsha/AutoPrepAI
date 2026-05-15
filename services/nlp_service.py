@@ -157,7 +157,7 @@ class NLPService:
         - feature_engineering / suggest_features: Suggest and/or apply new derived features
         """
         task = dspy.InputField(desc="A single preprocessing task description")
-        intent = dspy.OutputField(desc="The intent category (must be one of: handle_missing_values, detect_outliers, keep_outliers, remove_duplicates, encode_categorical, feature_selection)")
+        intent = dspy.OutputField(desc="The intent category (must be one of: handle_missing_values, detect_outliers, remove_outliers, keep_outliers, remove_duplicates, encode_categorical, feature_selection, select_features, fix_data_types, remove_inconsistencies, correct_spelling, standardize_data, scale_numerical, feature_engineering, suggest_features)")
         confidence = dspy.OutputField(desc="Confidence score between 0.0 and 1.0")
         reasoning = dspy.OutputField(desc="Brief explanation for the classification")
 
