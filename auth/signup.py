@@ -6,19 +6,39 @@ from backend.models import User
 from auth.utils import create_verification_token, decode_verification_token, hash_password
 from auth.schemas import UserSignup, ResendVerificationRequest
 from auth.email_utils import send_verification_email, send_welcome_email
+import re
 
 router = APIRouter()
-
+PASSWORD_REGEX = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#_-])[A-Za-z\d@$!%*?&.#_-]{8,}$"
 @router.post("/signup")
 def signup(user_data: UserSignup, db: Session = Depends(get_db)):
     email = user_data.email
     password = user_data.password
+    confirm_password = user_data.confirm_password
     first_name = user_data.first_name
     last_name = user_data.last_name
     phone_number=user_data.phone_number
     existing_user = db.query(User).filter(User.email == email).first()
+    existing_phone = db.query(User).filter(User.phone_number == phone_number).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
+    
+    if existing_phone:
+        raise HTTPException(status_code=400, detail="Phone number already registered")
+    
+    if not re.match(PASSWORD_REGEX, password):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Password must be at least 8 characters long, "
+                "contain at least one uppercase letter, "
+                "one lowercase letter, "
+                "one number, "
+                "and one special character (@$!%*?&.#_-)."
+            )
+        )
+    if password != confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
 
     user = User(
         email=email,

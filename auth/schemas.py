@@ -7,6 +7,7 @@ class UserLogin(BaseModel):
 class UserSignup(BaseModel):
     email: EmailStr
     password: str
+    confirm_password: str
     first_name: str = Field(min_length=2, max_length=50)
     last_name: str = Field(min_length=2, max_length=50)
 
