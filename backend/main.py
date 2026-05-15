@@ -249,9 +249,11 @@ async def chat_feedback(
 
     if body.accept:
         dataset_df = session["dataset_after"].copy()
+        # print(f"dataset_df before reverting: {dataset_df.head()}")
         session["previous_logs"].append(f"[System] User ACCEPTED changes from: {step_executed}")
     else:
         dataset_df = session["dataset_before"].copy()
+        # print(f"dataset_df before reverting: {dataset_df.head()}")
         session["previous_logs"].append(f"[System] User REJECTED changes from: {step_executed}. Reverting data.")
 
 
@@ -267,9 +269,13 @@ async def chat_feedback(
     else:
         result = session["result"]
         result["logs"] = session["previous_logs"].copy()
+        result["output_file"] = MLPipelineService.save_processed_dataframe(
+            dataset_df, str(conversation_uuid)
+        )
+        # output_key = 
         utilities.sessions.pop(str(conversation_uuid), None)
         session = utilities.sessions.get(str(conversation_uuid))
-        print(f"Session after pop: {utilities.sessions.get(str(conversation_uuid))}")
+        # print(f"Session after pop: {utilities.sessions.get(str(conversation_uuid))}")
     output_key = result.get("output_file")
     if output_key:
         try:

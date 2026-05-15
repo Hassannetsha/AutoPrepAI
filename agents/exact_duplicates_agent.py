@@ -9,13 +9,21 @@ class ExactDuplicateRemover(PipelineAgent):
         super().__init__("Exact Duplicate Remover")
 
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        context.data = context.data.reset_index(drop=True)
         columns = params.columns or []
         context.log("Removing exact duplicate rows")
         
         try:
+            target_col = context.metadata.get("target_col")
+            subset = columns if columns else None
+            if subset and target_col in context.data.columns and target_col not in subset:
+                # A feature duplicate with a conflicting label is not safe to drop.
+                # Including the target keeps only fully identical supervised rows.
+                subset = [*subset, target_col]
+
             # Initialize exact duplicate remover
             remover = ExactDuplicateRemoverService(
-                subset=columns if columns else None,
+                subset=subset,
                 keep='first',
                 auto_exclude_ids=True
             )

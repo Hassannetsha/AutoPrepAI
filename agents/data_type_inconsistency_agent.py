@@ -9,6 +9,7 @@ class DataTypeInconsistencyAgent(PipelineAgent):
         super().__init__("Data Type Inconsistency Handler")
 
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        context.data = context.data.reset_index(drop=True)
         columns = params.columns or []
         context.log("Detecting and resolving data type inconsistencies")
         

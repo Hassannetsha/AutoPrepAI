@@ -8,6 +8,7 @@ class FeatureSelectionAgent(PipelineAgent):
         super().__init__("Feature Selection")
 
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        context.data = context.data.reset_index(drop=True)
         columns = params.columns or []
         context.log("Selecting features")
         try:

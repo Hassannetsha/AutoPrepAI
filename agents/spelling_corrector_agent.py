@@ -8,6 +8,7 @@ class SpellingCorrectorAgent(PipelineAgent):
         super().__init__("Spelling Corrector")
 
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        context.data = context.data.reset_index(drop=True)
         columns = params.columns or []
         context.log("Correcting spelling errors in categorical columns")
         

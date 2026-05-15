@@ -67,6 +67,7 @@ clean data automatically:
 - resolve inconsistencies,
 - detect and remove outliers,
 - correct spelling in categorical columns,
+- standardize categorical values,
 - engineer features for modeling
 """
 
@@ -76,6 +77,7 @@ Automade = [
     'remove_duplicates',
     'remove_inconsistencies',
     'correct_spelling',
+    'standardize_data',
     'feature_engineering'
 ]
 

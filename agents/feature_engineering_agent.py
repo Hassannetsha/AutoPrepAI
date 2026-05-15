@@ -6,6 +6,7 @@ from api_key_manager import get_key_manager
 from services.feature_engineering_service import FeatureEngineeringService, SuggestFeatures
 
 import dspy 
+import json
 
 class FeatureEngineeringAgent(PipelineAgent):
     def __init__(self):
@@ -20,12 +21,15 @@ class FeatureEngineeringAgent(PipelineAgent):
             dspy.settings.configure(lm=lm)
     
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        context.data = context.data.reset_index(drop=True)
         context.log("Starting feature engineering")
         
         try:
             suggest_predictor = dspy.ChainOfThought(SuggestFeatures)
             
-            dataset_columns = ", ".join(context.data.columns.tolist())
+            target_col = context.metadata.get("target_col")
+            feature_columns = [col for col in context.data.columns.tolist() if col != target_col]
+            dataset_columns = json.dumps(feature_columns)
             sample_rows = context.data.head(5).to_json(orient='records')
             top_n = params.get_option('top_n', '5')
             
@@ -44,11 +48,22 @@ class FeatureEngineeringAgent(PipelineAgent):
             context.log(f"Generated suggestions:\n{suggested_str}")
             
             fe = FeatureEngineeringService()
-            new_df, features_added = fe.engineer(context.data, suggested_str)
+            new_df, features_added, feature_log = fe.engineer(
+                context.data,
+                suggested_str,
+                target_col=target_col,
+            )
             
             context.data = new_df
             context.metadata["features_engineered"] = True
             context.metadata["features_added_count"] = features_added
+            context.metadata["feature_engineering_suggestions"] = suggested_str
+            context.metadata["feature_engineering_log"] = feature_log
+            context.metadata["engineered_columns"] = [
+                item.get("output_column")
+                for item in feature_log
+                if item.get("applied")
+            ]
             context.log(f"Successfully added {features_added} new features")
             
         except Exception as e:

@@ -8,31 +8,57 @@ class SemanticDuplicateRemover(PipelineAgent):
     def __init__(self):
         super().__init__("Semantic Duplicate Remover")
 
+    def _semantic_text_candidates(self, context: DataContext, columns: list[str]) -> list[str]:
+        text_columns = context.data.select_dtypes(include=['object', 'string', 'category']).columns.tolist()
+        requested = [col for col in columns if col in text_columns] if columns else text_columns
+        candidates = []
+
+        for col in requested:
+            values = context.data[col].dropna().astype(str)
+            if values.empty:
+                continue
+
+            avg_length = values.str.len().mean()
+            unique_ratio = values.nunique() / max(1, len(values))
+
+            # Semantic embeddings are useful for free-text/entity text, not compact
+            # category labels like "Male", "Cash", or "Private".
+            if avg_length > 20 and unique_ratio > 0.05:
+                candidates.append(col)
+
+        return candidates
+
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        context.data = context.data.reset_index(drop=True)
         columns = params.columns or []
         context.log("Removing semantic duplicate rows")
         
         try:
             # Check if data is suitable for semantic duplicate detection
-            text_columns = context.data.select_dtypes(include=['object']).columns.tolist()
+            text_columns = context.data.select_dtypes(include=['object', 'string', 'category']).columns.tolist()
             
             if not text_columns:
                 context.log("No text columns found for semantic duplicate detection")
                 return context
             
             # Determine which text column to use
-            # Priority: specified column > column with longest average text > first text column
+            # Priority: specified meaningful text column > longest meaningful text column.
             target_column = None
-            
-            if columns and len(columns) > 0:
-                # Use specified column if it's a text column
-                for col in columns:
-                    if col in text_columns:
-                        target_column = col
-                        break
-            
+
+            candidate_columns = self._semantic_text_candidates(context, columns)
             if not target_column:
-                # Find the text column with longest average text length
+                if candidate_columns:
+                    avg_lengths = {
+                        col: context.data[col].dropna().astype(str).str.len().mean()
+                        for col in candidate_columns
+                    }
+                    target_column = max(avg_lengths, key=avg_lengths.get)
+                elif columns:
+                    context.log("Specified columns are not suitable for semantic duplicate detection")
+                    return context
+
+            if not target_column:
+                # Find the text column with longest average text length.
                 avg_lengths = {}
                 for col in text_columns:
                     avg_lengths[col] = context.data[col].astype(str).str.len().mean()

@@ -17,7 +17,7 @@ class MissingValuesDemo:
         if not isinstance(df, pd.DataFrame):
             raise ValueError("df must be a pandas DataFrame")
 
-        df_imputed = df.copy(deep=True)
+        df_imputed = df.copy(deep=True).reset_index(drop=True)
         numerical_cols = df_imputed.select_dtypes(include=[np.number]).columns.tolist()
         non_numerical = [c for c in df_imputed.columns if c not in numerical_cols]
 

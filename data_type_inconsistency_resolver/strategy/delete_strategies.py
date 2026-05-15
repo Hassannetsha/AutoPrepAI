@@ -25,12 +25,12 @@ class DeleteRowsStrategy(BaseResolutionStrategy):
                 except:
                     return False
             mask = df[column_name].apply(is_numeric)
-            df = df[mask]
+            df = df[mask].reset_index(drop=True)
 
         elif recommended_type == "datetime":
             converted = pd.to_datetime(df[column_name], errors="coerce")
             mask = converted.notna() | df[column_name].isna()
-            df = df[mask]
+            df = df[mask].reset_index(drop=True)
 
         deleted = initial_count - len(df)
         return df, f"✓ Deleted {deleted} rows with inconsistent values in '{column_name}'"

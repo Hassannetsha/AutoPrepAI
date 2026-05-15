@@ -18,7 +18,7 @@ class StandardScalingStrategy(ScalingStrategy):
 
     def scale(self, df, columns=None):
 
-        df_out = df.copy()
+        df_out = df.copy().reset_index(drop=True)
 
         numeric_cols = df_out.select_dtypes(include=['number']).columns.tolist()
 
@@ -41,7 +41,7 @@ class MinMaxScalingStrategy(ScalingStrategy):
 
     def scale(self, df, columns=None):
 
-        df_out = df.copy()
+        df_out = df.copy().reset_index(drop=True)
 
         numeric_cols = df_out.select_dtypes(include=['number']).columns.tolist()
 
@@ -60,7 +60,7 @@ class RobustScalingStrategy(ScalingStrategy):
 
     def scale(self, df, columns=None):
 
-        df_out = df.copy()
+        df_out = df.copy().reset_index(drop=True)
 
         numeric_cols = df_out.select_dtypes(include=['number']).columns.tolist()
 

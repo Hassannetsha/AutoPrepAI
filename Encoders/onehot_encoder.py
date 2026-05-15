@@ -3,4 +3,4 @@ from .base_encoder import BaseEncoder
 
 class OneHotEncoderStrategy(BaseEncoder):
     def encode(self, df: pd.DataFrame, columns: list, **kwargs) -> pd.DataFrame:
-        return pd.get_dummies(df, columns=columns, drop_first=True)
+        return pd.get_dummies(df.reset_index(drop=True), columns=columns, drop_first=True)

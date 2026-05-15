@@ -9,6 +9,7 @@ class DuplicateRemoverAgent(PipelineAgent):
         super().__init__("Duplicate Remover")
 
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        context.data = context.data.reset_index(drop=True)
         context.log("Removing duplicate rows")
         context.metadata["duplicates_removed"] = True
         exact_remover = ExactDuplicateRemover()

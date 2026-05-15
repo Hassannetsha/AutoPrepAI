@@ -13,6 +13,7 @@ class NLPAgent(PipelineAgent):
             NLPAgent._nlp_service = NLPService()
 
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        context.data = context.data.reset_index(drop=True)
         user_command = params.get_option("user_command", context.metadata.get("user_command", ""))
         
         if context.metadata.get("nlp_done"):
