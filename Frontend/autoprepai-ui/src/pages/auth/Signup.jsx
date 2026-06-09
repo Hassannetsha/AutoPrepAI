@@ -50,6 +50,7 @@ function Signup() {
         email: signupEmail,
         phoneNumber: form.phoneNumber.trim(),
         password: form.password,
+        confirmPassword: form.confirmPassword,
       });
 
       setSuccessMessage(data.message || "Account created. Please check your email to verify your account.");
