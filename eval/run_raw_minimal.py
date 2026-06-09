@@ -29,8 +29,7 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
@@ -42,6 +41,18 @@ ALL_RESULTS_PATH = Path("eval/raw_minimal_all_results.json")
 ALL_RESULTS_CSV_PATH = Path("eval/raw_minimal_all_results.csv")
 EXPERIMENT = "raw_minimal"
 
+
+from sklearn.model_selection import StratifiedShuffleSplit
+
+N_RUNS = 30
+
+def repeated_splits(X, y):
+    splitter = StratifiedShuffleSplit(
+        n_splits=N_RUNS,
+        test_size=0.20,
+        random_state=42
+    )
+    return splitter.split(X, y)
 
 def make_one_hot_encoder() -> OneHotEncoder:
     """Create a version-compatible one-hot encoder."""
@@ -60,54 +71,61 @@ def feature_count(preprocessor: ColumnTransformer, numeric_features: list[str]) 
     return count
 
 
-def evaluate_raw_minimal(X: pd.DataFrame, y: pd.Series) -> tuple[dict[str, float], int]:
-    """Split, fit train-only preprocessing, train RandomForest, and score.
+def summarize_scores(scores: list[float], prefix: str) -> dict[str, Any]:
+    return {
+        f"{prefix}_mean": float(np.mean(scores)),
+        f"{prefix}_std": float(np.std(scores)),
+        f"{prefix}_scores": [float(score) for score in scores],
+    }
+
+
+def evaluate_raw_minimal(X: pd.DataFrame, y: pd.Series) -> tuple[dict[str, Any], int]:
+    """Repeatedly split, fit train-only preprocessing, train RandomForest, and score.
 
     The split and RandomForest configuration match the existing evaluation
     scripts. Feature preprocessing is fit only on X_train to avoid train/test
     leakage from imputation or category discovery.
     """
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.20,
-        random_state=42,
-        stratify=y if y.nunique() > 1 else None,
-    )
-
     categorical_features = X.select_dtypes(include=["object", "category"]).columns.tolist()
     numeric_features = [col for col in X.columns if col not in categorical_features]
 
-    transformers = []
-    if numeric_features:
-        transformers.append(("numeric", SimpleImputer(strategy="median"), numeric_features))
-    if categorical_features:
-        categorical_pipeline = Pipeline(
+    accuracy_scores = []
+    f1_weighted_scores = []
+    feature_counts = []
+    for train_idx, test_idx in repeated_splits(X, y):
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+
+        transformers = []
+        if numeric_features:
+            transformers.append(("numeric", SimpleImputer(strategy="median"), numeric_features))
+        if categorical_features:
+            categorical_pipeline = Pipeline(
+                steps=[
+                    ("imputer", SimpleImputer(strategy="most_frequent")),
+                    ("onehot", make_one_hot_encoder()),
+                ]
+            )
+            transformers.append(("categorical", categorical_pipeline, categorical_features))
+
+        preprocessor = ColumnTransformer(transformers=transformers, remainder="drop")
+        model = Pipeline(
             steps=[
-                ("imputer", SimpleImputer(strategy="most_frequent")),
-                ("onehot", make_one_hot_encoder()),
+                ("preprocessor", preprocessor),
+                ("model", RandomForestClassifier(random_state=42, n_jobs=-1)),
             ]
         )
-        transformers.append(("categorical", categorical_pipeline, categorical_features))
+        model.fit(X_train, y_train)
+        preds = model.predict(X_test)
+        accuracy_scores.append(accuracy_score(y_test, preds))
+        f1_weighted_scores.append(f1_score(y_test, preds, average="weighted", zero_division=0))
+        feature_counts.append(feature_count(model.named_steps["preprocessor"], numeric_features))
 
-    preprocessor = ColumnTransformer(transformers=transformers, remainder="drop")
-    model = Pipeline(
-        steps=[
-            ("preprocessor", preprocessor),
-            ("model", RandomForestClassifier(random_state=42)),
-        ]
-    )
-    model.fit(X_train, y_train)
-    preds = model.predict(X_test)
-
-    fitted_preprocessor = model.named_steps["preprocessor"]
     metrics = {
-        "accuracy": accuracy_score(y_test, preds),
-        "precision_weighted": precision_score(y_test, preds, average="weighted", zero_division=0),
-        "recall_weighted": recall_score(y_test, preds, average="weighted", zero_division=0),
-        "f1_weighted": f1_score(y_test, preds, average="weighted", zero_division=0),
+        **summarize_scores(accuracy_scores, "accuracy"),
+        **summarize_scores(f1_weighted_scores, "f1_weighted"),
     }
-    return metrics, feature_count(fitted_preprocessor, numeric_features)
+    return metrics, int(max(feature_counts))
 
 
 def evaluate_dataset(dataset: str, input_path: str, target: str | None = None) -> dict[str, Any]:

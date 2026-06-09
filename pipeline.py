@@ -121,7 +121,7 @@ class Pipeline:
         
         for node in self.agents:
             try:
-                context = self._execute_node(node, context)
+                context, _ = self._execute_node(node, context)
             except Exception as e:
                 error_msg = f"Error executing {node.get_agent_name()}: {e}"
                 self.logger.error(error_msg)

@@ -12,10 +12,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score
 
 
 RESULTS_PATH = Path("eval/autoprepai_results.json")
@@ -24,16 +24,32 @@ ALL_RESULTS_CSV_PATH = Path("eval/autoprepai_all_results.csv")
 
 DATASETS: dict[str, dict[str, Any]] = {
     "adult": {"path": "cleaned_datasets/adult.csv", "targets": ["income", "class"]},
+    "diabetes": {"path": "cleaned_datasets/diabetic_data.csv", "targets": ["readmitted"]},
+    "credit_card": {"path": "cleaned_datasets/creditcard.csv", "targets": ["Class"]},
+    "restaurant": {"path": "cleaned_datasets/restaurant.csv", "targets": ["Price range"]},
     # "titanic": {"path": "cleaned_datasets/titanic.csv", "targets": ["Survived", "survived"]},
     # "german_credit": {
     #     "path": "cleaned_datasets/german_credit.csv",
     #     "targets": ["class", "target", "credit_risk", "Risk", "risk"],
     # },
-    "diabetes": {"path": "cleaned_datasets/diabetic_data.csv", "targets": ["readmitted"]},
     # "breast_cancer": {"path": "cleaned_datasets/breast_cancer.csv", "targets": ["diagnosis", "target", "class"]},
     # "heart": {"path": "cleaned_datasets/heart.csv", "targets": ["target"]},
     # "horse" : {"path": "cleaned_datasets/horse.csv", "targets": ["outcome"]},
 }
+
+
+
+from sklearn.model_selection import StratifiedShuffleSplit
+
+N_RUNS = 30
+
+def repeated_splits(X, y):
+    splitter = StratifiedShuffleSplit(
+        n_splits=N_RUNS,
+        test_size=0.20,
+        random_state=42
+    )
+    return splitter.split(X, y)
 
 
 def resolve_target(df: pd.DataFrame, dataset: str, target: str | None) -> str:
@@ -71,22 +87,29 @@ def encode_target(y: pd.Series) -> pd.Series:
     return pd.Series(codes, index=y.index)
 
 
-def evaluate(X: pd.DataFrame, y: pd.Series) -> dict[str, float]:
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.20,
-        random_state=42,
-        stratify=y if y.nunique() > 1 else None,
-    )
-    model = RandomForestClassifier(random_state=42)
-    model.fit(X_train, y_train)
-    preds = model.predict(X_test)
+def summarize_scores(scores: list[float], prefix: str) -> dict[str, Any]:
     return {
-        "accuracy": accuracy_score(y_test, preds),
-        "precision_weighted": precision_score(y_test, preds, average="weighted", zero_division=0),
-        "recall_weighted": recall_score(y_test, preds, average="weighted", zero_division=0),
-        "f1_weighted": f1_score(y_test, preds, average="weighted", zero_division=0),
+        f"{prefix}_mean": float(np.mean(scores)),
+        f"{prefix}_std": float(np.std(scores)),
+        f"{prefix}_scores": [float(score) for score in scores],
+    }
+
+
+def evaluate(X: pd.DataFrame, y: pd.Series) -> dict[str, Any]:
+    accuracy_scores = []
+    f1_weighted_scores = []
+    for train_idx, test_idx in repeated_splits(X, y):
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+        model = RandomForestClassifier(random_state=42, n_jobs=-1)
+        model.fit(X_train, y_train)
+        preds = model.predict(X_test)
+        accuracy_scores.append(accuracy_score(y_test, preds))
+        f1_weighted_scores.append(f1_score(y_test, preds, average="weighted", zero_division=0))
+
+    return {
+        **summarize_scores(accuracy_scores, "accuracy"),
+        **summarize_scores(f1_weighted_scores, "f1_weighted"),
     }
 
 

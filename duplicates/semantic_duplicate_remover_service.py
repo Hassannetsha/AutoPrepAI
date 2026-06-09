@@ -1,4 +1,5 @@
 import os
+import re
 import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -26,11 +27,13 @@ class SemanticDuplicateRemoverService:
     # ------------------------------------------------------------------ #
 
     def _encode(self, texts: list[str]) -> np.ndarray:
+        unique_texts = list(dict.fromkeys(texts))
+        print(f"Encoding {len(unique_texts)} unique texts for {len(texts)} pairs ...")
         num_workers = max(1, (os.cpu_count() or 1) - 1)
         print(f"Using {num_workers} workers for encoding.")
         with torch.no_grad():
             embeddings = self.model.encode(
-                texts,
+                unique_texts,
                 show_progress_bar=True,
                 convert_to_numpy=True,
                 batch_size=self.batch_size
@@ -49,12 +52,79 @@ class SemanticDuplicateRemoverService:
         index.add(embeddings)
         return index
 
+    # ------------------------------------------------------------------ #
+    #  Discriminative token filter                                         #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _extract_discriminative_tokens(text: str) -> set[str]:
+        """
+        Extract tokens that are likely to distinguish product variants:
+        - Quantities with units (1tb, 32gb, 2048mb, 6ghz, 5400rpm)
+        - Standalone numbers (integers and decimals)
+        - Alphanumeric model identifiers (EOS6D, RX480, T0334)
+
+        These are the tokens that differ between product-line variants
+        (e.g. WD Red 1TB vs WD Red 3TB) causing false positives.
+        """
+        text = text.lower()
+        tokens = set()
+
+        # Quantity tokens: number + unit (1tb, 32gb, 2048mb, 6ghz, 5400rpm etc.)
+        quantity_pattern = r'\d+\.?\d*\s*(?:tb|gb|mb|kb|ghz|mhz|rpm|mp|mm|inch|hz|w|v|mah)'
+        for match in re.findall(quantity_pattern, text):
+            tokens.add(re.sub(r'\s+', '', match))  # normalize "32 gb" → "32gb"
+
+        # Standalone numbers not already captured as part of a quantity
+        number_pattern = r'\b\d+\.?\d*\b'
+        for match in re.findall(number_pattern, text):
+            tokens.add(match)
+
+        # Alphanumeric model identifiers: mixed letters+digits (EOS6D, RX480, T0334)
+        model_pattern = r'\b(?=[a-z]*\d)(?=\d*[a-z])[a-z0-9]{3,}\b'
+        for match in re.findall(model_pattern, text):
+            tokens.add(match)
+
+        return tokens
+
+    @staticmethod
+    def _discriminative_tokens_conflict(text1: str, text2: str) -> bool:
+        """
+        Returns True if the two texts have conflicting discriminative tokens,
+        meaning they are likely product-line variants rather than true duplicates.
+
+        Conflict = at least one discriminative token appears in one title but
+        not the other, AND is not a substring of any token on the other side
+        (to avoid '1' vs '10' being flagged when '10' contains '1').
+        """
+        tokens1 = SemanticDuplicateRemoverService._extract_discriminative_tokens(text1)
+        tokens2 = SemanticDuplicateRemoverService._extract_discriminative_tokens(text2)
+
+        if not tokens1 or not tokens2:
+            return False  # no discriminative tokens found, don't filter
+
+        symmetric_diff = tokens1.symmetric_difference(tokens2)
+
+        for token in symmetric_diff:
+            other_tokens = tokens2 if token in tokens1 else tokens1
+            # Only flag as conflict if the token doesn't appear as substring
+            # in any token on the other side
+            if not any(token in other for other in other_tokens):
+                return True
+
+        return False
+
+    # ------------------------------------------------------------------ #
+    #  Duplicate detection core                                            #
+    # ------------------------------------------------------------------ #
+
     def _find_duplicates(
         self,
         embeddings: np.ndarray,
         df: pd.DataFrame,
         text_column: str,
-        threshold: float | None = None
+        threshold: float | None = None,
+        apply_token_filter: bool = True
     ) -> pd.DataFrame:
         t = threshold if threshold is not None else self.threshold
         index = self._build_faiss_index(embeddings)
@@ -78,10 +148,25 @@ class SemanticDuplicateRemoverService:
         })
         dupes["text_1"] = df.iloc[dupes["query_index_1"].values][text_column].values
         dupes["text_2"] = df.iloc[dupes["query_index_2"].values][text_column].values
+
+        # ── Post-filter: reject product-variant false positives ─────────
+        if apply_token_filter:
+            before = len(dupes)
+            conflict_mask = dupes.apply(
+                lambda row: self._discriminative_tokens_conflict(
+                    str(row["text_1"]), str(row["text_2"])
+                ),
+                axis=1
+            )
+            dupes = dupes[~conflict_mask].reset_index(drop=True)
+            filtered = before - len(dupes)
+            if filtered > 0:
+                print(f"  Token filter rejected {filtered} product-variant false positives.")
+
         return dupes
 
     # ------------------------------------------------------------------ #
-    #  1. Original single-column removal (unchanged)                      #
+    #  1. Single-column removal                                            #
     # ------------------------------------------------------------------ #
 
     def remove_duplicates(
@@ -106,7 +191,7 @@ class SemanticDuplicateRemoverService:
         return df_dedup, dupes_df
 
     # ------------------------------------------------------------------ #
-    #  2. Threshold sensitivity analysis                                  #
+    #  2. Threshold sensitivity analysis                                   #
     # ------------------------------------------------------------------ #
 
     def threshold_sensitivity_analysis(
@@ -116,18 +201,6 @@ class SemanticDuplicateRemoverService:
         ground_truth_pairs: list[tuple[int, int]],
         thresholds: list[float] | None = None
     ) -> pd.DataFrame:
-        """
-        Sweep thresholds and report precision, recall, F1 at each level.
-
-        Args:
-            df: Input DataFrame.
-            text_column: Column containing text to compare.
-            ground_truth_pairs: List of (i, j) index pairs that are TRUE duplicates.
-            thresholds: List of thresholds to evaluate. Defaults to 0.70–0.95.
-
-        Returns:
-            DataFrame with columns [threshold, precision, recall, f1, tp, fp, fn].
-        """
         if thresholds is None:
             thresholds = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95]
 
@@ -166,13 +239,12 @@ class SemanticDuplicateRemoverService:
         return pd.DataFrame(results)
 
     # ------------------------------------------------------------------ #
-    #  3. Multi-column entity matching                                    #
+    #  3. Multi-column entity matching                                     #
     # ------------------------------------------------------------------ #
 
     def _combine_columns(
         self, df: pd.DataFrame, text_columns: list[str]
     ) -> list[str]:
-        """Concatenate multiple text columns with a separator."""
         combined = df[text_columns[0]].astype(str)
         for col in text_columns[1:]:
             combined = combined + " | " + df[col].astype(str)
@@ -183,17 +255,6 @@ class SemanticDuplicateRemoverService:
         df: pd.DataFrame,
         text_columns: list[str]
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        Multi-column semantic duplicate removal via text concatenation.
-
-        Args:
-            df: Input DataFrame.
-            text_columns: List of column names to combine, e.g.
-                          ['product_name', 'description', 'category'].
-
-        Returns:
-            (deduplicated DataFrame, duplicate-pairs DataFrame)
-        """
         df = df.reset_index(drop=True)
         print(f"Combining columns for multi-column matching: {text_columns}")
         combined_texts = self._combine_columns(df, text_columns)
@@ -215,7 +276,7 @@ class SemanticDuplicateRemoverService:
         return df_dedup, dupes_df
 
     # ------------------------------------------------------------------ #
-    #  4. Fuzzy-matching baseline for comparison                          #
+    #  4. Fuzzy-matching baseline                                          #
     # ------------------------------------------------------------------ #
 
     def fuzzy_baseline(
@@ -224,13 +285,6 @@ class SemanticDuplicateRemoverService:
         text_column: str,
         fuzzy_threshold: float = 0.90
     ) -> pd.DataFrame:
-        """
-        Traditional fuzzy string-matching baseline (Levenshtein ratio).
-        O(n²) — use only on small datasets or sampled subsets.
-
-        Returns:
-            DataFrame of detected duplicate pairs with similarity scores.
-        """
         from difflib import SequenceMatcher
 
         texts = df[text_column].tolist()
@@ -250,7 +304,7 @@ class SemanticDuplicateRemoverService:
         return pd.DataFrame(pairs)
 
     # ------------------------------------------------------------------ #
-    #  5. Error analysis                                                  #
+    #  5. Error analysis                                                   #
     # ------------------------------------------------------------------ #
 
     def error_analysis(
@@ -261,13 +315,6 @@ class SemanticDuplicateRemoverService:
         text_column: str,
         n_samples: int = 10
     ) -> dict:
-        """
-        Returns false positives and false negatives for qualitative review.
-
-        Returns:
-            Dict with keys 'false_positives' and 'false_negatives',
-            each a list of dicts with index pairs and their text values.
-        """
         gt_set = {tuple(sorted(p)) for p in ground_truth_pairs}
         predicted_set = {
             tuple(sorted((int(r["query_index_1"]), int(r["query_index_2"]))))
@@ -284,8 +331,8 @@ class SemanticDuplicateRemoverService:
                 })
             return records
 
-        fp_pairs = predicted_set - gt_set   # predicted duplicate but was not
-        fn_pairs = gt_set - predicted_set   # missed real duplicate
+        fp_pairs = predicted_set - gt_set
+        fn_pairs = gt_set - predicted_set
 
         result = {
             "false_positives": pairs_to_records(fp_pairs),
@@ -301,4 +348,4 @@ class SemanticDuplicateRemoverService:
         print("\n=== Error Analysis Summary ===")
         for k, v in result["summary"].items():
             print(f"  {k}: {v}")
-        return result   
+        return result

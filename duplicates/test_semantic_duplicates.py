@@ -1,14 +1,16 @@
 """
 Benchmark evaluation of SemanticDuplicateRemoverService
-using the WDC Product Matching Gold Standard (Computers).
+using WDC product-matching pair datasets.
 
 Usage:
-    python test_semantic_duplicates.py --gs computers_gs.json.gz
-    python test_semantic_duplicates.py --gs computers_gs.json.gz --sample 500
+    python test_semantic_duplicates.py
+    python test_semantic_duplicates.py --gs duplicates/computers_gs.json duplicates/watches_gs.json.gz duplicates/cameras_gs.json.gz duplicates/shoes_gs.json.gz
+    python test_semantic_duplicates.py --sample 500
 """
 
 import argparse
 import os
+import re
 import numpy as np
 import pandas as pd
 from semantic_duplicate_remover_service import SemanticDuplicateRemoverService
@@ -34,9 +36,9 @@ def load_wdc_goldstandard(gs_path: str) -> pd.DataFrame:
         gs_path = resolved
 
     print(f"Loading gold standard: {gs_path}")
-    # Support both plain .json and compressed .json.gz
     compression = "gzip" if gs_path.endswith(".gz") else "infer"
     gs = pd.read_json(gs_path, lines=True, compression=compression)
+    gs["label"] = pd.to_numeric(gs["label"], errors="coerce").fillna(0).astype(int)
 
     print(f"  Total pairs     : {len(gs)}")
     print(f"  Duplicate pairs : {gs['label'].sum()}")
@@ -48,6 +50,20 @@ def load_wdc_goldstandard(gs_path: str) -> pd.DataFrame:
     if "brand_right" in gs.columns: gs["brand_right"] = gs["brand_right"].fillna("").astype(str)
 
     return gs
+
+
+def load_pair_dataset(path: str) -> pd.DataFrame:
+    if os.path.isdir(path) or path.endswith((".json", ".json.gz")):
+        return load_wdc_goldstandard(path)
+    raise ValueError(f"Unsupported WDC dataset format: {path}")
+
+
+def _dataset_slug(path: str) -> str:
+    name = os.path.basename(os.path.normpath(path))
+    if name in {"duplicates", ""}:
+        name = "wdc_gold"
+    name = re.sub(r"\.(json\.gz|json)$", "", name, flags=re.IGNORECASE)
+    return re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_") or "dataset"
 
 
 # ------------------------------------------------------------------ #
@@ -67,6 +83,39 @@ def _metrics(labels, predictions) -> dict:
                 f1=round(f1,3), tp=tp, fp=fp, fn=fn, tn=tn)
 
 
+def encode_paired_texts(
+    left_texts: list[str],
+    right_texts: list[str],
+    service: SemanticDuplicateRemoverService,
+) -> tuple[np.ndarray, np.ndarray]:
+    all_texts = pd.Series(left_texts + right_texts, dtype="string").fillna("").astype(str)
+    unique_texts = all_texts.drop_duplicates().tolist()
+    print(f"Encoding {len(unique_texts)} unique texts for {len(left_texts)} pairs ...")
+
+    embeddings = service._encode(unique_texts)
+    embedding_by_text = dict(zip(unique_texts, embeddings))
+    emb_left  = np.vstack([embedding_by_text[text] for text in left_texts])
+    emb_right = np.vstack([embedding_by_text[text] for text in right_texts])
+    return emb_left, emb_right
+
+
+def build_token_filter_mask(left_texts: list[str], right_texts: list[str]) -> np.ndarray:
+    """
+    Returns a boolean array of length N where True means the pair has
+    conflicting discriminative tokens (product-line variant → not a duplicate).
+    Apply this AFTER the similarity threshold: zero out predictions where
+    conflict=True.
+    """
+    conflict = np.array([
+        SemanticDuplicateRemoverService._discriminative_tokens_conflict(l, r)
+        for l, r in zip(left_texts, right_texts)
+    ])
+    n_conflicts = conflict.sum()
+    if n_conflicts > 0:
+        print(f"  Token filter will suppress {n_conflicts} product-variant pairs.")
+    return conflict
+
+
 # ------------------------------------------------------------------ #
 #  1. Threshold sensitivity  (SBERT, title only)                     #
 # ------------------------------------------------------------------ #
@@ -75,29 +124,60 @@ def sensitivity_analysis(
     gs: pd.DataFrame,
     service: SemanticDuplicateRemoverService,
     thresholds: list[float]
-) -> tuple[pd.DataFrame, np.ndarray]:
-    """Encode pairs once, sweep thresholds, return results + similarities."""
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+    """
+    Encode pairs once, sweep thresholds, return:
+      - results DataFrame
+      - raw similarities
+      - filtered similarities (conflicts zeroed out so they never cross threshold)
+    """
+    emb_left, emb_right = encode_paired_texts(
+        gs["title_left"].tolist(),
+        gs["title_right"].tolist(),
+        service,
+    )
 
-    print("Encoding left titles ...")
-    emb_left  = service._encode(gs["title_left"].tolist())
-    print("Encoding right titles ...")
-    emb_right = service._encode(gs["title_right"].tolist())
-
-    # Cosine similarity (embeddings are already L2-normalised)
     sims   = (emb_left * emb_right).sum(axis=1)
     labels = gs["label"].values
 
-    rows = []
+    # Build conflict mask once for all thresholds
+    conflict_mask = build_token_filter_mask(
+        gs["title_left"].tolist(),
+        gs["title_right"].tolist(),
+    )
+
+    # Filtered sims: set conflicting pairs to 0 so they never exceed any threshold
+    sims_filtered = sims.copy()
+    sims_filtered[conflict_mask] = 0.0
+
+    rows_raw      = []
+    rows_filtered = []
+
     for t in thresholds:
-        preds = (sims >= t).astype(int)
-        m = _metrics(labels, preds)
-        m["threshold"] = t
-        rows.append(m)
-        print(f"  θ={t:.2f} → P={m['precision']:.3f}  R={m['recall']:.3f}  "
-              f"F1={m['f1']:.3f}  (TP={m['tp']}, FP={m['fp']}, FN={m['fn']})")
+        # Raw (no filter)
+        preds_raw = (sims >= t).astype(int)
+        m_raw = _metrics(labels, preds_raw)
+        m_raw["threshold"] = t
+        rows_raw.append(m_raw)
+
+        # Filtered
+        preds_filtered = (sims_filtered >= t).astype(int)
+        m_f = _metrics(labels, preds_filtered)
+        m_f["threshold"] = t
+        rows_filtered.append(m_f)
+
+        print(f"  θ={t:.2f} │ "
+              f"Raw:      P={m_raw['precision']:.3f}  R={m_raw['recall']:.3f}  F1={m_raw['f1']:.3f}  "
+              f"(TP={m_raw['tp']}, FP={m_raw['fp']}, FN={m_raw['fn']})")
+        print(f"         │ "
+              f"Filtered: P={m_f['precision']:.3f}  R={m_f['recall']:.3f}  F1={m_f['f1']:.3f}  "
+              f"(TP={m_f['tp']}, FP={m_f['fp']}, FN={m_f['fn']})")
 
     cols = ["threshold", "precision", "recall", "f1", "tp", "fp", "fn", "tn"]
-    return pd.DataFrame(rows)[cols], sims
+    df_raw      = pd.DataFrame(rows_raw)[cols]
+    df_filtered = pd.DataFrame(rows_filtered)[cols]
+
+    return df_raw, df_filtered, sims, sims_filtered
 
 
 # ------------------------------------------------------------------ #
@@ -134,7 +214,9 @@ def multicolumn_evaluation(
     service: SemanticDuplicateRemoverService,
     threshold: float,
     columns: list[str]
-) -> dict:
+) -> tuple[dict, dict]:
+    """Returns (raw_metrics, filtered_metrics)."""
+
     def combine(side: str) -> list[str]:
         parts = [gs[f"{c}_{side}"].fillna("").astype(str) for c in columns
                  if f"{c}_{side}" in gs.columns]
@@ -145,14 +227,33 @@ def multicolumn_evaluation(
 
     col_str = " + ".join(columns)
     print(f"\nMulti-column encoding ({col_str}) ...")
-    emb_left  = service._encode(combine("left"))
-    emb_right = service._encode(combine("right"))
-    sims      = (emb_left * emb_right).sum(axis=1)
 
-    preds  = (sims >= threshold).astype(int)
+    left_combined  = combine("left")
+    right_combined = combine("right")
+
+    emb_left, emb_right = encode_paired_texts(left_combined, right_combined, service)
+    sims   = (emb_left * emb_right).sum(axis=1)
     labels = gs["label"].values
-    m = _metrics(labels, preds)
-    return {"method": f"SBERT multi-col ({col_str}) θ={threshold}", **m}
+
+    # Use title columns for token filter (brand names alone aren't discriminative)
+    conflict_mask  = build_token_filter_mask(
+        gs["title_left"].tolist(),
+        gs["title_right"].tolist(),
+    )
+    sims_filtered  = sims.copy()
+    sims_filtered[conflict_mask] = 0.0
+
+    preds_raw      = (sims >= threshold).astype(int)
+    preds_filtered = (sims_filtered >= threshold).astype(int)
+
+    m_raw = _metrics(labels, preds_raw)
+    m_f   = _metrics(labels, preds_filtered)
+
+    method_base = f"SBERT multi-col ({col_str}) θ={threshold}"
+    return (
+        {"method": method_base,            **m_raw},
+        {"method": method_base + "+filter", **m_f},
+    )
 
 
 # ------------------------------------------------------------------ #
@@ -163,7 +264,8 @@ def error_analysis(
     gs: pd.DataFrame,
     sims: np.ndarray,
     threshold: float,
-    n_samples: int = 5
+    n_samples: int = 5,
+    label: str = ""
 ):
     labels = gs["label"].values
     preds  = (sims >= threshold).astype(int)
@@ -171,7 +273,8 @@ def error_analysis(
     fp_rows = gs[(preds == 1) & (labels == 0)]
     fn_rows = gs[(preds == 0) & (labels == 1)]
 
-    print(f"\n--- False Positives ({len(fp_rows)} total) "
+    header = f" [{label}]" if label else ""
+    print(f"\n--- False Positives{header} ({len(fp_rows)} total) "
           f"— predicted duplicate but was NOT ---")
     for _, row in fp_rows.head(n_samples).iterrows():
         score = sims[row.name] if row.name < len(sims) else "?"
@@ -180,7 +283,7 @@ def error_analysis(
         print(f"  RIGHT: {str(row['title_right'])[:90]}")
         print()
 
-    print(f"--- False Negatives ({len(fn_rows)} total) "
+    print(f"--- False Negatives{header} ({len(fn_rows)} total) "
           f"— missed real duplicate ---")
     for _, row in fn_rows.head(n_samples).iterrows():
         score = sims[row.name] if row.name < len(sims) else "?"
@@ -191,39 +294,52 @@ def error_analysis(
 
 
 # ------------------------------------------------------------------ #
-#  Main                                                               #
+#  Main per-dataset evaluation                                        #
 # ------------------------------------------------------------------ #
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--gs",     type=str, required=True,
-                        help="Path to computers_gs.json.gz")
-    parser.add_argument("--sample", type=int, default=None,
-                        help="Use only first N pairs (quick smoke-test)")
-    args = parser.parse_args()
+def evaluate_dataset(
+    dataset_path: str,
+    service: SemanticDuplicateRemoverService,
+    thresholds: list[float],
+    sample: int | None = None,
+) -> bool:
+    print("\n" + "#" * 72)
+    print(f"DATASET: {dataset_path}")
+    print("#" * 72)
 
-    gs = load_wdc_goldstandard(args.gs)
-    if args.sample:
-        gs = gs.head(args.sample).reset_index(drop=True)
+    try:
+        gs = load_pair_dataset(dataset_path)
+    except Exception as exc:
+        print(f"Skipping dataset: {exc}")
+        return False
+
+    if sample:
+        gs = gs.head(sample).reset_index(drop=True)
         print(f"Using sample of {len(gs)} pairs\n")
-
-    service    = SemanticDuplicateRemoverService(threshold=0.85, k_neighbors=10, model_name="all-mpnet-base-v2")
-    thresholds = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95]
 
     # ── 1. Sensitivity analysis ────────────────────────────────────
     print("\n" + "=" * 60)
     print("1. THRESHOLD SENSITIVITY ANALYSIS  (title only)")
     print("=" * 60)
-    sensitivity_df, sims = sensitivity_analysis(gs, service, thresholds)
-    print("\nResults table:")
-    print(sensitivity_df.to_string(index=False))
+    df_raw, df_filtered, sims, sims_filtered = sensitivity_analysis(gs, service, thresholds)
 
-    best_row = sensitivity_df.loc[sensitivity_df["f1"].idxmax()]
-    best_t   = float(best_row["threshold"])
-    print(f"\n→ Best threshold: {best_t:.2f}  "
-          f"F1={best_row['f1']:.3f}  "
-          f"P={best_row['precision']:.3f}  "
-          f"R={best_row['recall']:.3f}")
+    print("\nRaw results table:")
+    print(df_raw.to_string(index=False))
+    print("\nFiltered results table (token filter applied):")
+    print(df_filtered.to_string(index=False))
+
+    best_row_raw = df_raw.loc[df_raw["f1"].idxmax()]
+    best_row_f   = df_filtered.loc[df_filtered["f1"].idxmax()]
+    best_t_raw   = float(best_row_raw["threshold"])
+    best_t_f     = float(best_row_f["threshold"])
+
+    print(f"\n→ Best raw:      θ={best_t_raw:.2f}  F1={best_row_raw['f1']:.3f}  "
+          f"P={best_row_raw['precision']:.3f}  R={best_row_raw['recall']:.3f}")
+    print(f"→ Best filtered: θ={best_t_f:.2f}  F1={best_row_f['f1']:.3f}  "
+          f"P={best_row_f['precision']:.3f}  R={best_row_f['recall']:.3f}")
+
+    # Use filtered best threshold for downstream comparisons
+    best_t = best_t_f
 
     # ── 2. Baselines ───────────────────────────────────────────────
     print("\n" + "=" * 60)
@@ -231,44 +347,94 @@ def main():
     print("=" * 60)
     exact = exact_match_baseline(gs)
     fuzzy = fuzzy_baseline(gs, fuzzy_threshold=0.80)
-    sbert = {
-        "method": f"SBERT title-only (θ={best_t})",
-        **{k: best_row[k] for k in ["precision", "recall", "f1", "tp", "fp", "fn", "tn"]}
+
+    sbert_raw = {
+        "method": f"SBERT title-only raw (θ={best_t})",
+        **{k: df_raw.loc[df_raw["threshold"] == best_t].iloc[0][k]
+           for k in ["precision", "recall", "f1", "tp", "fp", "fn", "tn"]}
     }
-    comparison = pd.DataFrame([exact, fuzzy, sbert])
+    sbert_filtered = {
+        "method": f"SBERT title-only +filter (θ={best_t})",
+        **{k: df_filtered.loc[df_filtered["threshold"] == best_t].iloc[0][k]
+           for k in ["precision", "recall", "f1", "tp", "fp", "fn", "tn"]}
+    }
+
+    comparison = pd.DataFrame([exact, fuzzy, sbert_raw, sbert_filtered])
     print("\n", comparison.to_string(index=False))
 
     # ── 3. Multi-column ────────────────────────────────────────────
     print("\n" + "=" * 60)
     print("3. MULTI-COLUMN  (title + brand)")
     print("=" * 60)
-    mc = multicolumn_evaluation(gs, service, best_t, columns=["title", "brand"])
-    print(f"  P={mc['precision']}  R={mc['recall']}  F1={mc['f1']}")
+    mc_raw, mc_filtered = multicolumn_evaluation(gs, service, best_t, columns=["title", "brand"])
+    print(f"  Raw:      P={mc_raw['precision']}  R={mc_raw['recall']}  F1={mc_raw['f1']}")
+    print(f"  Filtered: P={mc_filtered['precision']}  R={mc_filtered['recall']}  F1={mc_filtered['f1']}")
 
-    full_comparison = pd.DataFrame([exact, fuzzy, sbert, mc])
+    full_comparison = pd.DataFrame([exact, fuzzy, sbert_raw, sbert_filtered, mc_raw, mc_filtered])
     print("\nFull comparison (all methods):")
     print(full_comparison[["method","precision","recall","f1","tp","fp","fn"]].to_string(index=False))
 
     # ── 4. Error analysis ──────────────────────────────────────────
     print("\n" + "=" * 60)
-    print("4. ERROR ANALYSIS  (best threshold)")
+    print("4. ERROR ANALYSIS  (best threshold, filtered)")
     print("=" * 60)
-    error_analysis(gs, sims, threshold=best_t, n_samples=5)
+    error_analysis(gs, sims,          threshold=best_t, n_samples=5, label="raw")
+    error_analysis(gs, sims_filtered, threshold=best_t, n_samples=5, label="filtered")
 
     # ── Save CSVs ──────────────────────────────────────────────────
-    sensitivity_df.to_csv("sensitivity_results.csv", index=False)
-    full_comparison.to_csv("comparison_results.csv",  index=False)
-    print("Saved: sensitivity_results.csv")
-    print("Saved: comparison_results.csv")
+    slug = _dataset_slug(dataset_path)
+    df_raw.to_csv(f"sensitivity_raw_{slug}.csv",      index=False)
+    df_filtered.to_csv(f"sensitivity_filtered_{slug}.csv", index=False)
+    full_comparison.to_csv(f"comparison_{slug}.csv",  index=False)
+    print(f"Saved: sensitivity_raw_{slug}.csv")
+    print(f"Saved: sensitivity_filtered_{slug}.csv")
+    print(f"Saved: comparison_{slug}.csv")
 
     print("\n" + "=" * 60)
-    print("DONE")
+    print(f"DONE: {dataset_path}")
     print("=" * 60)
+    return True
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--gs",
+        type=str,
+        nargs="+",
+        default=[
+            "duplicates/computers_gs.json",
+            "duplicates/watches_gs.json.gz",
+            "duplicates/cameras_gs.json.gz",
+            "duplicates/shoes_gs.json.gz",
+        ],
+        help="One or more WDC JSON/JSON.GZ pair dataset paths.",
+    )
+    parser.add_argument("--sample", type=int, default=None,
+                        help="Use only first N pairs per dataset (quick smoke-test)")
+    parser.add_argument("--model", type=str, default="all-mpnet-base-v2",
+                        help="SentenceTransformer model name.")
+    parser.add_argument("--batch-size", type=int, default=1024,
+                        help="Embedding batch size.")
+    args = parser.parse_args()
+
+    service = SemanticDuplicateRemoverService(
+        threshold=0.85,
+        k_neighbors=10,
+        model_name=args.model,
+        batch_size=args.batch_size,
+    )
+    thresholds = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95]
+
+    completed = 0
+    for dataset_path in args.gs:
+        if evaluate_dataset(dataset_path, service, thresholds, sample=args.sample):
+            completed += 1
+
+    print("\n" + "#" * 72)
+    print(f"Completed {completed}/{len(args.gs)} dataset(s)")
+    print("#" * 72)
 
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) == 1:
-        # Default args for running directly in IDE
-        sys.argv = ["test_semantic_duplicates.py", "--gs", "duplicates"]
     main()

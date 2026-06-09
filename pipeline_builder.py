@@ -85,16 +85,8 @@ class PipelineBuilder:
             )
         )
         nodes.append(standardizer_node)
-        
-        # 5. Missing Value Handler
-        missing_node = PipelineNode(
-            agent=MissingValueAgent(),
-            condition=IntentBasedCondition(["handle_missing_values"], operator="any"),
-            resolver=IntentColumnResolver(["handle_missing_values"], "mean")
-        )
-        nodes.append(missing_node)
 
-        # 6. Duplicate Remover
+        # 5. Duplicate Remover
         duplicate_node = PipelineNode(
             agent=DuplicateRemoverAgent(),
             condition=IntentBasedCondition(["remove_duplicates"], operator="any"),
@@ -102,7 +94,7 @@ class PipelineBuilder:
         )
         nodes.append(duplicate_node)
         
-        # 7. Outlier Remover
+        # 6. Outlier Remover
         outlier_node = PipelineNode(
             agent=OutliersAgent(),
             condition=IntentBasedCondition(
@@ -112,6 +104,14 @@ class PipelineBuilder:
             resolver=IntentColumnResolver(["remove_outliers", "detect_outliers"], "")
         )
         nodes.append(outlier_node)
+
+        # 7. Missing Value Handler
+        missing_node = PipelineNode(
+            agent=MissingValueAgent(),
+            condition=IntentBasedCondition(["handle_missing_values"], operator="any"),
+            resolver=IntentColumnResolver(["handle_missing_values"], "mean")
+        )
+        nodes.append(missing_node)
         
         # 8. Feature Engineering
         feature_eng_node = PipelineNode(

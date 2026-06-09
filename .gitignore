@@ -1,5 +1,12 @@
 Input/train.csv
 .venv
+.env
+.env.*
+!.env.example
+ApiKeys.txt
+*ApiKeys*.txt
+__pycache__/
+*.pyc*
 __pycache__/*
 __pycache__/Class_missingValues.cpython-312.pyc
 __pycache__/Class_missingValues.cpython-312.pyc

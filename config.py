@@ -1,5 +1,8 @@
-# Legacy single key (kept for backward compatibility)
-API_KEY = "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"
+import os
+
+# Legacy single key (kept for backward compatibility).
+# Set GROQ_API_KEY in your environment instead of committing secrets.
+API_KEY = os.getenv("GROQ_API_KEY", "")
 
 # For multi-key rotation support, use api_key_manager instead
 # from api_key_manager import get_api_key
