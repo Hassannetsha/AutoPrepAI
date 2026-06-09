@@ -2,173 +2,65 @@
 
 ## 1. Project Overview
 
-AutoPrepAI is an intelligent data preprocessing system for tabular datasets. It combines a natural-language interface, a configurable preprocessing pipeline, and multiple specialized agents that clean and transform data before modeling.
+AutoPrepAI is an automated data preprocessing pipeline designed to clean and prepare tabular datasets (CSV/Excel) for machine learning and data analysis. The project addresses the common challenge of handling messy datasets by automating preprocessing tasks that would otherwise require significant manual effort and coding expertise. Built around six specialized agents, AutoPrepAI combines intelligent automation with user oversight to deliver clean, analysis-ready data. To ensure transparency and trust, every preprocessing action is logged and explained, allowing users to understand what changes were made and why before producing the final dataset.
 
-The project solves the common problem of preparing messy CSV/Excel datasets for machine learning or analysis. Instead of requiring users to manually choose every preprocessing operation in code, AutoPrepAI can infer requested operations from a chat command, run a full automatic cleaning flow, or execute selected manual steps.
+The pipeline is powered by 6 specialized agents, each responsible for a distinct preprocessing task:
 
-Key features confirmed from the codebase:
+- **Data Standardizer**: corrects type inconsistencies and normalizes categorical spelling and value formats
+- **Duplicate Remover**: detects and eliminates both exact and semantically similar records
+- **Outlier Filter**: identifies and removes anomalies using configurable detection strategies
+- **Missing Value Handler**: fills gaps in your data using strategies like mean, median, KNN, MICE, or categorical mode
+- **Feature Engineer**: suggests new meaningful features using an LLM-backed service
+- **Feature Selector**: handles numerical scaling, categorical encoding, and irrelevant feature removal
 
-- Natural-language preprocessing commands powered by DSPy and Groq-hosted LLM calls.
-- CSV upload and processing through either a Streamlit app or a React/FastAPI web app.
-- Pipeline-based agent orchestration using shared `DataContext` metadata and logs.
-- Missing-value handling with mean, median, KNN, MICE, and categorical mode support.
-- Exact and semantic duplicate detection/removal.
-- Outlier detection/removal using strategy selection.
-- Data type inconsistency detection and resolution.
-- Categorical spelling correction and value standardization.
-- Feature engineering suggestions through an LLM-backed service.
-- Feature selection, numerical scaling, and categorical encoding.
-- Conversation history, authentication, dataset upload, processed dataset download, and feedback-based step acceptance/rejection in the FastAPI/React flow.
+AutoPrepAI offers three ways to interact with the pipeline:
 
-## 2. Architecture & Project Structure
+- **Chat Mode**: type a plain-English command and the system uses DSPy and a Groq-hosted LLM to parse your intent and trigger the right agents automatically
+- **Auto Mode**: the pipeline runs end-to-end on your uploaded dataset without any input needed, detecting and fixing issues across all six agents in sequence
+- **Manual Mode**: select and configure each preprocessing step yourself for full control over what gets applied
 
-```text
-AutoPrepAI/
-├── .github/                         # GitHub-related automation files.
-├── agents/                          # Pipeline agents that wrap preprocessing services.
-├── auth/                            # FastAPI authentication, JWT, email verification, and password reset logic.
-├── backend/                         # FastAPI backend, database models, API routes, storage, and ML pipeline adapter.
-├── cleaned_datasets/                # Generated or example cleaned datasets.
-├── datasets/                        # Source/example datasets used by the project and evaluations.
-├── data_standardization/            # Categorical/numeric standardization pipeline, clustering, validation, and tests.
-├── data_type_inconsistency_detector/ # Data type inconsistency detection strategies and report generation.
-├── data_type_inconsistency_resolver/ # Data type inconsistency resolution strategies and utilities.
-├── demo/                            # Demo scripts and notebooks for preprocessing features.
-├── duplicates/                      # Exact and semantic duplicate removal services and tests.
-├── Encoders/                        # Label, one-hot, and target encoder implementations.
-├── eval/                            # Evaluation scripts and result files.
-├── feature_inconsistencies/         # Additional feature inconsistency modules and datasets.
-├── Frontend/autoprepai-ui/          # React frontend application.
-├── Input/                           # Input CSV files used by demos/tests.
-├── logs/                            # Runtime log output.
-├── outliers/                        # Outlier detection strategies, selector, and evaluation code.
-├── services/                        # Service layer for NLP, encoding, scaling, feature engineering, and preprocessing tasks.
-├── utils/                           # Shared utility helpers such as column detection.
-├── .env.example                     # Example environment configuration for `GROQ_API_KEY`.
-├── .gitignore                       # Git ignore rules, including local secrets and generated bytecode.
-├── agent_params.py                  # Parameter object passed from pipeline nodes to agents.
-├── api_key_manager.py               # Loads Groq API keys from environment variables or local `ApiKeys.txt`.
-├── api_key_utility.py               # CLI helper for inspecting and rotating API keys.
-├── Class_missingValues.py           # Missing-value demo/implementation support.
-├── class_nlp.py                     # Streamlit-oriented NLP service implementation.
-├── config.py                        # Backward-compatible API key access through environment variables.
-├── data_context.py                  # Shared dataframe, metadata, logs, and conversation context object.
-├── execution_condition.py           # Pipeline node conditions such as always-run and intent-based execution.
-├── get_data.py                      # Dataset loading/helper code.
-├── installs.txt                     # Manually maintained dependency and run-command notes.
-├── intent.py                        # Intent data model.
-├── intents.csv                      # Intent examples/training data.
-├── intents_augmented.csv            # Expanded intent training data used by NLP components.
-├── intents_expanded.csv             # Additional expanded intent data.
-├── missingvalues_demo.py            # Missing-values demo script.
-├── missing_value_evaluation.py      # Missing-value evaluation script.
-├── parameter_resolver.py            # Extracts columns/options from detected intents.
-├── pipeline.py                      # Main preprocessing pipeline orchestrator.
-├── pipeline_builder.py              # Builds the default and custom agent pipelines.
-├── pipeline_node.py                 # Wraps an agent with a condition and parameter resolver.
-├── scaler.py                        # Scaling helper code.
-├── selection_evaluate_main.py       # Feature selection evaluation entry point.
-├── streamlit_app.py                 # Standalone Streamlit UI for uploading and preprocessing CSV files.
-├── test_key_rotation.py             # API key rotation tests.
-└── utilities.py                     # Shared process/session utilities.
-```
+Across all modes, every action is logged, explained, and subject to user approval, allowing users to accept or reject individual preprocessing steps before the final cleaned dataset is produced.
 
-### Component Relationships
+## 2. System Architecture
 
-The core processing flow is built around `DataContext`, which carries a `pandas.DataFrame`, metadata, logs, and optional user/conversation identifiers through the pipeline.
+![System Architecture](images/system_architecture.png)
 
-`PipelineBuilder.build_default_pipeline()` creates a sequence of `PipelineNode` objects. Each node contains:
-
-- an agent from `agents/`,
-- an execution condition from `execution_condition.py`,
-- and a parameter resolver from `parameter_resolver.py`.
-
-In chat mode, the `NLPAgent` runs first and uses `services/nlp_service.py` to infer preprocessing intents from the user command. Those intents are stored in `context.metadata["intents"]`. Later agents run only when their `IntentBasedCondition` matches those intents.
-
-The default pipeline order is:
-
-1. NLP intent extraction
-2. Data type inconsistency handling
-3. Spelling correction
-4. Data standardization
-5. Duplicate removal
-6. Outlier handling
-7. Missing-value handling
-8. Feature engineering
-9. Feature selection
-10. Numerical scaling
-11. Categorical encoding
-
-There are two user-facing application paths:
-
-- `streamlit_app.py` provides a local Streamlit interface with Full Auto, Chat, and Manual Selection modes.
-- `backend/main.py` exposes a FastAPI API used by `Frontend/autoprepai-ui`. The React app handles authentication screens, chat UI, dataset upload, action selection, history, and downloads. The backend stores users/conversations in PostgreSQL and uploads input/output datasets to Backblaze B2 through `backend/b2_service.py`.
-
-The FastAPI chat flow stores per-conversation runtime state in `utilities.sessions`, supports incremental pipeline execution through `Pipeline.run_single_agent()`, and exposes `/chat/feedback` so users can accept or reject a proposed preprocessing step.
+AutoPrepAI follows a layered architecture consisting of a React-based presentation layer, a FastAPI business logic layer, a data access layer for persistence and storage, and a machine learning layer containing specialized preprocessing agents.
 
 ## 3. Tech Stack
 
 ### Languages
 
-- Python
-- JavaScript / JSX
+* Python
+* JavaScript / JSX
 
-### Python Frameworks and Libraries
+### Backend
 
-Confirmed from imports and `installs.txt`:
+* FastAPI
+* Streamlit
+* PostgreSQL
+* SQLAlchemy
+* DSPy
+* Groq API
+* Scikit-learn and other data science libraries
 
-- FastAPI
-- Uvicorn
-- Streamlit
-- pandas
-- NumPy
-- scikit-learn
-- DSPy (`dspy-ai`)
-- Groq Python SDK
-- SQLAlchemy
-- psycopg2 / PostgreSQL
-- python-jose
-- passlib
-- argon2-cffi
-- python-multipart
-- python-dotenv
-- boto3
-- pydantic
-- category-encoders
-- symspellpy
-- textdistance
-- rapidfuzz
-- sentence-transformers
-- FAISS (`faiss-cpu`)
-- torch
-- matplotlib
-- tqdm
+### Frontend
 
-### Frontend Frameworks and Libraries
+* React 18
+* React Router
+* React Markdown
 
-Confirmed from `Frontend/autoprepai-ui/package.json`:
+### Storage & Services
 
-- React 18
-- React Router DOM
-- React Scripts
-- lucide-react
-- react-markdown
-- Web Vitals
-- Testing Library packages
-
-### External Services
-
-- Groq API for LLM-backed NLP and feature/data standardization work.
-- PostgreSQL for backend user and conversation persistence.
-- Backblaze B2 / S3-compatible object storage for uploaded and processed datasets.
-- SMTP email delivery for welcome, verification, and password reset emails.
+* Backblaze B2 (S3-compatible object storage)
+* SMTP Email Service
 
 ## 4. Getting Started
 
 ### Prerequisites
 
-- Python 3.x. <!-- TODO: confirm exact supported Python version. Local bytecode indicates Python 3.13 has been used, but no formal version constraint was found. -->
-- Node.js and npm for the React frontend. <!-- TODO: confirm exact Node.js version. -->
+- Python 3.13
+- Node.js and npm for the React frontend.
 - PostgreSQL if running the FastAPI backend with authentication/conversation history.
 - A Groq API key for LLM-backed components.
 - Backblaze B2 credentials if using the FastAPI upload/download flow.
@@ -179,7 +71,7 @@ Confirmed from `Frontend/autoprepai-ui/package.json`:
 Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Hassannetsha/AutoPrepAI.git
 cd AutoPrepAI
 ```
 
@@ -195,12 +87,10 @@ On Windows PowerShell:
 .venv\Scripts\Activate.ps1
 ```
 
-Install Python dependencies. There is no root `requirements.txt` in the current project; `installs.txt` lists the packages used by the project:
+Install Python dependencies:
 
 ```bash
-pip install streamlit pandas numpy scikit-learn matplotlib category-encoders symspellpy tqdm dspy-ai
-pip install textdistance faiss-cpu groq fastapi uvicorn python-multipart sqlalchemy psycopg2-binary python-dotenv rapidfuzz
-pip install "pydantic[email]" python-jose passlib boto3 argon2_cffi sentence-transformers torch
+pip install -r installs.txt
 ```
 
 Install frontend dependencies:
@@ -210,55 +100,21 @@ cd Frontend/autoprepai-ui
 npm install
 ```
 
-Configure environment variables. At minimum, create a local `.env` or set the variable in your shell:
+### Environment Variables
 
-```bash
-GROQ_API_KEY=your_groq_api_key_here
+Create a `.env` file in the project root and configure the required variables:
+
+```env
+GROQ_API_KEY=your_groq_api_key
+DATABASE_URL=your_database_url
+REACT_APP_API_BASE_URL=http://localhost:8022
 ```
 
-`api_key_manager.py` supports these Groq key sources, in order:
+Additional credentials may be required for optional services such as Backblaze B2 storage and SMTP email delivery.
 
-1. `GROQ_API_KEYS` with multiple keys separated by commas or semicolons.
-2. `GROQ_API_KEY` with one key.
-3. A local ignored `ApiKeys.txt` file with one key per line.
-
-Backend-related environment variables confirmed from code:
-
-| Variable | Purpose | Default / Notes |
-| --- | --- | --- |
-| `GROQ_API_KEY` | Groq key for LLM calls. | Required for LLM-backed pipeline components unless local `ApiKeys.txt` is used. |
-| `GROQ_API_KEYS` | Multiple Groq keys for rotation. | Optional; comma or semicolon separated. |
-| `DATABASE_URL` | SQLAlchemy database URL. | Defaults to a local PostgreSQL URL in `backend/settings.py`. |
-| `FRONTEND_URL` | URL used in verification links. | Defaults to `http://localhost:3000`. |
-| `REACT_APP_API_BASE_URL` | React frontend API base URL. | Defaults to `http://localhost:8022`. |
-
-Backblaze B2, SMTP, and JWT secret settings are currently defined in code under `backend/settings.py`, `auth/email_utils.py`, and `auth/utils.py`. <!-- TODO: move these secrets to environment variables before production use. -->
-
-If using the default database URL, create the PostgreSQL database:
-
-```bash
-psql -U postgres -h localhost -c "CREATE DATABASE autoprepai;"
-```
 
 ### Running the Project
-
-#### Option A: Streamlit App
-
-Run the standalone Streamlit UI:
-
-```bash
-streamlit run streamlit_app.py
-```
-
-The Streamlit app supports:
-
-- Full Auto Mode
-- Chat Mode
-- Manual Selection Mode
-
-It accepts CSV uploads, displays the current dataset, runs the preprocessing pipeline, shows operation history/logs/metadata, and provides a cleaned CSV download.
-
-#### Option B: FastAPI Backend + React Frontend
+FastAPI Backend + React Frontend
 
 Start the backend:
 
@@ -275,109 +131,32 @@ npm start
 
 The React app defaults to `http://localhost:3000` and calls the backend at `http://localhost:8022` unless `REACT_APP_API_BASE_URL` is set.
 
-FastAPI endpoints confirmed from `backend/main.py` include:
-
-- `GET /health`
-- `POST /chat`
-- `POST /chat/feedback`
-- `GET /download/{path}`
-- `GET /conversations`
-- `GET /conversations/{conversation_id}`
-
-Authentication routes are mounted under `/auth` from `auth/signup.py` and `auth/login.py`.
-
 ## 5. Usage Guide
 
-### Streamlit Usage
-
-1. Start the Streamlit app.
-2. Upload a CSV file from the sidebar.
-3. Choose one of the available modes:
-   - Full Auto Mode: runs the built-in automatic cleaning command.
-   - Chat Mode: accepts a natural-language command.
-   - Manual Selection Mode: lets the user select preprocessing operations.
-4. Review the updated dataset, logs, metadata, and history.
-5. Download the cleaned dataset as CSV.
-
-Example chat commands:
-
-```text
-remove duplicates and handle missing values
-```
-
-```text
-scale numeric columns and encode categorical columns
-```
-
-```text
-clean data automatically
-```
-
-Expected output:
-
-- A modified dataframe shown in the UI.
-- Logs describing which agents ran or were skipped.
-- Metadata containing detected intents and step-specific results.
-- A downloadable CSV named `cleaned_dataset.csv` in the Streamlit flow.
-
-### React/FastAPI Usage
-
-1. Start the backend and frontend.
-2. Sign up or log in through the React UI.
+1. Start the backend and frontend applications.
+2. Sign in to your account.
 3. Upload a CSV or Excel dataset.
-4. Use the chat box or action list to request preprocessing.
-5. Review assistant messages, data previews, logs, and download links.
-6. In step-by-step flows, use feedback to accept or reject changes before continuing.
+4. Choose one of the available modes:
 
-The backend accepts uploaded files through `POST /chat` as multipart form data:
+   * **Chat Mode**: describe the preprocessing task in natural language.
+   * **Auto Mode**: automatically clean and preprocess the dataset.
+   * **Manual Mode**: select the preprocessing operations to apply.
+5. Review the generated preprocessing actions and logs.
+6. Approve or reject suggested changes.
+7. Download the cleaned dataset.
 
-- `message`: user command.
-- `mode`: one of `chat`, `manual`, or `full_auto`.
-- `selected_intents`: JSON array or comma-separated list of intents.
-- `conversation_id`: optional existing conversation UUID.
-- `dataset`: uploaded CSV/XLS/XLSX file.
-
-Supported modes are normalized in `backend/ml_service.py`:
-
-| Mode Input | Normalized Mode |
-| --- | --- |
-| `chat`, `chat mode` | `chat` |
-| `manual`, `manual_selection`, `manual selection mode` | `manual` |
-| `full_auto`, `full-auto`, `auto`, `full auto mode`, `full` | `full_auto` |
-
-Manual mode accepts these confirmed intent names:
+### Example Workflow
 
 ```text
-fix_data_types
-remove_inconsistencies
-correct_spelling
-standardize_data
-remove_duplicates
-handle_missing_values
-remove_outliers
-keep_outliers
-select_features
-feature_selection
-scale_numerical
-encode_categorical
-suggest_features
-detect_outliers
-feature_engineering
+Upload Dataset
+      ↓
+Choose Mode
+      ↓
+Run Preprocessing Agents
+      ↓
+Review Suggested Changes
+      ↓
+Approve / Reject Actions
+      ↓
+Download Cleaned Dataset
 ```
-
-### Behavioral Notes
-
-- In chat mode, the NLP agent must detect at least one preprocessing intent, otherwise the backend raises an error asking for a clearer cleaning action.
-- In manual mode, the backend requires at least one valid selected intent.
-- Full auto mode uses a fixed intent list: missing values, outliers, duplicates, inconsistencies, spelling correction, standardization, and feature engineering.
-- The missing-value agent fills numeric columns using a requested/default strategy or can evaluate mean, median, KNN, and MICE strategies. Categorical missing values are filled with mode.
-- The duplicate remover runs exact duplicate removal and then semantic duplicate removal.
-- The semantic duplicate service uses `sentence-transformers`, FAISS, and a discriminative token filter to reduce false positives between product variants.
-- The outlier service delegates to a strategy selector and removes rows according to the selected strategy.
-- Encoding defaults to one-hot encoding when no encoding method is specified.
-- Scaling defaults to standard scaling when no scaling strategy is specified.
-- The pipeline logs both executed and skipped agents through `DataContext.logs`.
-- The FastAPI flow uploads input and processed datasets to Backblaze B2 and returns presigned download URLs when available.
-
-<!-- TODO: add a formal requirements.txt or pyproject.toml so installation does not rely on installs.txt. -->
-<!-- TODO: document production-safe secret management once backend storage, email, and JWT settings are moved to environment variables. -->
