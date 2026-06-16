@@ -26,7 +26,7 @@ class ExecutionCondition(ABC):
         pass
 
 
-class AlwaysCondition(ExecutionCondition):
+class AlwaysTrueCondition(ExecutionCondition):
     """
     Condition that always evaluates to True.
     """
@@ -34,7 +34,13 @@ class AlwaysCondition(ExecutionCondition):
     def evaluate(self, context: DataContext) -> bool:
         return True
 
+class AlwaysFalseCondition(ExecutionCondition):
+    """
+    Condition that always evaluates to False.
+    """
 
+    def evaluate(self, context: DataContext) -> bool:
+        return False
 class IntentBasedCondition(ExecutionCondition):
     """
     Condition that checks for specific intents in the context.

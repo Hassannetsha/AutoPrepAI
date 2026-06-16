@@ -178,7 +178,7 @@ async def chat(
     # utilities.sessions.setdefault(str(conversation.id), MLPipelineService.session_builder(conversation.id))["dataset_before"] = dataset_df.copy()
     existing_session = utilities.sessions.get(str(conversation.id))
     if existing_session is None or existing_session.get("finished", False):
-        utilities.sessions[str(conversation.id)] = MLPipelineService.session_builder(str(conversation.id))
+        utilities.sessions[str(conversation.id)] = MLPipelineService.session_builder(str(conversation.id),mode)
     utilities.sessions[str(conversation.id)]["dataset_before"] = dataset_df.copy()
     #this will route to the new endpoint for manual and chat modes where the frontend will handle the step by step execution and user feedback
     # and take the part of manual in the function process message as there will be no user input
@@ -245,8 +245,9 @@ async def chat_feedback(
     session = utilities.sessions.get(str(conversation_uuid))
     if session is None:
         raise HTTPException(status_code=400, detail="No active session for this conversation.")
-    step_executed = session["pipeline"].agents[0].get_agent_name() if session["pipeline"].agents else "last step"
-
+    step_executed = session.get("last_executed_step", "last step")
+    for step in session["pipeline"].agents:
+        print(f"Previous log: {step.get_agent_name()}")
     if body.accept:
         dataset_df = session["dataset_after"].copy()
         # print(f"dataset_df before reverting: {dataset_df.head()}")
@@ -259,6 +260,7 @@ async def chat_feedback(
 
     # 3. Check if we are out of steps
     finished = session.get("finished")
+    print(f"[DEBUG] Finished status: {finished}, dataset shape: {dataset_df.shape}, previous logs: {session['previous_logs']}")
     if not finished:
         result, session["finished"] = MLPipelineService.process_message(
             user_message="",

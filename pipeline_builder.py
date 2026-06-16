@@ -5,7 +5,7 @@ from typing import List
 
 from pipeline import Pipeline
 from pipeline_node import PipelineNode
-from execution_condition import IntentBasedCondition, AlwaysCondition
+from execution_condition import AlwaysFalseCondition, IntentBasedCondition, AlwaysTrueCondition
 from parameter_resolver import IntentColumnResolver
 from agents.nlp_agent import NLPAgent
 from agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
@@ -27,7 +27,7 @@ class PipelineBuilder:
     """
     
     @staticmethod
-    def build_default_pipeline() -> Pipeline:
+    def build_default_pipeline(normalized_mode:str) -> Pipeline:
         """
         Build a pipeline with all standard preprocessing agents.
         
@@ -37,9 +37,13 @@ class PipelineBuilder:
         nodes = []
         
         # 1. NLP Agent - Always runs first if text is available
+        if normalized_mode == "chat":
+            nlp_condition = AlwaysTrueCondition()
+        else:
+            nlp_condition = AlwaysFalseCondition()
         nlp_node = PipelineNode(
             agent=NLPAgent(),
-            condition=AlwaysCondition(),
+            condition=nlp_condition,
             resolver=IntentColumnResolver([], "")
         )
         nodes.append(nlp_node)
@@ -189,7 +193,7 @@ class PipelineBuilder:
         for agent_name in agent_list:
             if agent_name.lower() in all_agents:
                 agent, intents, resolver_intents = all_agents[agent_name.lower()]
-                condition = AlwaysCondition() if agent_name.lower() == "nlp" else IntentBasedCondition(intents, operator="any")
+                condition = AlwaysTrueCondition() if agent_name.lower() == "nlp" else IntentBasedCondition(intents, operator="any")
                 node = PipelineNode(
                     agent=agent,
                     condition=condition,

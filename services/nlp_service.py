@@ -40,8 +40,36 @@ class NLPService:
         if NLPService._pipeline is None:
             self._init_pipeline()
 
+    @staticmethod
+    def _validate_key(key: str) -> bool:
+        import litellm
+        try:
+            litellm.completion(
+                model="groq/llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": "ping"}],
+                api_key=key,
+                max_tokens=5,
+                temperature=0,
+            )
+            return True
+        except Exception:
+            return False
+
     def _init_lm(self):
-        api_key = _key_manager.get_current_key()
+        max_keys = _key_manager.get_total_keys_count()
+        for _ in range(max_keys):
+            api_key = _key_manager.get_current_key()
+            if self._validate_key(api_key):
+                break
+            print(f"⚠️ Key #{_key_manager.current_index + 1} invalid, trying next...")
+            _key_manager.mark_key_failed()
+            try:
+                _key_manager.rotate_key()
+            except RuntimeError:
+                raise RuntimeError("All API keys are invalid. Please update ApiKeys.txt with valid Groq keys.")
+        else:
+            raise RuntimeError("All API keys are invalid. Please update ApiKeys.txt with valid Groq keys.")
+
         os.environ["GROQ_API_KEY"] = api_key
         lm = dspy.LM(
             model="groq/llama-3.3-70b-versatile",
@@ -310,7 +338,7 @@ class NLPService:
                          metadata_after: Optional[Dict[str, Any]] = None,
                          max_tokens: int = 250) -> str:
         """
-        Use DSPy / the configured LM to produce a human-readable explanation why
+        Use litellm directly (bypassing DSPy) to produce a human-readable explanation why
         the given preprocessing step executed. Includes automatic key rotation on rate limits.
         Returns the LLM's explanation string.
         """
@@ -320,13 +348,23 @@ class NLPService:
         
         while retry_count < max_retries:
             try:
-                # Ensure LM is available
-                if not self.lm:
+                # Use the class-level LM (updated by run() on key rotation)
+                lm = NLPService._lm
+                if lm is None:
                     api_key = _key_manager.get_current_key()
                     if not api_key:
                         return "Explanation failed: No API key available."
                     lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+                    NLPService._lm = lm
                     self.lm = lm
+
+                # ── Debug diagnostics ──────────────────────────────────────
+                lm_key = lm.kwargs.get("api_key", "NOT_FOUND")
+                env_key = os.environ.get("GROQ_API_KEY", "NOT_SET")
+                mgr_key = _key_manager.get_current_key()
+                print(f"[DIAG] explain_step_llm using lm.kwargs api_key={lm_key[:20]}...")
+                print(f"[DIAG] GROQ_API_KEY env={env_key[:20]}...")
+                print(f"[DIAG] key_manager current={mgr_key[:20]}...")
 
                 # Prepare JSON strings for metadata fields (shorten if very large)
                 mb = json.dumps(metadata_before or {}, indent=2, default=str)
@@ -338,21 +376,25 @@ class NLPService:
                 mb = _truncate(mb)
                 ma = _truncate(ma)
 
-                # Create a ChainOfThought for the ExplainStep signature and call it
-                explain_chain = dspy.ChainOfThought(NLPService.ExplainStep)
-                with dspy.context(lm=self.lm):
-                    resp = explain_chain(
-                        step_name=step_name,
-                        task=task or "",
-                        metadata_before=mb,
-                        metadata_after=ma,
-                    )
-                # The returned object usually exposes .explanation
-                explanation = getattr(resp, "explanation", None)
-                if not explanation:
-                    # fallback: string representation
-                    explanation = str(resp)
-                # small cleanup
+                # ── Build a prompt manually and call litellm directly ─────
+                prompt = (
+                    f"Explain why the following data preprocessing step was applied and its impact.\n\n"
+                    f"Step: {step_name}\n"
+                    f"User request: {task or 'N/A'}\n\n"
+                    f"Metadata before step:\n{mb}\n\n"
+                    f"Metadata after step:\n{ma}\n\n"
+                    f"Provide a concise explanation (2-4 sentences) in natural language."
+                )
+
+                import litellm
+                response = litellm.completion(
+                    model="groq/llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": prompt}],
+                    api_key=lm_key,
+                    max_tokens=max_tokens,
+                    temperature=0.3,
+                )
+                explanation = response["choices"][0]["message"]["content"]
                 return explanation.strip()
                 
             except Exception as e:
@@ -380,6 +422,7 @@ class NLPService:
                         api_key = _key_manager.rotate_key()
                         os.environ["GROQ_API_KEY"] = api_key
                         lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+                        NLPService._lm = lm
                         self.lm = lm
                         retry_count += 1
                         time.sleep(1)  # Brief delay before retry
@@ -432,6 +475,7 @@ class NLPService:
                 os.environ["GROQ_API_KEY"] = api_key
                 lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
                 self.lm = lm
+                NLPService._lm = lm
                 
                 print(f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}")
                 break
@@ -500,6 +544,7 @@ class NLPService:
                         os.environ["GROQ_API_KEY"] = api_key
                         lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
                         self.lm = lm
+                        NLPService._lm = lm
                         # Rebuild pipeline with new key
                         self.pipeline = self.build_pipeline(self.training_data)
                         pipeline_retry += 1

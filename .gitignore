@@ -46,3 +46,5 @@ __pycache__/feature_engineering.cpython-312.pyc
 data_standardization/config.py
 
 *.pyc
+test_data_with_issues.csv
+generate_test_data.py

@@ -41,7 +41,7 @@ class Pipeline:
     def set_nlp_service(self, nlp_service: NLPService):
         """Set the NLP service for intent extraction and explanations."""
         self.nlp_service = nlp_service
-    def run_single_agent(self, context: DataContext, user_command: str = "") -> tuple[DataContext, bool]:
+    def run_single_agent(self, context: DataContext,session, user_command: str = "") -> tuple[DataContext, bool]:
         """
         Run the pipeline on the given context.
         
@@ -76,6 +76,7 @@ class Pipeline:
         while not execute:
             try:
                 context, execute = self._execute_node(node, context)
+                session["last_executed_step"] = node.get_agent_name()
                 self.agents = self.agents[1:]
                 if not self.agents:
                     break
@@ -91,17 +92,24 @@ class Pipeline:
         # utilities.session["agents"].append(node)
         self.logger.info("Pipeline execution completed")
         # Save execution if session manager is available
-        if self.check_no_agents_left() and self.session_manager and user_command:
+        if self.check_no_agents_left_to_run(context) and self.session_manager and user_command:
             self._save_execution(context, user_command, context)
         
         self.logger.info("Pipeline execution completed")
-        done = self.check_no_agents_left()
+        done = self.check_no_agents_left_to_run(context)
+        print(f"[DEBUG] Agents left: {len(self.agents)}, done: {done}")
         return context, done
 
 
     
-    def check_no_agents_left(self) -> bool:
-        return len(self.agents)==0
+    def check_no_agents_left_to_run(self,context: DataContext) -> bool:
+        
+        for node in self.agents:
+            
+            if node.should_run(context):
+                print(f"[DEBUG] Node {node.get_agent_name()} should run")
+                return False
+        return True
     #run automated
     def run(self, context: DataContext, user_command: str = "") -> DataContext:
         """
