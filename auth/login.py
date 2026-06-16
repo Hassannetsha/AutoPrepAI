@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.database import get_db
@@ -7,7 +9,7 @@ from auth.email_utils import send_password_reset_email
 from auth.schemas import ForgotPasswordRequest, ResetPasswordRequest, UserLogin
 
 router = APIRouter()
-
+PASSWORD_REGEX = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#_-])[A-Za-z\d@$!%*?&.#_-]{8,}$"
 @router.post("/login")
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
     # Access fields from the body
@@ -43,6 +45,7 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
 
 @router.post("/reset-password")
 def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+
     email = decode_reset_password_token(request.token)
     if not email:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
@@ -56,7 +59,19 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
             status_code=400, 
             detail="New password cannot be the same as your current password."
         )
-    
+    if not re.match(PASSWORD_REGEX, request.new_password):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Password must be at least 8 characters long, "
+                "contain at least one uppercase letter, "
+                "one lowercase letter, "
+                "one number, "
+                "and one special character (@$!%*?&.#_-)."
+            )
+        )
+    if request.new_password != request.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
     user.hashed_password = hash_password(request.new_password)
     db.commit()
     

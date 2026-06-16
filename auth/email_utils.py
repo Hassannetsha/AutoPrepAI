@@ -105,5 +105,6 @@ This link will expire in 15 minutes. If you did not request this, please ignore 
         server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
+        print(f"Password reset email sent to {to_email}")
     except Exception as e:
         print(f"Email sending failed: {e}")
