@@ -20,6 +20,7 @@ class ChatResponse(BaseModel):
     conversation_id: UUID
     assistant_message: str
     result: ChatResponsePayload
+    finished: bool
 
 
 class ConversationMessageOut(BaseModel):

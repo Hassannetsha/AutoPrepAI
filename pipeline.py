@@ -80,6 +80,8 @@ class Pipeline:
             if not self.agents:
                 break
             node = self.agents[0]
+            # if execute:
+            #     session["no_ran_agents"] = session.get("no_ran_agents") + 1
         # utilities.session["agents"].append(node)
         self.logger.info("Pipeline execution completed")
         # Save execution if session manager is available

@@ -239,6 +239,7 @@ class MLPipelineService:
             "finished": False,
             "mode": normalized_mode,
             "result": None,
+            "last_executed_step": None,
         }
     @staticmethod
     def process_message(
@@ -386,6 +387,9 @@ class MLPipelineService:
             session["dataset_after"] = final_context.data.copy()
             session["context_metadata"] = dict(final_context.metadata)
             session["finished"] = finished
+            # if session["no_ran_agents"] <= 2:
+            #     session["finished"] = False
+            #     print(f"[DEBUG] In line 386, session['no_ran_agents']={session['no_ran_agents']}, setting finished to False")
             session["previous_logs"] = result["logs"].copy()
             session["output_file"] = output_file
             session["result"] = result
