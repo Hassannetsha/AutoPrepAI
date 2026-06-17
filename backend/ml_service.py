@@ -382,12 +382,15 @@ class MLPipelineService:
             "output_file": output_file,
             "download_url": None,
         }
-        session["dataset_after"] = final_context.data.copy()
-        session["context_metadata"] = dict(final_context.metadata)
-        session["finished"] = finished
-        session["previous_logs"] = result["logs"].copy()
-        session["output_file"] = output_file
-        session["result"] = result
+        if normalized_mode !="full_auto":
+            session["dataset_after"] = final_context.data.copy()
+            session["context_metadata"] = dict(final_context.metadata)
+            session["finished"] = finished
+            session["previous_logs"] = result["logs"].copy()
+            session["output_file"] = output_file
+            session["result"] = result
+        else:
+            utilities.sessions.pop(conversation_id, None)
         jsonable = MLPipelineService._to_jsonable(result)
         jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
         print(f"[DEBUG] In line 392")

@@ -1,7 +1,7 @@
 import pandas as pd
 from difflib import SequenceMatcher
 
-from detector import SemanticDuplicateDetector
+from .detector import SemanticDuplicateDetector
 
 class Evaluator:
     def __init__(self, detector: SemanticDuplicateDetector) -> None:

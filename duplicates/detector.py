@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
 
-from encoder import TextEncoder
-from index import VectorIndex
-from cross_encoder import CrossEncoderReranker
+from .encoder import TextEncoder
+from .index import VectorIndex
+from .cross_encoder import CrossEncoderReranker
 
 class SemanticDuplicateDetector:
     def __init__(

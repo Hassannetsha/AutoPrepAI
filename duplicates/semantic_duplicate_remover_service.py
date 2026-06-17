@@ -1,10 +1,10 @@
 import pandas as pd 
 
-from detector import SemanticDuplicateDetector
-from encoder import TextEncoder
-from evaluator import Evaluator
-from index import VectorIndex
-from cross_encoder import CrossEncoderReranker
+from .detector import SemanticDuplicateDetector
+from .encoder import TextEncoder
+from .evaluator import Evaluator
+from .index import VectorIndex
+from .cross_encoder import CrossEncoderReranker
 
 
 class SemanticDuplicateRemoverService:

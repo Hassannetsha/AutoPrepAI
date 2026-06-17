@@ -276,7 +276,7 @@ async def chat_feedback(
         )
         # output_key = 
         utilities.sessions.pop(str(conversation_uuid), None)
-        session = utilities.sessions.get(str(conversation_uuid))
+        # session = utilities.sessions.get(str(conversation_uuid))
         # print(f"Session after pop: {utilities.sessions.get(str(conversation_uuid))}")
     output_key = result.get("output_file")
     if output_key:
