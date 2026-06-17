@@ -1,7 +1,19 @@
 import { useEffect, useState } from "react";
 import { Database } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { getAuthToken, removeAuthToken } from "../../api/auth";
+import { getAuthToken, logoutUser } from "../../api/auth";
+
+export const LOGOUT_EVENT = "autoprepai_logout";
+
+export async function emitLogout() {
+  try {
+    await logoutUser();
+  } catch {
+    // best-effort — clear local state regardless
+  }
+  localStorage.removeItem("autoprepai_access_token");
+  window.dispatchEvent(new Event(LOGOUT_EVENT));
+}
 
 export default function AppHeader({ onLoginClick }) {
   const [isLoggedIn, setIsLoggedIn] = useState(!!getAuthToken());
@@ -9,14 +21,20 @@ export default function AppHeader({ onLoginClick }) {
 
   useEffect(() => {
     const handleStorage = () => setIsLoggedIn(!!getAuthToken());
+    const handleLogoutEvent = () => {
+      setIsLoggedIn(false);
+      navigate("/login", { replace: true });
+    };
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+    window.addEventListener(LOGOUT_EVENT, handleLogoutEvent);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(LOGOUT_EVENT, handleLogoutEvent);
+    };
+  }, [navigate]);
 
   function handleLogout() {
-    removeAuthToken();
-    setIsLoggedIn(false);
-    navigate("/login");
+    emitLogout();
   }
 
   return (

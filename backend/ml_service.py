@@ -379,7 +379,7 @@ class MLPipelineService:
             "shape": final_context.data.shape,
             "logs": session["previous_logs"] + final_context.logs,
             "metadata": final_context.metadata,
-            "data_preview": final_context.data.head(10).to_dict(orient="records"),
+            "data_preview": final_context.data.to_dict(orient="records"),
             "output_file": output_file,
             "download_url": None,
         }

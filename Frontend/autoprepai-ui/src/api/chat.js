@@ -140,3 +140,21 @@ export async function renameConversation(conversationId, title) {
 export async function listConversations() {
   return chatRequest("/conversations");
 }
+
+// feedback
+export async function sendFeedback({ conversationId, accept }) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE_URL}/chat/feedback`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ conversation_id: conversationId, accept }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+}

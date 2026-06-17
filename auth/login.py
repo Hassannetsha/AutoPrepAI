@@ -1,12 +1,27 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from backend.database import get_db
-from backend.models import User
+from backend.database import get_db, SessionLocal
+from backend.models import User, Conversation
 from auth.utils import verify_password, create_access_token, create_reset_password_token, decode_reset_password_token, hash_password
 from auth.email_utils import send_password_reset_email
 from auth.schemas import ForgotPasswordRequest, ResetPasswordRequest, UserLogin
+from auth import dependencies
 
 router = APIRouter()
+
+@router.post("/logout")
+def logout(current_user=Depends(dependencies.get_current_user)):
+    import utilities
+    db = SessionLocal()
+    try:
+        user_conversations = db.query(Conversation).filter(
+            Conversation.user_id == current_user.id
+        ).all()
+        for conv in user_conversations:
+            utilities.sessions.pop(str(conv.id), None)
+    finally:
+        db.close()
+    return {"message": "Logged out successfully"}
 
 @router.post("/login")
 def login(user_data: UserLogin, db: Session = Depends(get_db)):

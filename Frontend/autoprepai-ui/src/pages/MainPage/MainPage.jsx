@@ -10,12 +10,14 @@ import ChatWindow from "../../components/main/ChatWindow";
 import DataPreviewModal from "../../components/main/DataPreviewModal";
 import DatasetSidebar from "../../components/main/DatasetSidebar";
 import HistoryModal from "../../components/main/HistoryModal";
+import { LOGOUT_EVENT } from "../../components/main/AppHeader";
 import {
   sendChatMessage,
   deleteConversation,
   renameConversation,
   getConversation,
   listConversations,
+  sendFeedback,
 } from "../../api/chat";
 import { getAuthToken } from "../../api/auth";
 
@@ -50,7 +52,8 @@ export default function MainPage() {
   const [rows, setRows] = useState(0);
   const [columns, setColumns] = useState(0);
   const [uploadError, setUploadError] = useState("");
-  const [tableData, setTableData] = useState([]);
+  const [tableData, setTableData] = useState([]);       // display/preview data
+  const [fullTableData, setFullTableData] = useState([]); // full working dataset
   const [headers, setHeaders] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
   const [selectedActions, setSelectedActions] = useState([]);
@@ -61,6 +64,8 @@ export default function MainPage() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [pendingFeedback, setPendingFeedback] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
@@ -91,6 +96,7 @@ export default function MainPage() {
       const newHeaders = Object.keys(payload.data_preview[0]);
       setHeaders(newHeaders);
       setTableData(payload.data_preview);
+      setFullTableData(payload.data_preview);
       setRows(payload.shape?.[0] ?? payload.data_preview.length);
       setColumns(payload.shape?.[1] ?? newHeaders.length);
       setUploaded(true);
@@ -134,6 +140,9 @@ export default function MainPage() {
         if (lastAssistant?.payload) {
           restoreDatasetFromPayload(lastAssistant.payload);
         }
+
+        // Feedback is only for live sessions, not loaded history
+        setPendingFeedback(false);
       } catch (error) {
         console.error("Failed to load messages:", error);
       }
@@ -165,11 +174,32 @@ export default function MainPage() {
   // ─── Auth check + load conversations on mount ─────────────────────────────────
   useEffect(() => {
     if (!getAuthToken()) {
-      navigate("/login");
+      // navigate("/login");
       return;
     }
     loadConversations();
   }, [navigate, loadConversations]);
+
+  // ─── Reset state on logout ───────────────────────────────────────────────────
+  useEffect(() => {
+    const handleLogout = () => {
+      setUploaded(false);
+      setDatasetName("");
+      setRows(0);
+      setColumns(0);
+      setTableData([]);
+      setFullTableData([]);
+      setHeaders([]);
+      setUploadError("");
+      setSelectedActions([]);
+      setCurrentConversationId(null);
+      setHistoryLogs([]);
+      setChats([{ id: 1, title: "Chat 1", messages: [INITIAL_BOT_MESSAGE] }]);
+      setActiveChatId(1);
+    };
+    window.addEventListener(LOGOUT_EVENT, handleLogout);
+    return () => window.removeEventListener(LOGOUT_EVENT, handleLogout);
+  }, []);
 
   // ─── Auto scroll on new messages ──────────────────────────────────────────────
   useEffect(() => {
@@ -202,10 +232,12 @@ export default function MainPage() {
       setCurrentConversationId(chatId);
       setUploaded(false);
       setTableData([]);
+      setFullTableData([]);
       setHeaders([]);
       setDatasetName("");
       setRows(0);
       setColumns(0);
+      setPendingFeedback(false);
       await loadChatMessages(chatId);
     },
     [loadChatMessages]
@@ -229,12 +261,14 @@ export default function MainPage() {
     setCurrentConversationId(null);
     setUploaded(false);
     setTableData([]);
+    setFullTableData([]);
     setHeaders([]);
     setDatasetName("");
     setRows(0);
     setColumns(0);
     setSelectedActions([]);
     setChatError("");
+    setPendingFeedback(false);
   };
 
   // ─── Rename chat ──────────────────────────────────────────────────────────────
@@ -335,6 +369,7 @@ export default function MainPage() {
       setRows(parsed.rows);
       setColumns(parsed.columns);
       setTableData(parsed.data);
+      setFullTableData(parsed.data);
       setHeaders(parsed.headers);
       setUploadError("");
       setUploaded(true);
@@ -362,6 +397,7 @@ export default function MainPage() {
                     sender: "bot",
                     text: response.assistant_message || `✓ Dataset loaded: ${selectedFile.name}`,
                     time,
+                    downloadUrl: response.result?.download_url ?? null,
                   },
                 ],
               }
@@ -385,6 +421,7 @@ export default function MainPage() {
     setRows(0);
     setColumns(0);
     setTableData([]);
+    setFullTableData([]);
     setHeaders([]);
     setUploadError("");
     setSelectedActions([]);
@@ -392,10 +429,11 @@ export default function MainPage() {
 
   // ─── Download current table as CSV ────────────────────────────────────────────
   const handleDownload = () => {
-    if (!tableData.length) return;
+    const sourceData = fullTableData.length ? fullTableData : tableData;
+    if (!sourceData.length) return;
     const csvContent = [
       headers.join(","),
-      ...tableData.map((row) => headers.map((h) => row[h]).join(",")),
+      ...sourceData.map((row) => headers.map((h) => row[h]).join(",")),
     ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -422,7 +460,7 @@ export default function MainPage() {
 
   // ─── Auto clean ───────────────────────────────────────────────────────────────
   const handleAutoClean = async () => {
-    if (!tableData.length) {
+    if (!fullTableData.length && !tableData.length) {
       setChatError("No data to clean");
       return;
     }
@@ -450,9 +488,10 @@ export default function MainPage() {
     );
 
     try {
+      const sourceData = fullTableData.length ? fullTableData : tableData;
       const csvContent = [
         headers.join(","),
-        ...tableData.map((row) => headers.map((h) => row[h]).join(",")),
+        ...sourceData.map((row) => headers.map((h) => row[h]).join(",")),
       ].join("\n");
       const file = new File([csvContent], datasetName || "data.csv", { type: "text/csv" });
 
@@ -472,6 +511,7 @@ export default function MainPage() {
         const newHeaders = Object.keys(response.result.data_preview[0]);
         setHeaders(newHeaders);
         setTableData(response.result.data_preview);
+        setFullTableData(response.result.data_preview);
         setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
@@ -487,7 +527,7 @@ export default function MainPage() {
                   ...chat.messages,
                   {
                     sender: "bot",
-                    text: response.assistant_message || "✨ Auto-clean completed successfully.", // use this to get a cleaning message
+                    text: response.assistant_message || "✨ Auto-clean completed successfully.",
                     time: botTime,
                     downloadUrl: response.result?.download_url ?? null,
                   },
@@ -543,10 +583,11 @@ export default function MainPage() {
 
     try {
       let datasetFile = null;
-      if (tableData.length > 0 && headers.length > 0) {
+      const sourceData = fullTableData.length ? fullTableData : tableData;
+      if (sourceData.length > 0 && headers.length > 0) {
         const csvContent = [
           headers.join(","),
-          ...tableData.map((row) => headers.map((h) => row[h]).join(",")),
+          ...sourceData.map((row) => headers.map((h) => row[h]).join(",")),
         ].join("\n");
         datasetFile = new File([csvContent], datasetName || "data.csv", { type: "text/csv" });
       }
@@ -563,6 +604,7 @@ export default function MainPage() {
       syncConversationId(response.conversation_id, thisChatId);
 
       const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setPendingFeedback(!response.finished);
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === thisChatId || chat.id === realConvId
@@ -586,6 +628,7 @@ export default function MainPage() {
         const newHeaders = Object.keys(response.result.data_preview[0]);
         setHeaders(newHeaders);
         setTableData(response.result.data_preview);
+        setFullTableData(response.result.data_preview);
         setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
@@ -649,9 +692,10 @@ export default function MainPage() {
     );
 
     try {
+      const sourceData = fullTableData.length ? fullTableData : tableData;
       const csvContent = [
         headers.join(","),
-        ...tableData.map((row) => headers.map((h) => row[h]).join(",")),
+        ...sourceData.map((row) => headers.map((h) => row[h]).join(",")),
       ].join("\n");
       const datasetFile = new File([csvContent], datasetName || "data.csv", { type: "text/csv" });
 
@@ -667,6 +711,7 @@ export default function MainPage() {
       syncConversationId(response.conversation_id, thisChatId);
 
       const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setPendingFeedback(!response.finished);
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === thisChatId || chat.id === realConvId
@@ -690,6 +735,7 @@ export default function MainPage() {
         const newHeaders = Object.keys(response.result.data_preview[0]);
         setHeaders(newHeaders);
         setTableData(response.result.data_preview);
+        setFullTableData(response.result.data_preview);
         setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
@@ -715,6 +761,59 @@ export default function MainPage() {
       );
     } finally {
       setIsLoadingChat(false);
+    }
+  };
+
+  // ─── Handle feedback (accept/reject) ──────────────────────────────────────────
+  const handleFeedback = async (accept) => {
+    if (!currentConversationId || submittingFeedback) return;
+
+    setSubmittingFeedback(true);
+    setPendingFeedback(false);
+    setChatError("");
+
+    try {
+      const response = await sendFeedback({
+        conversationId: currentConversationId,
+        accept,
+      });
+
+      const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === currentConversationId
+            ? {
+                ...chat,
+                messages: [
+                  ...chat.messages,
+                  {
+                    sender: "bot",
+                    text: response.assistant_message,
+                    time: botTime,
+                    downloadUrl: response.result?.download_url ?? null,
+                  },
+                ],
+              }
+            : chat
+        )
+      );
+
+      setPendingFeedback(!response.finished);
+
+      if (response.result?.data_preview?.length) {
+        const newHeaders = Object.keys(response.result.data_preview[0]);
+        setHeaders(newHeaders);
+        setTableData(response.result.data_preview);
+        setFullTableData(response.result.data_preview);
+        setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
+        setColumns(response.result.shape?.[1] ?? newHeaders.length);
+      }
+    } catch (error) {
+      console.error("Feedback error:", error);
+      setChatError(error.message);
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -764,7 +863,14 @@ export default function MainPage() {
 
       <div className="main">
         <AppHeader onLoginClick={() => navigate("/login")} />
-        <ChatWindow activeChat={activeChat} chatEndRef={chatEndRef} />
+        <ChatWindow
+          activeChat={activeChat}
+          chatEndRef={chatEndRef}
+          pendingFeedback={pendingFeedback}
+          onAcceptFeedback={() => handleFeedback(true)}
+          onRejectFeedback={() => handleFeedback(false)}
+          feedbackDisabled={submittingFeedback}
+        />
         <ActionList
           actions={actions}
           uploaded={uploaded}
