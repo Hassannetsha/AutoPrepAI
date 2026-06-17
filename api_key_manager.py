@@ -53,6 +53,13 @@ class APIKeyManager:
         if not self.api_keys:
             raise RuntimeError("No API keys available.")
         
+        available = len(self.api_keys) - len(self.failed_keys)
+        if available <= 0:
+            raise RuntimeError(
+                f"All {len(self.api_keys)} API keys have been rate-limited. "
+                "Please wait before retrying or add more keys."
+            )
+        
         key = self.api_keys[self.current_index]
         return key
     
@@ -71,7 +78,7 @@ class APIKeyManager:
         
         if available_keys <= 0:
             raise RuntimeError(
-                f"❌ All {len(self.api_keys)} API keys have reached rate limits. "
+                f"All {len(self.api_keys)} API keys have been rate-limited. "
                 "Please wait before retrying or add more keys."
             )
         

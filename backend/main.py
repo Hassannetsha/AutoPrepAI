@@ -195,9 +195,9 @@ async def chat(
             selected_intents=parsed_selected_intents,
             conversation_id=str(conversation.id),
         )
-    except ValueError as exc:
+    except Exception as exc:
+        print(f"[ERROR] {exc}")
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    # if mode == "full_auto":
     output_key = result.get("output_file")
     if output_key:
         try:
@@ -262,12 +262,16 @@ async def chat_feedback(
     finished = session.get("finished")
     print(f"[DEBUG] Finished status: {finished}, dataset shape: {dataset_df.shape}, previous logs: {session['previous_logs']}")
     if not finished:
-        result, session["finished"] = MLPipelineService.process_message(
-            user_message="",
-            dataset_df=dataset_df,
-            mode=session["mode"],
-            conversation_id=str(conversation_uuid),
-        )
+        try:
+            result, session["finished"] = MLPipelineService.process_message(
+                user_message="",
+                dataset_df=dataset_df,
+                mode=session["mode"],
+                conversation_id=str(conversation_uuid),
+            )
+        except Exception as exc:
+            print(f"[ERROR] {exc}")
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     else:
         result = session["result"]
         result["logs"] = session["previous_logs"].copy()
