@@ -23,7 +23,7 @@ export default function AppHeader({ onLoginClick }) {
     const handleStorage = () => setIsLoggedIn(!!getAuthToken());
     const handleLogoutEvent = () => {
       setIsLoggedIn(false);
-      navigate("/login", { replace: true });
+      // navigate("/login", { replace: true });
     };
     window.addEventListener("storage", handleStorage);
     window.addEventListener(LOGOUT_EVENT, handleLogoutEvent);
