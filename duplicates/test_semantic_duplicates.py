@@ -6,6 +6,7 @@ Usage:
     python test_semantic_duplicates.py
     python test_semantic_duplicates.py --gs duplicates/computers_gs.json duplicates/watches_gs.json.gz duplicates/cameras_gs.json.gz duplicates/shoes_gs.json.gz
     python test_semantic_duplicates.py --sample 500
+    python test_semantic_duplicates.py --cross-encoder
 """
 
 import argparse
@@ -79,8 +80,8 @@ def _metrics(labels, predictions) -> dict:
     recall    = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1        = (2 * precision * recall / (precision + recall)
                  if (precision + recall) > 0 else 0.0)
-    return dict(precision=round(precision,3), recall=round(recall,3),
-                f1=round(f1,3), tp=tp, fp=fp, fn=fn, tn=tn)
+    return dict(precision=round(precision, 3), recall=round(recall, 3),
+                f1=round(f1, 3), tp=tp, fp=fp, fn=fn, tn=tn)
 
 
 def encode_paired_texts(
@@ -92,45 +93,22 @@ def encode_paired_texts(
     unique_texts = all_texts.drop_duplicates().tolist()
     print(f"Encoding {len(unique_texts)} unique texts for {len(left_texts)} pairs ...")
 
-    embeddings = service._encode(unique_texts)
+    embeddings = service.detector.encoder.encode(unique_texts)
     embedding_by_text = dict(zip(unique_texts, embeddings))
     emb_left  = np.vstack([embedding_by_text[text] for text in left_texts])
     emb_right = np.vstack([embedding_by_text[text] for text in right_texts])
     return emb_left, emb_right
 
 
-def build_token_filter_mask(left_texts: list[str], right_texts: list[str]) -> np.ndarray:
-    """
-    Returns a boolean array of length N where True means the pair has
-    conflicting discriminative tokens (product-line variant → not a duplicate).
-    Apply this AFTER the similarity threshold: zero out predictions where
-    conflict=True.
-    """
-    conflict = np.array([
-        SemanticDuplicateRemoverService._discriminative_tokens_conflict(l, r)
-        for l, r in zip(left_texts, right_texts)
-    ])
-    n_conflicts = conflict.sum()
-    if n_conflicts > 0:
-        print(f"  Token filter will suppress {n_conflicts} product-variant pairs.")
-    return conflict
-
-
 # ------------------------------------------------------------------ #
-#  1. Threshold sensitivity  (SBERT, title only)                     #
+#  1. Threshold sensitivity  (bi-encoder, title only)                #
 # ------------------------------------------------------------------ #
 
 def sensitivity_analysis(
     gs: pd.DataFrame,
     service: SemanticDuplicateRemoverService,
-    thresholds: list[float]
-) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
-    """
-    Encode pairs once, sweep thresholds, return:
-      - results DataFrame
-      - raw similarities
-      - filtered similarities (conflicts zeroed out so they never cross threshold)
-    """
+    thresholds: list[float],
+) -> tuple[pd.DataFrame, np.ndarray]:
     emb_left, emb_right = encode_paired_texts(
         gs["title_left"].tolist(),
         gs["title_right"].tolist(),
@@ -139,57 +117,83 @@ def sensitivity_analysis(
 
     sims   = (emb_left * emb_right).sum(axis=1)
     labels = gs["label"].values
-
-    # Build conflict mask once for all thresholds
-    conflict_mask = build_token_filter_mask(
-        gs["title_left"].tolist(),
-        gs["title_right"].tolist(),
-    )
-
-    # Filtered sims: set conflicting pairs to 0 so they never exceed any threshold
-    sims_filtered = sims.copy()
-    sims_filtered[conflict_mask] = 0.0
-
-    rows_raw      = []
-    rows_filtered = []
+    rows   = []
 
     for t in thresholds:
-        # Raw (no filter)
-        preds_raw = (sims >= t).astype(int)
-        m_raw = _metrics(labels, preds_raw)
-        m_raw["threshold"] = t
-        rows_raw.append(m_raw)
-
-        # Filtered
-        preds_filtered = (sims_filtered >= t).astype(int)
-        m_f = _metrics(labels, preds_filtered)
-        m_f["threshold"] = t
-        rows_filtered.append(m_f)
-
-        print(f"  θ={t:.2f} │ "
-              f"Raw:      P={m_raw['precision']:.3f}  R={m_raw['recall']:.3f}  F1={m_raw['f1']:.3f}  "
-              f"(TP={m_raw['tp']}, FP={m_raw['fp']}, FN={m_raw['fn']})")
-        print(f"         │ "
-              f"Filtered: P={m_f['precision']:.3f}  R={m_f['recall']:.3f}  F1={m_f['f1']:.3f}  "
-              f"(TP={m_f['tp']}, FP={m_f['fp']}, FN={m_f['fn']})")
+        preds = (sims >= t).astype(int)
+        m = _metrics(labels, preds)
+        m["threshold"] = t
+        rows.append(m)
+        print(f"  θ={t:.2f} │ P={m['precision']:.3f}  R={m['recall']:.3f}  F1={m['f1']:.3f}  "
+              f"(TP={m['tp']}, FP={m['fp']}, FN={m['fn']})")
 
     cols = ["threshold", "precision", "recall", "f1", "tp", "fp", "fn", "tn"]
-    df_raw      = pd.DataFrame(rows_raw)[cols]
-    df_filtered = pd.DataFrame(rows_filtered)[cols]
-
-    return df_raw, df_filtered, sims, sims_filtered
+    return pd.DataFrame(rows)[cols], sims
 
 
 # ------------------------------------------------------------------ #
-#  2. Baselines                                                       #
+#  2. Cross-encoder reranking evaluation                             #
+# ------------------------------------------------------------------ #
+
+def cross_encoder_evaluation(
+    gs: pd.DataFrame,
+    service: SemanticDuplicateRemoverService,
+    bi_encoder_threshold: float,
+) -> dict:
+    """
+    Run the cross-encoder over bi-encoder candidates and evaluate.
+    Only meaningful when service was built with use_cross_encoder=True.
+    """
+    if service.detector.cross_encoder is None:
+        print("  Cross-encoder not enabled — skipping.")
+        return {}
+
+    sims_left, sims_right = encode_paired_texts(
+        gs["title_left"].tolist(),
+        gs["title_right"].tolist(),
+        service,
+    )
+    sims = (sims_left * sims_right).sum(axis=1)
+    labels = gs["label"].values
+
+    # Only rerank pairs that passed the bi-encoder threshold
+    candidate_mask = sims >= bi_encoder_threshold
+    candidate_indices = np.where(candidate_mask)[0]
+
+    if len(candidate_indices) == 0:
+        print("  No candidates above bi-encoder threshold.")
+        return {}
+
+    candidate_pairs = [
+        (gs["title_left"].iloc[i], gs["title_right"].iloc[i])
+        for i in candidate_indices
+    ]
+
+    scores = service.detector.cross_encoder.rerank(candidate_pairs)
+    ce_threshold = service.detector.cross_encoder.threshold
+
+    # Build final predictions: candidate must pass both thresholds
+    preds = np.zeros(len(gs), dtype=int)
+    for idx, score, i in zip(range(len(candidate_indices)), scores, candidate_indices):
+        if score >= ce_threshold:
+            preds[i] = 1
+
+    m = _metrics(labels, preds)
+    print(f"  Cross-encoder (bi θ={bi_encoder_threshold}, ce θ={ce_threshold}): "
+          f"P={m['precision']:.3f}  R={m['recall']:.3f}  F1={m['f1']:.3f}  "
+          f"(TP={m['tp']}, FP={m['fp']}, FN={m['fn']})")
+    return {"method": f"SBERT+CrossEncoder (θ={bi_encoder_threshold})", **m}
+
+
+# ------------------------------------------------------------------ #
+#  3. Baselines                                                       #
 # ------------------------------------------------------------------ #
 
 def exact_match_baseline(gs: pd.DataFrame) -> dict:
     print("Running exact-match baseline ...")
     preds  = (gs["title_left"] == gs["title_right"]).astype(int).values
     labels = gs["label"].values
-    m = _metrics(labels, preds)
-    return {"method": "Exact match", **m}
+    return {"method": "Exact match", **_metrics(labels, preds)}
 
 
 def fuzzy_baseline(gs: pd.DataFrame, fuzzy_threshold: float = 0.80) -> dict:
@@ -201,22 +205,19 @@ def fuzzy_baseline(gs: pd.DataFrame, fuzzy_threshold: float = 0.80) -> dict:
         else 0
         for _, r in gs.iterrows()
     ])
-    m = _metrics(labels, preds)
-    return {"method": f"Fuzzy (θ={fuzzy_threshold})", **m}
+    return {"method": f"Fuzzy (θ={fuzzy_threshold})", **_metrics(labels, preds)}
 
 
 # ------------------------------------------------------------------ #
-#  3. Multi-column  (title + brand)                                  #
+#  4. Multi-column  (title + brand)                                  #
 # ------------------------------------------------------------------ #
 
 def multicolumn_evaluation(
     gs: pd.DataFrame,
     service: SemanticDuplicateRemoverService,
     threshold: float,
-    columns: list[str]
-) -> tuple[dict, dict]:
-    """Returns (raw_metrics, filtered_metrics)."""
-
+    columns: list[str],
+) -> dict:
     def combine(side: str) -> list[str]:
         parts = [gs[f"{c}_{side}"].fillna("").astype(str) for c in columns
                  if f"{c}_{side}" in gs.columns]
@@ -228,36 +229,16 @@ def multicolumn_evaluation(
     col_str = " + ".join(columns)
     print(f"\nMulti-column encoding ({col_str}) ...")
 
-    left_combined  = combine("left")
-    right_combined = combine("right")
-
-    emb_left, emb_right = encode_paired_texts(left_combined, right_combined, service)
+    emb_left, emb_right = encode_paired_texts(combine("left"), combine("right"), service)
     sims   = (emb_left * emb_right).sum(axis=1)
     labels = gs["label"].values
-
-    # Use title columns for token filter (brand names alone aren't discriminative)
-    conflict_mask  = build_token_filter_mask(
-        gs["title_left"].tolist(),
-        gs["title_right"].tolist(),
-    )
-    sims_filtered  = sims.copy()
-    sims_filtered[conflict_mask] = 0.0
-
-    preds_raw      = (sims >= threshold).astype(int)
-    preds_filtered = (sims_filtered >= threshold).astype(int)
-
-    m_raw = _metrics(labels, preds_raw)
-    m_f   = _metrics(labels, preds_filtered)
-
-    method_base = f"SBERT multi-col ({col_str}) θ={threshold}"
-    return (
-        {"method": method_base,            **m_raw},
-        {"method": method_base + "+filter", **m_f},
-    )
+    preds  = (sims >= threshold).astype(int)
+    m      = _metrics(labels, preds)
+    return {"method": f"SBERT multi-col ({col_str}) θ={threshold}", **m}
 
 
 # ------------------------------------------------------------------ #
-#  4. Error analysis                                                  #
+#  5. Error analysis                                                  #
 # ------------------------------------------------------------------ #
 
 def error_analysis(
@@ -265,11 +246,10 @@ def error_analysis(
     sims: np.ndarray,
     threshold: float,
     n_samples: int = 5,
-    label: str = ""
+    label: str = "",
 ):
-    labels = gs["label"].values
-    preds  = (sims >= threshold).astype(int)
-
+    labels  = gs["label"].values
+    preds   = (sims >= threshold).astype(int)
     fp_rows = gs[(preds == 1) & (labels == 0)]
     fn_rows = gs[(preds == 0) & (labels == 1)]
 
@@ -321,73 +301,60 @@ def evaluate_dataset(
     print("\n" + "=" * 60)
     print("1. THRESHOLD SENSITIVITY ANALYSIS  (title only)")
     print("=" * 60)
-    df_raw, df_filtered, sims, sims_filtered = sensitivity_analysis(gs, service, thresholds)
+    df_results, sims = sensitivity_analysis(gs, service, thresholds)
+    print("\nResults table:")
+    print(df_results.to_string(index=False))
 
-    print("\nRaw results table:")
-    print(df_raw.to_string(index=False))
-    print("\nFiltered results table (token filter applied):")
-    print(df_filtered.to_string(index=False))
+    best_row = df_results.loc[df_results["f1"].idxmax()]
+    best_t   = float(best_row["threshold"])
+    print(f"\n→ Best: θ={best_t:.2f}  F1={best_row['f1']:.3f}  "
+          f"P={best_row['precision']:.3f}  R={best_row['recall']:.3f}")
 
-    best_row_raw = df_raw.loc[df_raw["f1"].idxmax()]
-    best_row_f   = df_filtered.loc[df_filtered["f1"].idxmax()]
-    best_t_raw   = float(best_row_raw["threshold"])
-    best_t_f     = float(best_row_f["threshold"])
-
-    print(f"\n→ Best raw:      θ={best_t_raw:.2f}  F1={best_row_raw['f1']:.3f}  "
-          f"P={best_row_raw['precision']:.3f}  R={best_row_raw['recall']:.3f}")
-    print(f"→ Best filtered: θ={best_t_f:.2f}  F1={best_row_f['f1']:.3f}  "
-          f"P={best_row_f['precision']:.3f}  R={best_row_f['recall']:.3f}")
-
-    # Use filtered best threshold for downstream comparisons
-    best_t = best_t_f
-
-    # ── 2. Baselines ───────────────────────────────────────────────
+    # ── 2. Cross-encoder ───────────────────────────────────────────
     print("\n" + "=" * 60)
-    print("2. BASELINE COMPARISONS")
+    print("2. CROSS-ENCODER RERANKING  (title only)")
+    print("=" * 60)
+    ce_result = cross_encoder_evaluation(gs, service, bi_encoder_threshold=best_t)
+
+    # ── 3. Baselines ───────────────────────────────────────────────
+    print("\n" + "=" * 60)
+    print("3. BASELINE COMPARISONS")
     print("=" * 60)
     exact = exact_match_baseline(gs)
     fuzzy = fuzzy_baseline(gs, fuzzy_threshold=0.80)
 
-    sbert_raw = {
-        "method": f"SBERT title-only raw (θ={best_t})",
-        **{k: df_raw.loc[df_raw["threshold"] == best_t].iloc[0][k]
-           for k in ["precision", "recall", "f1", "tp", "fp", "fn", "tn"]}
-    }
-    sbert_filtered = {
-        "method": f"SBERT title-only +filter (θ={best_t})",
-        **{k: df_filtered.loc[df_filtered["threshold"] == best_t].iloc[0][k]
-           for k in ["precision", "recall", "f1", "tp", "fp", "fn", "tn"]}
+    sbert = {
+        "method": f"SBERT title-only (θ={best_t})",
+        **{k: best_row[k] for k in ["precision", "recall", "f1", "tp", "fp", "fn", "tn"]}
     }
 
-    comparison = pd.DataFrame([exact, fuzzy, sbert_raw, sbert_filtered])
-    print("\n", comparison.to_string(index=False))
+    comparison_rows = [exact, fuzzy, sbert]
+    if ce_result:
+        comparison_rows.append(ce_result)
 
-    # ── 3. Multi-column ────────────────────────────────────────────
+    # ── 4. Multi-column ────────────────────────────────────────────
     print("\n" + "=" * 60)
-    print("3. MULTI-COLUMN  (title + brand)")
+    print("4. MULTI-COLUMN  (title + brand)")
     print("=" * 60)
-    mc_raw, mc_filtered = multicolumn_evaluation(gs, service, best_t, columns=["title", "brand"])
-    print(f"  Raw:      P={mc_raw['precision']}  R={mc_raw['recall']}  F1={mc_raw['f1']}")
-    print(f"  Filtered: P={mc_filtered['precision']}  R={mc_filtered['recall']}  F1={mc_filtered['f1']}")
+    mc = multicolumn_evaluation(gs, service, best_t, columns=["title", "brand"])
+    print(f"  P={mc['precision']}  R={mc['recall']}  F1={mc['f1']}")
+    comparison_rows.append(mc)
 
-    full_comparison = pd.DataFrame([exact, fuzzy, sbert_raw, sbert_filtered, mc_raw, mc_filtered])
+    full_comparison = pd.DataFrame(comparison_rows)
     print("\nFull comparison (all methods):")
-    print(full_comparison[["method","precision","recall","f1","tp","fp","fn"]].to_string(index=False))
+    print(full_comparison[["method", "precision", "recall", "f1", "tp", "fp", "fn"]].to_string(index=False))
 
-    # ── 4. Error analysis ──────────────────────────────────────────
+    # ── 5. Error analysis ──────────────────────────────────────────
     print("\n" + "=" * 60)
-    print("4. ERROR ANALYSIS  (best threshold, filtered)")
+    print("5. ERROR ANALYSIS  (best threshold)")
     print("=" * 60)
-    error_analysis(gs, sims,          threshold=best_t, n_samples=5, label="raw")
-    error_analysis(gs, sims_filtered, threshold=best_t, n_samples=5, label="filtered")
+    error_analysis(gs, sims, threshold=best_t, n_samples=5)
 
-    # ── Save CSVs ──────────────────────────────────────────────────
+    # ── Save ───────────────────────────────────────────────────────
     slug = _dataset_slug(dataset_path)
-    df_raw.to_csv(f"sensitivity_raw_{slug}.csv",      index=False)
-    df_filtered.to_csv(f"sensitivity_filtered_{slug}.csv", index=False)
-    full_comparison.to_csv(f"comparison_{slug}.csv",  index=False)
-    print(f"Saved: sensitivity_raw_{slug}.csv")
-    print(f"Saved: sensitivity_filtered_{slug}.csv")
+    df_results.to_csv(f"sensitivity_{slug}.csv", index=False)
+    full_comparison.to_csv(f"comparison_{slug}.csv", index=False)
+    print(f"\nSaved: sensitivity_{slug}.csv")
     print(f"Saved: comparison_{slug}.csv")
 
     print("\n" + "=" * 60)
@@ -399,29 +366,27 @@ def evaluate_dataset(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--gs",
-        type=str,
-        nargs="+",
+        "--gs", type=str, nargs="+",
         default=[
-            "duplicates/computers_gs.json",
-            "duplicates/watches_gs.json.gz",
-            "duplicates/cameras_gs.json.gz",
-            "duplicates/shoes_gs.json.gz",
+            "datasets/computers_gs.json",
+            "datasets/watches_gs.json",
+            "datasets/cameras_gs.json",
+            "datasets/shoes_gs.json",
         ],
-        help="One or more WDC JSON/JSON.GZ pair dataset paths.",
     )
-    parser.add_argument("--sample", type=int, default=None,
-                        help="Use only first N pairs per dataset (quick smoke-test)")
-    parser.add_argument("--model", type=str, default="all-mpnet-base-v2",
-                        help="SentenceTransformer model name.")
-    parser.add_argument("--batch-size", type=int, default=1024,
-                        help="Embedding batch size.")
+    parser.add_argument("--sample",       type=int,  default=None)
+    parser.add_argument("--model",        type=str,  default="all-mpnet-base-v2")
+    parser.add_argument("--batch-size",   type=int,  default=1024)
+    parser.add_argument("--cross-encoder", action="store_true",
+                        help="Enable cross-encoder reranking for higher precision.")
     args = parser.parse_args()
+    # print(f"DEBUG: cross_encoder flag = {args.cross_encoder}")
+    # print(f"DEBUG: service.detector.cross_encoder = {service.detector.cross_encoder}")
 
     service = SemanticDuplicateRemoverService(
-        threshold=0.85,
-        k_neighbors=10,
         model_name=args.model,
+        threshold=0.70,
+        k_neighbors=10,
         batch_size=args.batch_size,
     )
     thresholds = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95]

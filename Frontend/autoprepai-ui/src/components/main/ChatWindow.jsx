@@ -1,7 +1,15 @@
 import { Bot, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import FeedbackCard from "./FeedbackCard";
 
-export default function ChatWindow({ activeChat, chatEndRef }) {
+export default function ChatWindow({
+  activeChat,
+  chatEndRef,
+  pendingFeedback,
+  onAcceptFeedback,
+  onRejectFeedback,
+  feedbackDisabled,
+}) {
   return (
     <div className="chat">
       {activeChat?.messages.map((msg, index) => (
@@ -55,6 +63,22 @@ export default function ChatWindow({ activeChat, chatEndRef }) {
           )}
         </div>
       ))}
+
+      {pendingFeedback && (
+        <div className="message-row row-bot">
+          <div className="avatar avatar-bot">
+            <Bot size={16} />
+          </div>
+          <div className="message message-bot">
+            <FeedbackCard
+              onAccept={onAcceptFeedback}
+              onReject={onRejectFeedback}
+              disabled={feedbackDisabled}
+            />
+          </div>
+        </div>
+      )}
+
       <div ref={chatEndRef} />
     </div>
   );

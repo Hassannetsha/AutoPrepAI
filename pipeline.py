@@ -74,21 +74,14 @@ class Pipeline:
 
         node = self.agents[0]
         while not execute:
-            try:
-                context, execute = self._execute_node(node, context)
-                session["last_executed_step"] = node.get_agent_name()
-                self.agents = self.agents[1:]
-                if not self.agents:
-                    break
-                node = self.agents[0]
-            except Exception as e:
-                error_msg = f"Error executing {node.get_agent_name()}: {e}"
-                self.logger.error(error_msg)
-                context.log(error_msg)
-                self.agents = self.agents[1:]
-                if not self.agents:
-                    break
-                node = self.agents[0]
+            context, execute = self._execute_node(node, context)
+            session["last_executed_step"] = node.get_agent_name()
+            self.agents = self.agents[1:]
+            if not self.agents:
+                break
+            node = self.agents[0]
+            # if execute:
+            #     session["no_ran_agents"] = session.get("no_ran_agents") + 1
         # utilities.session["agents"].append(node)
         self.logger.info("Pipeline execution completed")
         # Save execution if session manager is available
@@ -128,14 +121,7 @@ class Pipeline:
         context.metadata["user_command"] = user_command or ""
         
         for node in self.agents:
-            try:
-                context, _ = self._execute_node(node, context)
-            except Exception as e:
-                error_msg = f"Error executing {node.get_agent_name()}: {e}"
-                self.logger.error(error_msg)
-                context.log(error_msg)
-                # Continue with next agent instead of failing completely
-                continue
+            context, _ = self._execute_node(node, context)
         
         # Save execution if session manager is available
         if self.session_manager and user_command:
@@ -184,21 +170,17 @@ class Pipeline:
         # print(f"[DEBUG] Evaluating node: {agent_name} with context metadata: {context.metadata},context logs: {context.logs}")
         # Generate explanation if NLP service is available
         if self.nlp_service and agent_name != "NLP":
-            try:
-                explanation = self.nlp_service.explain_step_llm(
-                    step_name=agent_name,
-                    metadata_before=metadata_before,
-                    metadata_after=context.metadata
-                )
+            explanation = self.nlp_service.explain_step_llm(
+                step_name=agent_name,
+                metadata_before=metadata_before,
+                metadata_after=context.metadata
+            )
 
-                context.metadata.setdefault("explanations", []).append({
-                    "step": agent_name,
-                    "explanation": explanation
-                })
-                context.log(f"Explanation for '{agent_name}': {explanation}")
-                
-            except Exception as e:
-                self.logger.warning(f"Failed to generate explanation for {agent_name}: {e}")
+            context.metadata.setdefault("explanations", []).append({
+                "step": agent_name,
+                "explanation": explanation
+            })
+            context.log(f"Explanation for '{agent_name}': {explanation}")
         
         return context,True
 

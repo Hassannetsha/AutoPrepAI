@@ -239,6 +239,7 @@ class MLPipelineService:
             "finished": False,
             "mode": normalized_mode,
             "result": None,
+            "last_executed_step": None,
         }
     @staticmethod
     def process_message(
@@ -378,16 +379,22 @@ class MLPipelineService:
             "shape": final_context.data.shape,
             "logs": session["previous_logs"] + final_context.logs,
             "metadata": final_context.metadata,
-            "data_preview": final_context.data.head(10).to_dict(orient="records"),
+            "data_preview": final_context.data.to_dict(orient="records"),
             "output_file": output_file,
             "download_url": None,
         }
-        session["dataset_after"] = final_context.data.copy()
-        session["context_metadata"] = dict(final_context.metadata)
-        session["finished"] = finished
-        session["previous_logs"] = result["logs"].copy()
-        session["output_file"] = output_file
-        session["result"] = result
+        if normalized_mode !="full_auto":
+            session["dataset_after"] = final_context.data.copy()
+            session["context_metadata"] = dict(final_context.metadata)
+            session["finished"] = finished
+            # if session["no_ran_agents"] <= 2:
+            #     session["finished"] = False
+            #     print(f"[DEBUG] In line 386, session['no_ran_agents']={session['no_ran_agents']}, setting finished to False")
+            session["previous_logs"] = result["logs"].copy()
+            session["output_file"] = output_file
+            session["result"] = result
+        else:
+            utilities.sessions.pop(conversation_id, None)
         jsonable = MLPipelineService._to_jsonable(result)
         jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
         print(f"[DEBUG] In line 392")

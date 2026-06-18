@@ -868,3 +868,80 @@ tr:hover td {
   border-color: #9adbd3;
   transform: none;
 }
+
+/* ─── Feedback Styling ───────────────────────────────── */
+
+/* ── Feedback Card ───────────────────────── */
+.feedback-card {
+  margin-top: 12px;
+  padding: 18px;
+  background: linear-gradient(135deg, #f7fffd, #eefcf9);
+  border: 1px solid #cfeeea;
+  border-radius: 16px;
+  max-width: 340px;
+  box-shadow: 0 8px 24px rgba(43, 179, 163, 0.12);
+}
+
+/* .feedback-card {
+  margin-top: 10px;
+  margin-left: 0;
+  width: fit-content;
+  min-width: 280px;
+} */
+
+.feedback-card-header {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #00897b;
+  letter-spacing: 0.08em;
+  margin-bottom: 16px;
+}
+
+/* ── Buttons ─────────────────────────────── */
+.feedback-card-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.feedback-btn-accept,
+.feedback-btn-reject {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.feedback-btn-accept:disabled,
+.feedback-btn-reject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Accept */
+.feedback-btn-accept {
+  background: linear-gradient(135deg, #2bb3a3, #34c5a8);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(43, 179, 163, 0.25);
+}
+
+.feedback-btn-accept:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(43, 179, 163, 0.35);
+}
+
+/* Reject */
+.feedback-btn-reject {
+  background: white;
+  color: #ef4444;
+  border: 1.5px solid #fecaca;
+}
+
+.feedback-btn-reject:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: #f87171;
+}

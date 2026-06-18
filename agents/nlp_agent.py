@@ -27,6 +27,8 @@ class NLPAgent(PipelineAgent):
                 user_input=user_command, 
                 dataset_df=context.data
             )
+        except RuntimeError:
+            raise
         except Exception as e:
             context.log(f"NLP error: {e}")
             return context

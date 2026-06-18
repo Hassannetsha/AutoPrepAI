@@ -195,19 +195,24 @@ async def chat(
             selected_intents=parsed_selected_intents,
             conversation_id=str(conversation.id),
         )
-    except ValueError as exc:
+        # if mode=="manual" or mode == "chat":
+        #     session["finished"] = False
+    except Exception as exc:
+        print(f"[ERROR] {exc}")
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    # if mode == "full_auto":
     output_key = result.get("output_file")
     if output_key:
         try:
             result["download_url"] = generate_download_url(output_key)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {exc}") from exc
-
+    # print(f"[DEBUG] Session after processing in line 209")
     assistant_message = result.pop("assistant_message", "Processing completed successfully.")
-    if not session["finished"]:
-        assistant_message += "Waiting for your feedback to proceed to the next step."
+    # print(f"[DEBUG] Session after processing in line 211")
+    finished = True
+    if mode=="manual" or mode == "chat":
+        assistant_message += "\n[System] Waiting for your feedback to proceed to the next step."
+        finished = False
     stored_message = clean_message or f"[{mode}]"
 
     db.add(ConversationMessage(
@@ -228,6 +233,7 @@ async def chat(
         conversation_id=conversation.id,
         assistant_message=assistant_message,
         result=result,
+        finished=finished,
     )
     # else:
     #     raise HTTPException(status_code=400, detail=f"Unsupported mode: {mode}")
@@ -262,13 +268,19 @@ async def chat_feedback(
     finished = session.get("finished")
     print(f"[DEBUG] Finished status: {finished}, dataset shape: {dataset_df.shape}, previous logs: {session['previous_logs']}")
     if not finished:
-        result, session["finished"] = MLPipelineService.process_message(
-            user_message="",
-            dataset_df=dataset_df,
-            mode=session["mode"],
-            conversation_id=str(conversation_uuid),
-        )
+        try:
+            result, session["finished"] = MLPipelineService.process_message(
+                user_message="",
+                dataset_df=dataset_df,
+                mode=session["mode"],
+                conversation_id=str(conversation_uuid),
+            )
+            # finished = session["finished"]
+        except Exception as exc:
+            print(f"[ERROR] {exc}")
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     else:
+        
         result = session["result"]
         result["logs"] = session["previous_logs"].copy()
         result["output_file"] = MLPipelineService.save_processed_dataframe(
@@ -276,7 +288,7 @@ async def chat_feedback(
         )
         # output_key = 
         utilities.sessions.pop(str(conversation_uuid), None)
-        session = utilities.sessions.get(str(conversation_uuid))
+        # session = utilities.sessions.get(str(conversation_uuid))
         # print(f"Session after pop: {utilities.sessions.get(str(conversation_uuid))}")
     output_key = result.get("output_file")
     if output_key:
@@ -287,7 +299,7 @@ async def chat_feedback(
 
     assistant_message = result.pop("assistant_message", "Processing completed successfully.")
     if not finished:
-        assistant_message += "Waiting for your feedback to proceed to the next step."
+        assistant_message += "\n[System] Waiting for your feedback to proceed to the next step."
     db.add(ConversationMessage(
         conversation_id=conversation_uuid,
         role="assistant",
@@ -300,6 +312,7 @@ async def chat_feedback(
         conversation_id=conversation_uuid,
         assistant_message=assistant_message,
         result=result,
+        finished=finished
     )
         
 

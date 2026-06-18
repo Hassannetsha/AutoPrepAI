@@ -19,8 +19,6 @@ from agents.feature_selection_agent import FeatureSelectionAgent
 from agents.scaling_agent import ScalingAgent
 from agents.encoding_agent import EncodingAgent
 
-
-
 class PipelineBuilder:
     """
     Builder class for constructing preprocessing pipelines.

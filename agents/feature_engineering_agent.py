@@ -48,22 +48,15 @@ class FeatureEngineeringAgent(PipelineAgent):
             context.log(f"Generated suggestions:\n{suggested_str}")
             
             fe = FeatureEngineeringService()
-            new_df, features_added, feature_log = fe.engineer(
+            new_df, features_added = fe.engineer(
                 context.data,
                 suggested_str,
-                target_col=target_col,
             )
             
             context.data = new_df
             context.metadata["features_engineered"] = True
             context.metadata["features_added_count"] = features_added
             context.metadata["feature_engineering_suggestions"] = suggested_str
-            context.metadata["feature_engineering_log"] = feature_log
-            context.metadata["engineered_columns"] = [
-                item.get("output_column")
-                for item in feature_log
-                if item.get("applied")
-            ]
             context.log(f"Successfully added {features_added} new features")
             
         except Exception as e:

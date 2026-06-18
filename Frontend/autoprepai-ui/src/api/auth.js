@@ -97,3 +97,12 @@ export function getAuthToken() {
 export function removeAuthToken() { // for logout
   localStorage.removeItem("autoprepai_access_token");
 }
+
+export async function logoutUser() {
+  const token = getAuthToken();
+  if (!token) return;
+  await request("/auth/logout", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
