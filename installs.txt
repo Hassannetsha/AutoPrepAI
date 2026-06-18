@@ -42,6 +42,9 @@ pip install boto3
 
 pip install argon2_cffi
 
+pip install pytest
+
+npm install
 // to run front 
 
 cd .\Frontend\autoprepai-ui\
