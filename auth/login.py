@@ -10,10 +10,7 @@ from auth.schemas import ForgotPasswordRequest, ResetPasswordRequest, UserLogin
 from auth import dependencies
 
 router = APIRouter()
-<<<<<<< HEAD
 PASSWORD_REGEX = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#_-])[A-Za-z\d@$!%*?&.#_-]{8,}$"
-=======
-
 @router.post("/logout")
 def logout(current_user=Depends(dependencies.get_current_user)):
     import utilities
@@ -28,7 +25,6 @@ def logout(current_user=Depends(dependencies.get_current_user)):
         db.close()
     return {"message": "Logged out successfully"}
 
->>>>>>> 9ee78e9d5768876206051ace7cb51c007f9a6992
 @router.post("/login")
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
     # Access fields from the body
