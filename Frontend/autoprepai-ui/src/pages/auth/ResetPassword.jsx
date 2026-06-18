@@ -24,7 +24,7 @@ function ResetPassword() {
 
     setLoading(true);
     try {
-      await resetPassword({ token, newPassword });
+      await resetPassword({ token, newPassword ,confirmPassword});
       navigate("/login");
     } catch (err) {
       setError(err.message || "Something went wrong.");
