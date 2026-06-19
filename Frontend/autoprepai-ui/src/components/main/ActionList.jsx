@@ -5,7 +5,6 @@ export default function ActionList({
   uploaded,
   selectedActions,
   onActionClick,
-  onApplySelected,
   isLoading,
 }) {
   return (
@@ -21,15 +20,6 @@ export default function ActionList({
           </div>
         ))}
       </div>
-
-      {selectedActions.length > 0 && (
-        <div
-          onClick={() => !isLoading && onApplySelected()}
-          className={`action apply-action ${isLoading ? "disabled" : ""}`}
-        >
-          ⚡ Apply {selectedActions.length} Action{selectedActions.length > 1 ? "s" : ""}
-        </div>
-      )}
     </div>
   );
 }

@@ -141,8 +141,7 @@ export default function MainPage() {
           restoreDatasetFromPayload(lastAssistant.payload);
         }
 
-        // Feedback is only for live sessions, not loaded history
-        setPendingFeedback(false);
+        setPendingFeedback(lastAssistant?.payload?.finished === false);
       } catch (error) {
         console.error("Failed to load messages:", error);
       }
@@ -559,14 +558,31 @@ export default function MainPage() {
 
   // ─── Send message ─────────────────────────────────────────────────────────────
   const handleSend = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() && selectedActions.length === 0) return;
 
     // ✅ Capture ids before any async/state changes
     const thisChatId = activeChatId;
     const thisConvId = currentConversationId;
 
     const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const userMessage = { sender: "user", text: inputValue, time };
+
+    const messageText = inputValue.trim();
+
+    let displayedMessage = messageText;
+
+    if (selectedActions.length > 0) {
+      displayedMessage +=
+        (displayedMessage ? "\n\n" : "") +
+        `Selected actions: ${selectedActions.join(", ")}`;
+    }
+
+    const userMessage = {
+      sender: "user",
+      text: displayedMessage,
+      time,
+    };
+
+    // const userMessage = { sender: "user", text: inputValue, time };
 
     setChats((prev) =>
       prev.map((chat) =>
@@ -576,7 +592,7 @@ export default function MainPage() {
       )
     );
 
-    const messageText = inputValue;
+    // const messageText = inputValue;
     setInputValue("");
     setChatError("");
     setIsLoadingChat(true);
@@ -592,9 +608,11 @@ export default function MainPage() {
         datasetFile = new File([csvContent], datasetName || "data.csv", { type: "text/csv" });
       }
 
+      const backendMessage =`${messageText}\n\nPlease apply these actions: ${selectedActions.join(", ")}`
+
       const response = await sendChatMessage({
-        message: messageText,
-        mode: "chat",
+        message: backendMessage,
+        mode: inputValue.trim() === "" && selectedActions.length > 0 ? "manual" : "chat",
         selectedIntents: selectedActions.map((a) => ACTION_TO_INTENT[a] || a),
         conversationId: thisConvId,
         dataset: datasetFile,
@@ -632,6 +650,7 @@ export default function MainPage() {
         setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
+      setSelectedActions([]);
     } catch (error) {
       console.error("Chat error:", error);
       setChatError(error.message);
@@ -658,110 +677,6 @@ export default function MainPage() {
   // ─── Action button click (selection only, no API call) ────────────────────────
   const handleActionClick = (action) => {
     toggleAction(action); // just toggle, nothing else
-  };
-
-  // ─── Apply all selected actions at once ───────────────────────────────────────
-  const handleApplySelected = async () => {
-    if (!selectedActions.length) return;
-    if (!tableData.length || !headers.length) {
-      setChatError("Please upload a dataset first.");
-      return;
-    }
-
-    const thisChatId = activeChatId;
-    const thisConvId = currentConversationId;
-
-    setChatError("");
-    setIsLoadingChat(true);
-
-    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const actionLabel = selectedActions.join(", ");
-
-    setChats((prev) =>
-      prev.map((chat) =>
-        chat.id === thisChatId
-          ? {
-              ...chat,
-              messages: [
-                ...chat.messages,
-                { sender: "user", text: `Please apply: ${actionLabel}`, time },
-              ],
-            }
-          : chat
-      )
-    );
-
-    try {
-      const sourceData = fullTableData.length ? fullTableData : tableData;
-      const csvContent = [
-        headers.join(","),
-        ...sourceData.map((row) => headers.map((h) => row[h]).join(",")),
-      ].join("\n");
-      const datasetFile = new File([csvContent], datasetName || "data.csv", { type: "text/csv" });
-
-      const response = await sendChatMessage({
-        message: `Please apply: ${actionLabel}`,
-        mode: "manual",
-        selectedIntents: selectedActions.map((a) => ACTION_TO_INTENT[a] || a),
-        conversationId: thisConvId,
-        dataset: datasetFile,
-      });
-
-      const realConvId = response.conversation_id ?? thisConvId;
-      syncConversationId(response.conversation_id, thisChatId);
-
-      const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      setPendingFeedback(!response.finished);
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat.id === thisChatId || chat.id === realConvId
-            ? {
-                ...chat,
-                messages: [
-                  ...chat.messages,
-                  {
-                    sender: "bot",
-                    text: response.assistant_message || `✓ Applied: ${actionLabel}`,
-                    time: botTime,
-                    downloadUrl: response.result?.download_url ?? null,
-                  },
-                ],
-              }
-            : chat
-        )
-      );
-
-      if (response.result?.data_preview?.length) {
-        const newHeaders = Object.keys(response.result.data_preview[0]);
-        setHeaders(newHeaders);
-        setTableData(response.result.data_preview);
-        setFullTableData(response.result.data_preview);
-        setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
-        setColumns(response.result.shape?.[1] ?? newHeaders.length);
-      }
-
-      setSelectedActions([]); // ✅ clear after successful apply
-
-    } catch (error) {
-      console.error("Action error:", error);
-      setChatError(error.message);
-      const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat.id === thisChatId
-            ? {
-                ...chat,
-                messages: [
-                  ...chat.messages,
-                  { sender: "bot", text: `Error: ${error.message}`, time: botTime },
-                ],
-              }
-            : chat
-        )
-      );
-    } finally {
-      setIsLoadingChat(false);
-    }
   };
 
   // ─── Handle feedback (accept/reject) ──────────────────────────────────────────
@@ -830,6 +745,7 @@ export default function MainPage() {
   };
 
   const DatasetIcon = getFileIcon(datasetName);
+  const canSend = inputValue.trim() !== "" || selectedActions.length > 0;
 
   return (
     <div className="container">
@@ -877,7 +793,7 @@ export default function MainPage() {
           selectedActions={selectedActions}
           toggleAction={toggleAction}
           onActionClick={handleActionClick}
-          onApplySelected={handleApplySelected}   // new
+          // onApplySelected={handleApplySelected}   // new
           isLoading={isLoadingChat}               // new
         />
         {chatError && (
@@ -900,6 +816,7 @@ export default function MainPage() {
           inputValue={inputValue}
           setInputValue={setInputValue}
           handleSend={handleSend}
+          canSend={canSend}
         />
       </div>
 

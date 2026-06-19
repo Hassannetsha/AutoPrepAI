@@ -225,7 +225,7 @@ async def chat(
         conversation_id=conversation.id,
         role="assistant",
         content=assistant_message,
-        payload=json.loads(json.dumps(MLPipelineService._to_jsonable(result))),
+        payload={**json.loads(json.dumps(MLPipelineService._to_jsonable(result))),"finished": finished},
     ))
     db.commit()
 
@@ -304,7 +304,10 @@ async def chat_feedback(
         conversation_id=conversation_uuid,
         role="assistant",
         content=assistant_message,
-        payload=json.loads(json.dumps(MLPipelineService._to_jsonable(result))),
+        payload={
+            **json.loads(json.dumps(MLPipelineService._to_jsonable(result))),
+            "finished": finished
+        },
     ))
     db.commit()
 

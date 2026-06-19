@@ -248,7 +248,7 @@
   padding: 12px 16px;
   border-top: 1px solid #e5e7eb;
   background: #fafafa;
-  align-items: center;        
+  align-items: center;
   justify-content: flex-end;
 }
 
@@ -281,7 +281,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  flex: 1;  /* takes all available space, pushes apply btn to the right */
+  flex: 1; /* takes all available space, pushes apply btn to the right */
 }
 
 .apply-action {
@@ -301,9 +301,15 @@
 }
 
 @keyframes tealPulse {
-  0%   { box-shadow: 0 4px 15px rgba(43, 179, 163, 0.4); }
-  50%  { box-shadow: 0 4px 25px rgba(43, 179, 163, 0.75); }
-  100% { box-shadow: 0 4px 15px rgba(43, 179, 163, 0.4); }
+  0% {
+    box-shadow: 0 4px 15px rgba(43, 179, 163, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 25px rgba(43, 179, 163, 0.75);
+  }
+  100% {
+    box-shadow: 0 4px 15px rgba(43, 179, 163, 0.4);
+  }
 }
 
 /* ─── Input Area ────────────────────────────────────── */
@@ -366,6 +372,18 @@
 
 .inputArea button:active {
   transform: translateY(0);
+}
+
+.inputArea button:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.inputArea button:disabled:hover {
+  background: #d1d5db;
+  transform: none;
 }
 
 /* ─── Modal ─────────────────────────────────────────── */
