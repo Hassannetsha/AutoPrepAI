@@ -27,7 +27,7 @@ export default function DataPreviewModal({ onClose, data, headers, datasetName }
                   <td>{index + 1}</td>
                   {headers.map((h, i) => (
                     <td key={i}>
-                      {row[h] === "" ? (
+                      {row[h] === "" || row[h] === null || row[h] === undefined ? (
                         <span className="missing">missing</span>
                       ) : (
                         row[h]

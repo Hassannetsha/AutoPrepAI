@@ -20,6 +20,7 @@ import {
   sendFeedback,
 } from "../../api/chat";
 import { getAuthToken } from "../../api/auth";
+import * as XLSX from "xlsx";
 
 // Map display action labels → backend snake_case intents
 const ACTION_TO_INTENT = {
@@ -337,6 +338,40 @@ export default function MainPage() {
     return { rows: records.length, columns: hdrs.length, data: records, headers: hdrs };
   };
 
+  const parseXLSX = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+
+    const workbook = XLSX.read(arrayBuffer, {
+      type: "array",
+    });
+
+    const sheetName = workbook.SheetNames[0];
+
+    const worksheet = workbook.Sheets[sheetName];
+
+    const data = XLSX.utils.sheet_to_json(worksheet, {
+      defval: "",
+    });
+
+    if (data.length === 0) {
+      return {
+        rows: 0,
+        columns: 0,
+        data: [],
+        headers: [],
+      };
+    }
+
+    const headers = Object.keys(data[0]);
+
+    return {
+      rows: data.length,
+      columns: headers.length,
+      data,
+      headers,
+    };
+  };
+
   // ─── File upload ──────────────────────────────────────────────────────────────
   const handleUploadClick = () => fileInputRef.current?.click();
 
@@ -347,9 +382,10 @@ export default function MainPage() {
     const fileName = selectedFile.name.toLowerCase();
     const isCSV = fileName.endsWith(".csv");
     const isJSON = fileName.endsWith(".json");
+    const isXLSX = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
 
-    if (!isCSV && !isJSON) {
-      setUploadError("Please upload a CSV or JSON file.");
+    if (!isCSV && !isJSON && !isXLSX) {
+      setUploadError("Please upload a CSV or XLS or JSON file.");
       event.target.value = "";
       return;
     }
@@ -362,8 +398,18 @@ export default function MainPage() {
     setChatError("");
 
     try {
-      const text = await selectedFile.text();
-      const parsed = isJSON ? parseJSON(text) : parseCSV(text);
+      let parsed;
+
+      if (isXLSX) {
+        parsed = await parseXLSX(selectedFile);
+      } 
+      else {
+        const text = await selectedFile.text();
+
+        parsed = isJSON 
+          ? parseJSON(text) 
+          : parseCSV(text);
+      }
       setDatasetName(selectedFile.name);
       setRows(parsed.rows);
       setColumns(parsed.columns);

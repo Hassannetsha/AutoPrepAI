@@ -45,8 +45,9 @@ pip install argon2_cffi
 pip install pytest
 
 npm install
-// to run front 
 
+// to run front 
 cd .\Frontend\autoprepai-ui\
 npm start 
 
+npm install xlsx
