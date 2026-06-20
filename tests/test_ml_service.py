@@ -120,9 +120,14 @@ class TestSaveAndGetOutputFile:
         try:
             MLPipelineService.OUTPUT_DIR = tmp_path
             df = pd.DataFrame({"a": [1, 2]})
-            filename = MLPipelineService.save_processed_dataframe(df)
+            filename = MLPipelineService.save_processed_dataframe(df, "test_conv")
             assert isinstance(filename, str)
+            assert filename.startswith("processed/test_conv/")
             assert filename.endswith(".csv")
+            # Create file locally so get_output_file_path can find it
+            file_path = tmp_path / filename
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(file_path, index=False)
             path = MLPipelineService.get_output_file_path(filename)
             assert path.exists()
         finally:

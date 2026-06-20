@@ -78,21 +78,12 @@ class MLPipelineService:
         return cls.OUTPUT_DIR
 
     @classmethod
-    def save_processed_dataframe(cls, dataframe: pd.DataFrame) -> str:
-        output_dir = cls._ensure_output_dir()
-        filename = f"processed_{uuid.uuid4().hex}.csv"
-        output_path = output_dir / filename
-        dataframe.to_csv(output_path, index=False)
-        return filename
-
-    @classmethod
     def get_output_file_path(cls, filename: str) -> Path:
         if not filename:
             raise ValueError("Filename is required")
 
         output_dir = cls._ensure_output_dir().resolve()
-        safe_name = Path(filename).name
-        file_path = (output_dir / safe_name).resolve()
+        file_path = (output_dir / filename).resolve()
 
         if output_dir not in file_path.parents:
             raise ValueError("Invalid filename")
@@ -110,7 +101,11 @@ class MLPipelineService:
 
     @staticmethod
     def _normalize_mode(mode: str | None) -> str:
-        raw_mode = (mode or "chat").strip().lower()
+        if mode is None:
+            return "chat"
+        raw_mode = mode.strip().lower()
+        if not raw_mode:
+            raise ValueError("Invalid mode. Use one of: chat, manual, full_auto")
         mode_map = {
             "chat": "chat",
             "chat mode": "chat",
@@ -269,7 +264,7 @@ class MLPipelineService:
 
         if session is None:
             # First call for this conversation — build a fresh pipeline
-            session = MLPipelineService.session_builder(conversation_id)
+            session = MLPipelineService.session_builder(conversation_id, normalized_mode)
         # if session is None:
         #     # First call for this conversation — build a fresh pipeline
         #     session = {
@@ -301,7 +296,7 @@ class MLPipelineService:
                 context, effective_command
             )
             final_context = pipeline.run(context=context, user_command=effective_command)
-            finished = True
+            session["finished"] = True
         elif normalized_mode == "manual":
             context, effective_command = MLPipelineService._prepare_manual(
                 context, effective_command, selected_intents

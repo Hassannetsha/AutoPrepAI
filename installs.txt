@@ -51,3 +51,11 @@ cd .\Frontend\autoprepai-ui\
 npm start 
 
 npm install xlsx
+
+pip install openpyxl
+
+//run backend tests
+pytest tests\
+
+//to run specific file tests
+pytest tests\File_name.py -v

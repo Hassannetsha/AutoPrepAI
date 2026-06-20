@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ChatResponsePayload(BaseModel):
@@ -20,7 +20,7 @@ class ChatResponse(BaseModel):
     conversation_id: UUID
     assistant_message: str
     result: ChatResponsePayload
-    finished: bool = True
+    finished: bool = False
 
 
 class ConversationMessageOut(BaseModel):
@@ -44,3 +44,10 @@ class ConversationOut(BaseModel):
         
 class ConversationRenameRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
+
+    @field_validator("title")
+    @classmethod
+    def title_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Title cannot be blank or whitespace only")
+        return v

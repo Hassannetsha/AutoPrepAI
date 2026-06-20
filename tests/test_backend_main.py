@@ -12,21 +12,12 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.ml_service import MLPipelineService
-from backend.models import Conversation, User
+from backend.models import Conversation
 
 
 @pytest.fixture
 def client():
     return TestClient(app)
-
-
-@pytest.fixture
-def mock_auth_user():
-    user = MagicMock(spec=User)
-    user.id = uuid.uuid4()
-    user.email = "test@example.com"
-    user.is_verified = True
-    return user
 
 
 @pytest.fixture
@@ -43,12 +34,17 @@ class TestHealth:
 
 
 class TestChatEndpoint:
-    @patch("backend.main.get_current_user")
-    @patch("backend.main.get_db")
-    def test_chat_requires_dataset(self, mock_get_db, mock_get_user, client, mock_auth_user):
-        mock_get_user.return_value = mock_auth_user
-        mock_get_db.return_value = MagicMock()
+    @pytest.fixture(autouse=True)
+    def _auth_override(self, mock_auth_user):
+        from auth.dependencies import get_current_user
+        from backend.database import get_db
+        self._mock_db = MagicMock()
+        app.dependency_overrides[get_current_user] = lambda: mock_auth_user
+        app.dependency_overrides[get_db] = lambda: self._mock_db
+        yield
+        app.dependency_overrides.clear()
 
+    def test_chat_requires_dataset(self, client, mock_auth_user, valid_csv_bytes):
         response = client.post(
             "/chat",
             data={"message": "hello", "mode": "chat"},
@@ -57,12 +53,7 @@ class TestChatEndpoint:
         assert response.status_code == 400
         assert "Dataset is required" in response.text
 
-    @patch("backend.main.get_current_user")
-    @patch("backend.main.get_db")
-    def test_chat_with_empty_dataset(self, mock_get_db, mock_get_user, client, mock_auth_user, valid_csv_bytes):
-        mock_get_user.return_value = mock_auth_user
-        mock_get_db.return_value = MagicMock()
-
+    def test_chat_with_empty_dataset(self, client, mock_auth_user, valid_csv_bytes):
         response = client.post(
             "/chat",
             data={"message": "hello", "mode": "chat"},
@@ -71,21 +62,20 @@ class TestChatEndpoint:
         )
         assert response.status_code == 400
 
-    @patch("backend.main.get_current_user")
-    @patch("backend.main.get_db")
     @patch("backend.main.MLPipelineService")
     @patch("backend.main.upload_file_to_b2")
     def test_chat_upload_only_message(
-        self, mock_upload, mock_service, mock_get_db, mock_get_user, client, mock_auth_user, valid_csv_bytes
+        self, mock_upload, mock_service, client, mock_auth_user, valid_csv_bytes
     ):
-        mock_get_user.return_value = mock_auth_user
-        mock_db = MagicMock()
-        mock_get_db.return_value = mock_db
-        mock_db.get.return_value = None
+        def _add_and_set_id(conv):
+            conv.id = uuid.uuid4()
+        self._mock_db.add.side_effect = _add_and_set_id
+        self._mock_db.get.return_value = None
 
         mock_service.dataframe_from_upload.return_value = pd.DataFrame(
             {"col1": [1, 2], "col2": ["a", "b"]}
         )
+        mock_service._to_jsonable.side_effect = lambda x: x
 
         response = client.post(
             "/chat",
@@ -98,14 +88,11 @@ class TestChatEndpoint:
         assert "conversation_id" in data
         assert "Dataset loaded successfully" in data["assistant_message"]
 
-    @patch("backend.main.get_current_user")
-    @patch("backend.main.get_db")
     @patch("backend.main.MLPipelineService")
     @patch("backend.main.upload_file_to_b2")
     def test_chat_invalid_conversation_id(
-        self, mock_upload, mock_service, mock_get_db, mock_get_user, client, mock_auth_user, valid_csv_bytes
+        self, mock_upload, mock_service, client, mock_auth_user, valid_csv_bytes
     ):
-        mock_get_user.return_value = mock_auth_user
         mock_service.dataframe_from_upload.return_value = pd.DataFrame({"a": [1]})
 
         response = client.post(
@@ -120,17 +107,12 @@ class TestChatEndpoint:
         )
         assert response.status_code == 400
 
-    @patch("backend.main.get_current_user")
-    @patch("backend.main.get_db")
     @patch("backend.main.MLPipelineService")
     @patch("backend.main.upload_file_to_b2")
     def test_chat_conversation_not_found(
-        self, mock_upload, mock_service, mock_get_db, mock_get_user, client, mock_auth_user, valid_csv_bytes
+        self, mock_upload, mock_service, client, mock_auth_user, valid_csv_bytes
     ):
-        mock_get_user.return_value = mock_auth_user
-        mock_db = MagicMock()
-        mock_get_db.return_value = mock_db
-        mock_db.get.return_value = None
+        self._mock_db.get.return_value = None
         mock_service.dataframe_from_upload.return_value = pd.DataFrame({"a": [1]})
 
         cid = uuid.uuid4()
@@ -148,11 +130,17 @@ class TestChatEndpoint:
 
 
 class TestChatFeedback:
-    @patch("backend.main.get_current_user")
-    @patch("backend.main.get_db")
-    def test_feedback_no_session(self, mock_get_db, mock_get_user, client, mock_auth_user):
-        mock_get_user.return_value = mock_auth_user
+    @pytest.fixture(autouse=True)
+    def _auth_override(self, mock_auth_user):
+        from auth.dependencies import get_current_user
+        from backend.database import get_db
+        self._mock_db = MagicMock()
+        app.dependency_overrides[get_current_user] = lambda: mock_auth_user
+        app.dependency_overrides[get_db] = lambda: self._mock_db
+        yield
+        app.dependency_overrides.clear()
 
+    def test_feedback_no_session(self, client, mock_auth_user):
         response = client.post(
             "/chat/feedback",
             json={"conversation_id": str(uuid.uuid4()), "accept": True},
@@ -161,11 +149,7 @@ class TestChatFeedback:
         assert response.status_code == 400
         assert "No active session" in response.text
 
-    @patch("backend.main.get_current_user")
-    @patch("backend.main.get_db")
-    def test_feedback_invalid_id(self, mock_get_db, mock_get_user, client, mock_auth_user):
-        mock_get_user.return_value = mock_auth_user
-
+    def test_feedback_invalid_id(self, client, mock_auth_user):
         response = client.post(
             "/chat/feedback",
             json={"conversation_id": "bad-id", "accept": True},
@@ -175,27 +159,39 @@ class TestChatFeedback:
 
 
 class TestDownloadEndpoint:
-    @patch("backend.main.get_current_user")
+    @pytest.fixture(autouse=True)
+    def _auth_override(self, mock_auth_user):
+        from auth.dependencies import get_current_user
+        app.dependency_overrides[get_current_user] = lambda: mock_auth_user
+        yield
+        app.dependency_overrides.clear()
+
     @patch("backend.main.generate_download_url")
-    def test_download(self, mock_gen_url, mock_get_user, client, mock_auth_user):
-        mock_get_user.return_value = mock_auth_user
+    def test_download(self, mock_gen_url, client, mock_auth_user):
         mock_gen_url.return_value = "https://example.com/file.csv"
 
         response = client.get(
             "/download/some/path/file.csv",
             headers={"Authorization": "Bearer test_token"},
+            follow_redirects=False,
         )
         assert response.status_code == 307  # Redirect
+        assert response.headers["location"] == "https://example.com/file.csv"
 
 
 class TestConversationsEndpoint:
-    @patch("backend.main.get_current_user")
-    @patch("backend.main.get_db")
-    def test_get_conversation_not_found(self, mock_get_db, mock_get_user, client, mock_auth_user):
-        mock_get_user.return_value = mock_auth_user
-        mock_db = MagicMock()
-        mock_get_db.return_value = mock_db
-        mock_db.get.return_value = None
+    @pytest.fixture(autouse=True)
+    def _auth_override(self, mock_auth_user):
+        from auth.dependencies import get_current_user
+        from backend.database import get_db
+        self._mock_db = MagicMock()
+        app.dependency_overrides[get_current_user] = lambda: mock_auth_user
+        app.dependency_overrides[get_db] = lambda: self._mock_db
+        yield
+        app.dependency_overrides.clear()
+
+    def test_get_conversation_not_found(self, client, mock_auth_user):
+        self._mock_db.get.return_value = None
 
         cid = uuid.uuid4()
         response = client.get(
@@ -204,27 +200,17 @@ class TestConversationsEndpoint:
         )
         assert response.status_code == 404
 
-    @patch("backend.main.get_current_user")
-    @patch("backend.main.get_db")
-    def test_get_conversation_invalid_id(self, mock_get_db, mock_get_user, client, mock_auth_user):
-        mock_get_user.return_value = mock_auth_user
-
+    def test_get_conversation_invalid_id(self, client, mock_auth_user):
         response = client.get(
             "/conversations/bad-id",
             headers={"Authorization": "Bearer test_token"},
         )
         assert response.status_code == 400
 
-    @patch("backend.main.get_current_user")
-    @patch("backend.main.get_db")
-    def test_get_conversation_unauthorized(self, mock_get_db, mock_get_user, client, mock_auth_user):
-        mock_get_user.return_value = mock_auth_user
-        mock_db = MagicMock()
-        mock_get_db.return_value = mock_db
-
+    def test_get_conversation_unauthorized(self, client, mock_auth_user):
         conv = MagicMock(spec=Conversation)
         conv.user_id = uuid.uuid4()  # different from mock_auth_user.id
-        mock_db.get.return_value = conv
+        self._mock_db.get.return_value = conv
 
         cid = uuid.uuid4()
         response = client.get(

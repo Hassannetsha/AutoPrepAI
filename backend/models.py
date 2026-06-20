@@ -29,6 +29,10 @@ class Conversation(Base):
         cascade="all, delete-orphan",
         order_by="ConversationMessage.id",
     )
+    def __init__(self, **kwargs):
+        kwargs.setdefault("created_at", datetime.now())
+        kwargs.setdefault("updated_at", datetime.now())
+        super().__init__(**kwargs)
     # the relation is one to many, so we use list[...] to indicate that messages is a list of ConversationMessage objects
     # 1 conversation can have many messages, but each message belongs to only 1 conversation
 
@@ -78,3 +82,6 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan"
     )
+    def __init__(self, **kwargs):
+        kwargs.setdefault("is_verified", False)
+        super().__init__(**kwargs)
