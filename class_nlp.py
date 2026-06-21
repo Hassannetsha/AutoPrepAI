@@ -10,9 +10,8 @@ from services.feature_engineering_service import *
 import json
 from api_key_manager import get_key_manager, get_api_key, rotate_api_key
 
-# Initialize the key manager
+# Initialize the key manager (singleton)
 _key_manager = get_key_manager()
-os.environ['GROQ_API_KEY'] = _key_manager.get_current_key()
 
 class NLPService:
     """AutoPrepAI application class: encapsulates DSPy setup, pipeline creation, data loading and Streamlit UI.

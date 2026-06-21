@@ -26,22 +26,23 @@ class APIKeyManager:
         self._load_keys()
     
     def _load_keys(self) -> None:
-        """Load API keys from environment variables or a local ignored file."""
-        env_keys = os.getenv("GROQ_API_KEYS") or os.getenv("GROQ_API_KEY")
-        if env_keys:
-            self.api_keys = [
-                key.strip()
-                for key in env_keys.replace(";", ",").split(",")
-                if key.strip()
-            ]
-        elif os.path.exists(self.keys_file):
+        """Load API keys from the local keys file first, falling back to environment variables."""
+        if os.path.exists(self.keys_file):
             with open(self.keys_file, 'r') as f:
                 lines = f.readlines()
                 self.api_keys = [line.strip() for line in lines if line.strip()]
         else:
-            raise FileNotFoundError(
-                f"API keys not found. Set GROQ_API_KEY/GROQ_API_KEYS or create local {self.keys_file}."
-            )
+            env_keys = os.getenv("GROQ_API_KEYS") or os.getenv("GROQ_API_KEY")
+            if env_keys:
+                self.api_keys = [
+                    key.strip()
+                    for key in env_keys.replace(";", ",").split(",")
+                    if key.strip()
+                ]
+            else:
+                raise FileNotFoundError(
+                    f"API keys not found. Set GROQ_API_KEY/GROQ_API_KEYS or create local {self.keys_file}."
+                )
         
         if not self.api_keys:
             raise ValueError("No API keys found in the keys file.")
