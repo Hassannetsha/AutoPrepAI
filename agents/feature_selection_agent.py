@@ -24,7 +24,7 @@ class FeatureSelectionAgent(PipelineAgent):
             )
         except ValueError as e:
             context.log(f"Feature selection skipped")
-            context.print(f"Feature selection skipped: {e}")
+            print(f"Feature selection skipped: {e}")
             return context
         except Exception as e:
             context.log(f"Feature selection failed.")
