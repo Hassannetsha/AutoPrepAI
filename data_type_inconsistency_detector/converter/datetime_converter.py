@@ -3,7 +3,7 @@ import pandas as pd
 class DatetimeConverter:
     def test_conversion(self, series: pd.Series):
         issues = []
-        converted = pd.to_datetime(series, errors='coerce', infer_datetime_format=True)
+        converted = pd.to_datetime(series, errors='coerce')
         failed_count = converted.isna().sum() - series.isna().sum()
 
         if failed_count > 0:

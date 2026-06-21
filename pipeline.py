@@ -166,8 +166,14 @@ class Pipeline:
         self.logger.info(f"Executing agent: {agent_name}")
         context.log(f"Executing agent: {agent_name}")
         
-        context = node.execute(context)
-        # print(f"[DEBUG] Evaluating node: {agent_name} with context metadata: {context.metadata},context logs: {context.logs}")
+        try:
+            context = node.execute(context)
+        except Exception as e:
+            error_msg = f"Error executing {agent_name}: {e}"
+            self.logger.error(error_msg)
+            print(error_msg)
+            return context, False
+        
         # Generate explanation if NLP service is available
         if self.nlp_service and agent_name != "NLP":
             explanation = self.nlp_service.explain_step_llm(

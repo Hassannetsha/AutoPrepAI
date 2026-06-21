@@ -33,7 +33,8 @@ class EncodingAgent(PipelineAgent):
 
             context.metadata["encoded"] = True
         except Exception as e:
-            context.log(f"Encoding error: {e}")
+            print(f"Encoding error: {e}")
+            context.log(f"Encoding failed.")
 
         return context
 

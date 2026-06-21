@@ -45,8 +45,9 @@ class ExactDuplicateRemover(PipelineAgent):
                 context.log("No exact duplicates found")
                 
         except Exception as e:
-            context.log(f"Exact duplicate removal error: {e}")
+            context.log(f"Exact duplicate removal failed.")
+            print(f"Exact duplicate removal failed: {e}")
             import traceback
-            context.log(traceback.format_exc())
+            print(traceback.format_exc())
         
         return context

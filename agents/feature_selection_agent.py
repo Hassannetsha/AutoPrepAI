@@ -23,10 +23,12 @@ class FeatureSelectionAgent(PipelineAgent):
                 metadata=context.metadata
             )
         except ValueError as e:
-            context.log(f"Feature selection skipped: {e}")
+            context.log(f"Feature selection skipped")
+            context.print(f"Feature selection skipped: {e}")
             return context
         except Exception as e:
-            context.log(f"Feature selection error: {e}")
+            context.log(f"Feature selection failed.")
+            print(f"Feature selection error: {e}")
             return context
         context.data = pruned_df
         context.metadata["features_selected"] = True
