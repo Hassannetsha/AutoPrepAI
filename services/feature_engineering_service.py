@@ -109,11 +109,10 @@ class FeatureEngineeringService:
                 eval_context = {"df": df, "pd": pd, "np": np, "numpy": np}
                 
                 # Ensure the code is wrapped as an assignment if it isn't already
-                if "=" not in fixed_code or not fixed_code.strip().startswith(name + " ="):
-                    # This is an expression, wrap it as an assignment
-                    execution_code = f"{name} = {fixed_code}"
-                else:
+                if "=" in fixed_code:
                     execution_code = fixed_code
+                else:
+                    execution_code = f"df['{name}'] = {fixed_code}"
                 
                 try:
                     # Use exec() to handle assignment statements

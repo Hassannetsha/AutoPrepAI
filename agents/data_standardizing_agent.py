@@ -133,8 +133,9 @@ class DataStandardizerAgent(PipelineAgent):
             context.log("Data standardization completed")
             
         except Exception as e:
-            context.log(f"Data standardization error: {e}")
+            context.log(f"Data standardization failed.")
+            context.print(f"Data standardization error: {e}")
             import traceback
-            context.log(traceback.format_exc())
+            print(traceback.format_exc())
         
         return context

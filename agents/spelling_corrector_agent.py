@@ -59,8 +59,9 @@ class SpellingCorrectorAgent(PipelineAgent):
             context.log(f"Spelling correction completed for {len(corrected_columns)} columns")
             
         except Exception as e:
-            context.log(f"Spelling correction error: {e}")
+            context.log(f"Spelling correction failed.")
+            print(f"Spelling correction error: {e}")
             import traceback
-            context.log(traceback.format_exc())
+            print(traceback.format_exc())
         
         return context

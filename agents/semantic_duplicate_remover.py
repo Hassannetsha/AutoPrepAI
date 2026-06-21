@@ -103,8 +103,9 @@ class SemanticDuplicateRemover(PipelineAgent):
                 context.log(f"No semantic duplicates found in column '{target_column}'")
                 
         except Exception as e:
-            context.log(f"Semantic duplicate removal error: {e}")
+            context.log(f"Semantic duplicate removal failed.")
+            print(f"Semantic duplicate removal failed: {e}")
             import traceback
-            context.log(traceback.format_exc())
+            print(traceback.format_exc())
         
         return context

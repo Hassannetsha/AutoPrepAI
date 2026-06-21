@@ -56,8 +56,9 @@ class DataTypeInconsistencyAgent(PipelineAgent):
             context.log(f"Fixed data type inconsistencies in {len(inconsistent_columns)} columns")
             
         except Exception as e:
-            context.log(f"Data type inconsistency handling error: {e}")
+            context.log(f"Data type inconsistency handling failed.")
+            context.print(f"Data type inconsistency handling error: {e}")
             import traceback
-            context.log(traceback.format_exc())
+            print(traceback.format_exc())
         
         return context

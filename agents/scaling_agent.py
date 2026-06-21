@@ -83,5 +83,6 @@ class ScalingAgent(PipelineAgent):
             else:
                 context.log(f"Scaled all numeric columns using method: {method}")
         except Exception as e:
-            context.log(f"Scaling error: {e}")
+            print(f"Scaling error: {e}")
+            context.log(f"Scaling failed.")
         return context
