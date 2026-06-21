@@ -16,6 +16,7 @@ from pipeline import Pipeline
 from backend.b2_service import upload_file_to_b2
 import utilities
 
+from utils.excel_utils import read_excel_clean
 # _cached_pipeline = None
 
 # def _get_pipeline() -> Pipeline:
@@ -96,8 +97,12 @@ class MLPipelineService:
     @staticmethod
     def dataframe_from_upload(file_bytes: bytes, filename: str | None = None) -> pd.DataFrame:
         if filename and filename.lower().endswith((".xlsx", ".xls")):
-            return pd.read_excel(io.BytesIO(file_bytes))
-        return pd.read_csv(io.BytesIO(file_bytes))
+            return read_excel_clean(io.BytesIO(file_bytes))
+        if filename and filename.lower().endswith(".csv"):
+            return pd.read_csv(io.BytesIO(file_bytes))
+       # If filename is not provided or doesn't have a recognizable extension
+        raise ValueError("File type is not supported. Please upload a CSV or Excel file with the correct extension.")
+
 
     @staticmethod
     def _normalize_mode(mode: str | None) -> str:

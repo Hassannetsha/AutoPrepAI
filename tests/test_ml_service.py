@@ -20,10 +20,10 @@ class TestDataframeFromUpload:
         assert list(df.columns) == ["col1", "col2"]
         assert len(df) == 2
 
-    def test_csv_without_filename(self):
+    def test_csv_without_filename_raises_error(self):
         csv_content = b"a,b\n1,2\n"
-        df = MLPipelineService.dataframe_from_upload(csv_content)
-        assert len(df) == 1
+        with pytest.raises(ValueError, match="File type is not supported"):
+            MLPipelineService.dataframe_from_upload(csv_content)
 
     def test_excel_upload(self):
         df_orig = pd.DataFrame({"x": [1, 2], "y": [3, 4]})

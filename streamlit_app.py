@@ -93,16 +93,20 @@ st.session_state.mode = st.sidebar.radio(
     ]
 )
 
-uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
+uploaded_file = st.sidebar.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx", "xls"])
 
 if uploaded_file:
-    st.session_state.df = pd.read_csv(uploaded_file)
+    if uploaded_file.name.lower().endswith((".xlsx", ".xls")):
+        from utils.excel_utils import read_excel_clean
+        st.session_state.df = read_excel_clean(uploaded_file.read())
+    else:
+        st.session_state.df = pd.read_csv(uploaded_file)
     st.session_state.history.clear()
     st.sidebar.success("Dataset loaded successfully")
 
 # WARNING: No data uploaded
 if st.session_state.df is None:
-    st.warning("⚠️ Please upload a CSV file to begin preprocessing")
+    st.warning("⚠️ Please upload a CSV or Excel file to begin preprocessing")
     st.info("👈 Use the file uploader in the sidebar to get started")
 
 # SHOW DATASET
