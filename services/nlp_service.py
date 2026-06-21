@@ -191,17 +191,19 @@ class NLPService:
 
     class ExtractParameters(dspy.Signature):
         """Extract specific parameters from a preprocessing task.
-    
+
         Look for:
-        - If the user says "for column X" or "for X and Y", list only those columns.
+        - Column names mentioned in the task (e.g., "for column X", "X and Y", "features related to X").
         - If no specific columns are mentioned, set columns='none' (it will mean all columns later).
         - Methods like: mean, median, mode, IQR, z-score, one-hot, label encoding
         - Numeric values or thresholds
+        - For feature_selection / select_features, list only column names that appear in the task.
+          Do NOT add column names from the dataset_columns that aren't mentioned in the task.
         """
         task = dspy.InputField(desc="A preprocessing task description")
         dataset_columns = dspy.InputField(desc="Available column names (comma-separated)", default="")
         intent = dspy.InputField(desc="The classified intent")
-        columns = dspy.OutputField(desc="Column names mentioned (comma-separated), or 'none' if not specified")
+        columns = dspy.OutputField(desc="Column names mentioned (comma-separated), or 'none' if not specified. For feature_selection / select_features intent: extract ONLY column names that appear in the task text itself. NEVER invent column names from dataset_columns that are not explicitly mentioned in the task. If the user says 'target column: X' or 'for target column: X', extract X. If the user says 'features related to X and Y' or 'select features to columns: X, Y', extract only X and Y (not the word 'target'). The word 'target' from dataset_columns should never be added unless the task literally says the word 'target'.")
         method = dspy.OutputField(desc="Method/algorithm mentioned (e.g., mean, median, IQR), or 'none'")
         other_params = dspy.OutputField(desc="Other parameters as key:value pairs (comma-separated), or 'none'")
     
@@ -220,10 +222,9 @@ class NLPService:
                 self._setup_few_shot_examples(training_examples)
 
         def _setup_few_shot_examples(self, examples: pd.DataFrame):
-            """Setup few-shot examples for better classification"""
-            # Sample diverse examples from each intent
-            few_shot_demos = []
-
+            """Setup few-shot examples for better classification and parameter extraction."""
+            # ── ClassifyIntent demos ────────────────────────────────────────
+            classify_demos = []
             if len(examples) > 0:
                 # Get 3-5 examples per intent for few-shot learning
                 for intent in examples['intent'].unique():
@@ -231,7 +232,7 @@ class NLPService:
                         min(5, len(examples[examples['intent'] == intent]))
                     )
                     for _, row in intent_examples.iterrows():
-                        few_shot_demos.append(
+                        classify_demos.append(
                             dspy.Example(
                                 task=row['prompt'],
                                 intent=row['intent'],
@@ -239,8 +240,131 @@ class NLPService:
                                 reasoning=f"This clearly describes {row['intent'].replace('_', ' ')}"
                             ).with_inputs('task')
                         )
-            if few_shot_demos:
-                self.classify.demos = few_shot_demos[:15]  # Limit to top 15 diverse examples
+            if classify_demos:
+                self.classify.demos = classify_demos[:15]
+
+            # ── ExtractParameters demos ─────────────────────────────────────
+            self.extract_params.demos = [
+                # ── feature_selection / select_features ─────────────────
+                dspy.Example(
+                    task="select features for target=Churn",
+                    dataset_columns="age, income, education_years, Churn",
+                    intent="feature_selection",
+                    columns="Churn",
+                    method="none",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                dspy.Example(
+                    task="select top 10 features for predicting income",
+                    dataset_columns="age, income, education_years, Churn",
+                    intent="feature_selection",
+                    columns="income",
+                    method="none",
+                    other_params="top:10",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                dspy.Example(
+                    task="feature selection for target column: text_review",
+                    dataset_columns="age, income, text_review, id",
+                    intent="feature_selection",
+                    columns="text_review",
+                    method="none",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                dspy.Example(
+                    task="select relevant features related to income",
+                    dataset_columns="age, income, education_years, Churn",
+                    intent="feature_selection",
+                    columns="income",
+                    method="none",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                dspy.Example(
+                    task="pick features that predict churn",
+                    dataset_columns="age, income, education_years, churn",
+                    intent="feature_selection",
+                    columns="churn",
+                    method="none",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                dspy.Example(
+                    task="select features target column: rating",
+                    dataset_columns="age, income, rating, id",
+                    intent="feature_selection",
+                    columns="rating",
+                    method="none",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                dspy.Example(
+                    task="select related features to columns: city and text_review",
+                    dataset_columns="id, age, income, education_years, target, city, text_review",
+                    intent="feature_selection",
+                    columns="city, text_review",
+                    method="none",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                dspy.Example(
+                    task="select related features to columns: city",
+                    dataset_columns="id, age, income, education_years, target, city, text_review",
+                    intent="feature_selection",
+                    columns="city",
+                    method="none",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                # ── handle_missing_values ───────────────────────────────
+                dspy.Example(
+                    task="fill missing values with mean for age and income",
+                    dataset_columns="age, income, education_years, Churn",
+                    intent="handle_missing_values",
+                    columns="age, income",
+                    method="mean",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                # ── detect_outliers ─────────────────────────────────────
+                dspy.Example(
+                    task="remove outliers using IQR in income",
+                    dataset_columns="age, income, education_years, Churn",
+                    intent="detect_outliers",
+                    columns="income",
+                    method="IQR",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                # ── encode_categorical ──────────────────────────────────
+                dspy.Example(
+                    task="encode category column with one-hot",
+                    dataset_columns="category, age, income, Churn",
+                    intent="encode_categorical",
+                    columns="category",
+                    method="one-hot",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                # ── remove_duplicates ───────────────────────────────────
+                dspy.Example(
+                    task="remove duplicates by id",
+                    dataset_columns="id, age, income, Churn",
+                    intent="remove_duplicates",
+                    columns="id",
+                    method="none",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                # ── scale_numerical ─────────────────────────────────────
+                dspy.Example(
+                    task="scale age and income with standard scaler",
+                    dataset_columns="age, income, education_years, Churn",
+                    intent="scale_numerical",
+                    columns="age, income",
+                    method="standard",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                # ── feature_engineering ─────────────────────────────────
+                dspy.Example(
+                    task="create new features from age and income for modeling",
+                    dataset_columns="age, income, education_years, Churn",
+                    intent="feature_engineering",
+                    columns="age, income",
+                    method="none",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+            ]
 
         def forward(self, user_command, dataset_columns=""):
             # Step 1: Split into tasks
@@ -271,10 +395,13 @@ class NLPService:
                     )
                     # Parse columns from model output
                     cols = self._parse_list(param_result.columns)
-
+                    print(f"[DEBUG] Parsed columns: {param_result.columns}")
+                    print(f"[DEBUG] Parsed method: {param_result.method}")
+                    print(f"[DEBUG] Parsed other_params: {param_result.other_params}")
                     # If no specific columns mentioned → use all dataset columns
                     if not cols and dataset_columns:
                         cols = [c.strip() for c in dataset_columns.split(",") if c.strip()]
+                    print(f"[DEBUG] intent_result.intent: {intent_result.intent}")
                     results.append({
                         'task': task,
                         'intent': intent_result.intent,
@@ -572,310 +699,3 @@ class NLPService:
             intents.append(temp)
         print(intents)
         return df,intents
-#     def runUI(self):
-#         """Public entrypoint that renders the Streamlit app and wires everything."""
-#         # Setup and dependencies
-#         self._prepare_ui_config()
-#         try:
-#             self.setup_dspy()
-#             st.sidebar.success("✅ Groq AI Connected")
-#         except Exception as e:
-#             st.error(f"❌ Setup Error: {e}")
-#             st.stop()
-
-#         # load training data and pipeline
-#         self.training_data = self.load_training_data()
-#         self.pipeline = self.build_pipeline(self.training_data)
-#         if self.training_data is not None:
-#             with st.expander("📊 Training Data Statistics"):
-#                 st.write(f"**Total training samples:** {len(self.training_data)}")
-#                 st.write("**Samples per intent:**")
-#                 intent_counts = self.training_data['intent'].value_counts()
-#                 for intent, count in intent_counts.items():
-#                     st.write(f"- {intent}: {count}")
-#                 st.write("\n**Sample prompts:**")
-#                 for intent in self.training_data['intent'].unique()[:3]:
-#                     samples = self.training_data[self.training_data['intent'] == intent].head(2)
-#                     st.write(f"\n*{intent}:*")
-#                     for prompt in samples['prompt']:
-#                         st.write(f"  • {prompt}")
-
-#         # File upload
-#         st.markdown("### 📂 Upload Your Dataset")
-#         uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=['csv', 'xlsx', 'xls'])
-#         df = None
-#         df_columns = None
-#         columns_str = ""
-
-#         if uploaded_file is not None:
-#             try:
-#                 if uploaded_file.name.endswith('.csv'):
-#                     df = pd.read_csv(uploaded_file)
-#                 else:
-#                     df = pd.read_excel(uploaded_file)
-#                 df_columns = df.columns.tolist()
-#                 columns_str = ", ".join(df_columns)
-#                 st.success(f"✅ File uploaded! **{len(df)}** rows, **{len(df_columns)}** columns.")
-#                 with st.expander("📊 Preview Dataset"):
-#                     st.dataframe(df.head(10))
-#                     st.write(f"**Columns:** {columns_str}")
-#                     st.write(f"**Shape:** {df.shape}")
-#             except Exception as e:
-#                 st.error(f"❌ Error reading file: {str(e)}")
-#         else:
-#             st.info("💡 Upload a dataset to enable column-aware intent detection")
-
-#         # --- Feature suggestion UI ---
-#         # --- Feature suggestion UI ---
-#         if df is not None:
-#             st.markdown("---")
-#             st.markdown("### ✨ Suggest New Features")
-#             top_n = st.number_input("Number of suggestions to generate", min_value=1, max_value=20, value=5, step=1, key="suggest_top_n")
-            
-#             if st.button("✨ Suggest Features", key="suggest_features_btn"):
-#                 if not self.pipeline:
-#                     st.warning("Pipeline not ready. Please try again.")
-#                 else:
-#                     with st.spinner("🔎 Generating feature suggestions..."):
-#                         try:
-#                             sample_rows = df.head(10).to_json(orient='records')
-#                             # First, try the structured helper which returns parsed suggestions
-#                             try:
-#                                 parsed = apply_feature_engineering_agent(dataset_columns=columns_str, sample_rows=sample_rows, top_n=int(top_n))
-#                                 suggestions = []
-#                                 for item in parsed:
-#                                     suggestions.append(item.get('raw') or f"{item.get('name')}: {item.get('description')}" + (f" | code: {item.get('code')}" if item.get('code') else ""))
-#                             except Exception as agent_exc:
-#                                 # Fallback to pipeline method if the helper fails
-#                                 suggest_res = self.pipeline.suggest_features(
-#                                     dataset_columns=columns_str,
-#                                     sample_rows=sample_rows,
-#                                     top_n=str(top_n)
-#                                 )
-#                                 suggestions_raw = getattr(suggest_res, "suggested_features", None) or str(suggest_res)
-#                                 suggestions = [s.strip() for s in str(suggestions_raw).split('\n') if s.strip()]
-
-#                             if not suggestions:
-#                                 st.warning("⚠️ No suggestions returned by the model.")
-#                             else:
-#                                 # Store suggestions in session state
-#                                 st.session_state['feature_suggestions'] = suggestions
-#                                 st.session_state['df_original'] = df.copy()  # Keep original df
-                                
-#                                 st.success(f"✅ {len(suggestions)} suggestions generated.")
-                                
-#                         except Exception as e:
-#                             st.error(f"❌ Error generating suggestions: {e}")
-            
-#             # Display suggestions and allow selection
-#             if 'feature_suggestions' in st.session_state and st.session_state['feature_suggestions']:
-#                 suggestions = st.session_state['feature_suggestions']
-                
-#                 st.markdown("---")
-#                 st.markdown("### 📋 Select Features to Apply")
-                
-#                 # Display suggestions with checkboxes
-#                 selected_features = []
-#                 for idx, suggestion in enumerate(suggestions):
-#                     # Create a more readable display
-#                     display_text = suggestion
-#                     if '| code:' in suggestion:
-#                         name_desc, code_part = suggestion.split('| code:', 1)
-#                         display_text = f"**{name_desc.strip()}**\n   `Code: {code_part.strip()}`"
-                    
-#                     if st.checkbox(display_text, key=f"feature_{idx}", value=True):
-#                         selected_features.append(suggestion)
-                
-#                 st.markdown("---")
-                
-#                 # Buttons in columns
-#                 col1, col2, col3 = st.columns([1, 1, 1])
-                
-#                 with col1:
-#                     if st.button("✅ Apply Selected Features", key="apply_features_btn", type="primary"):
-#                         if not selected_features:
-#                             st.warning("⚠️ Please select at least one feature to apply.")
-#                         else:
-#                             with st.spinner("🔧 Engineering features..."):
-#                                 try:
-#                                     # Use the original dataframe
-#                                     df_to_engineer = st.session_state.get('df_original', df).copy()
-                                    
-#                                     # Convert selected features to string format
-#                                     features_str = "\n".join(selected_features)
-                                    
-#                                     # Debug: Show what we're about to apply
-#                                     with st.expander("🔍 Debug: Features to Apply", expanded=False):
-#                                         st.write(f"**Number of features selected:** {len(selected_features)}")
-#                                         st.write(f"**Dataframe shape:** {df_to_engineer.shape}")
-#                                         st.write(f"**Dataframe columns:** {list(df_to_engineer.columns)}")
-#                                         st.write("**Features string:**")
-#                                         st.code(features_str)
-                                    
-#                                     # Apply feature engineering
-#                                     df_engineered = engineer_features(df_to_engineer, features_str)
-                                    
-#                                     # Count new features
-#                                     new_columns = [col for col in df_engineered.columns if col not in df_to_engineer.columns]
-                                    
-#                                     if len(new_columns) == 0:
-#                                         st.warning("⚠️ No new features were added. Check the debug info below.")
-#                                         st.info("**Possible issues:**")
-#                                         st.write("1. The code expressions may have syntax errors")
-#                                         st.write("2. Column names in the code don't match your dataframe")
-#                                         st.write("3. The feature format is incorrect")
-                                        
-#                                         # Show a sample of what the format should be
-#                                         st.code("""Expected format:
-#         feature_name: description | code: df['column1'] + df['column2']
-#         age_squared: Square of age | code: df['age'] ** 2
-#         """)
-#                                     else:
-#                                         st.success(f"✅ Successfully added {len(new_columns)} new features!")
-                                        
-#                                         # Show new columns
-#                                         st.info(f"**New columns added:** {', '.join(new_columns)}")
-                                        
-#                                         # Preview the engineered dataset
-#                                         with st.expander("📊 Preview Updated Dataset", expanded=True):
-#                                             st.dataframe(df_engineered.head(10))
-#                                             st.write(f"**Original shape:** {df_to_engineer.shape}")
-#                                             st.write(f"**New shape:** {df_engineered.shape}")
-                                        
-#                                         # Store the engineered dataframe
-#                                         st.session_state['df_engineered'] = df_engineered
-                                        
-#                                         # Download button
-#                                         csv = df_engineered.to_csv(index=False)
-#                                         st.download_button(
-#                                             "⬇️ Download Engineered Dataset",
-#                                             csv,
-#                                             "engineered_data.csv",
-#                                             "text/csv",
-#                                             key="download_engineered"
-#                                         )
-                                    
-#                                 except Exception as e:
-#                                     st.error(f"❌ Error applying features: {e}")
-#                                     import traceback
-#                                     with st.expander("🔍 Error Details", expanded=True):
-#                                         st.code(traceback.format_exc())
-#                                         st.write("**Selected features:**")
-#                                         for i, feat in enumerate(selected_features, 1):
-#                                             st.write(f"{i}. `{feat}`")
-                        
-#                 with col2:
-#                     # Download suggestions as CSV
-#                     import io, csv
-#                     csv_buf = io.StringIO()
-#                     writer = csv.writer(csv_buf)
-#                     writer.writerow(["name", "description", "code", "raw"])
-#                     for s in suggestions:
-#                         name = s
-#                         description = ""
-#                         code = ""
-#                         if ':' in s:
-#                             name_part, rest = s.split(':', 1)
-#                             name = name_part.strip()
-#                             if '| code:' in rest:
-#                                 desc_part, code_part = rest.split('| code:', 1)
-#                                 description = desc_part.strip()
-#                                 code = code_part.strip()
-#                             else:
-#                                 description = rest.strip()
-#                         writer.writerow([name, description, code, s])
-#                     csv_bytes = csv_buf.getvalue().encode('utf-8')
-#                     st.download_button(
-#                         "📥 Download Suggestions CSV", 
-#                         data=csv_bytes, 
-#                         file_name="feature_suggestions.csv", 
-#                         mime="text/csv",
-#                         key="download_suggestions"
-#                     )
-                
-#                 with col3:
-#                     if st.button("🗑️ Clear Suggestions", key="clear_suggestions_btn"):
-#                         if 'feature_suggestions' in st.session_state:
-#                             del st.session_state['feature_suggestions']
-#                         if 'df_original' in st.session_state:
-#                             del st.session_state['df_original']
-#                         if 'df_engineered' in st.session_state:
-#                             del st.session_state['df_engineered']
-#                         st.rerun()
-#         st.markdown("---")
-#         user_input = st.text_area(
-#             "✍️ Enter your command:",
-#             height=150,
-#             placeholder="e.g., handle missing values using median and remove duplicates by column ID"
-#         )
-
-#         if st.button("🔍 Understand Intents", type="primary"):
-#             if not user_input.strip():
-#                 st.warning("⚠️ Please enter a command first.")
-#                 return
-#             with st.spinner("🤔 Processing with DSPy..."):
-#                 try:
-#                     results = self.pipeline(user_command=user_input, dataset_columns=columns_str)
-#                     if not results:
-#                         st.warning("⚠️ No valid tasks detected. Try rephrasing your command.")
-#                         return
-#                     st.subheader("🎯 Detected Intents and Parameters")
-#                     intents = []
-#                     for i, result in enumerate(results, 1):
-#                         temp = []
-#                         if result['confidence'] >= 0.8:
-#                             confidence_color = "🟢"
-#                         elif result['confidence'] >= 0.6:
-#                             confidence_color = "🟡"
-#                         else:
-#                             confidence_color = "🔴"
-#                         st.markdown(f"### {confidence_color} Step {i}:")
-#                         st.markdown(f"**➡️ Task:** `{result['task']}`")
-#                         st.write(f"**Intent:** `{result['intent']}`")
-#                         st.write(f"**Confidence:** {result['confidence']:.2%}")
-#                         temp.append(result['intent'])
-#                         if result.get('reasoning'):
-#                             st.write(f"**Reasoning:** _{result['reasoning']}_")
-#                         if result['columns']:
-#                             st.write(f"**📊 Applies to columns:** {', '.join(f'`{c}`' for c in result['columns'])}")
-#                             temp.append(result['columns'])
-#                         else:
-#                             st.write("**📊 Applies to:** all columns (no specific columns mentioned)")
-#                         if result['method']:
-#                             st.write(f"**⚙️ Method:** `{result['method']}`")
-#                             temp.append(result['method'])
-#                         if result['other_params']:
-#                             st.write("**🔧 Other Parameters:**")
-#                             temp.append(result['other_params'])
-#                             for k, v in result['other_params'].items():
-#                                 st.markdown(f"- **{k}**: `{v}`")
-#                         intents.append(temp)
-#                         st.markdown("---")
-#                     st.success("✅ Intents detected successfully!")
-#                     with st.expander("📋 Summary"):
-#                         st.write(f"**Total tasks detected:** {len(results)}")
-#                         st.write(f"**Average confidence:** {sum(r['confidence'] for r in results) / len(results):.2%}")
-#                         intents_used = [r['intent'] for r in results]
-#                         st.write(f"**Intents:** {', '.join(set(intents_used))}")
-#                     if df is not None:
-#                         st.markdown("### 🎬 What will happen to your data:")
-#                         st.info("Preview of detected operations. Actual execution coming soon!")
-#                     return intents
-#                 except Exception as e:
-#                     st.error(f"❌ Error processing command: {str(e)}")
-#                     st.info("Try simplifying your command or check the error details above.")
-#         else:
-#             st.info("💡 Enter a command and click **Understand Intents**.")
-
-
-# if __name__ == "__main__":
-#     # When running the file directly (e.g. `streamlit run NLPService.py`),
-#     # instantiate the app and launch the Streamlit UI.
-#     app = NLPService()
-#     try:
-#         app.runUI()
-#     except Exception as _err:
-#         # If something goes wrong while launching the UI, print the error to the console
-#         # so the user can see it in the terminal that invoked Streamlit.
-#         print(f"Error launching Streamlit UI: {_err}")
-#         raise

@@ -116,15 +116,32 @@ augmentation_rules = {
         'purposes': ['for modeling', 'for training', 'for prediction', 'for the model', 'for ML',
                     'for classification', 'for regression', 'for analysis'],
         'numbers': ['top 10', 'top 5', 'best 20', 'top-k', 'most important'],
+        'targets': ['target={col}', 'for column {col}', 'for {col}', 'using {col} as target',
+                    'with {col} as target', 'based on {col}', 'with target={col}',
+                    'predicting {col}', 'with target column {col}', 'for target {col}',
+                    'target column: {col}', 'target: {col}', 'for target column: {col}',
+                    'related to {col}', 'related to column {col}'],
         'templates': [
             '{verb} {object}',
             '{verb} {object} {method}',
             '{verb} {object} {purpose}',
+            '{verb} {object} {target}',
+            '{verb} {object} {method} {target}',
+            '{verb} {object} {target} {purpose}',
             'perform feature selection',
+            'perform feature selection {target}',
             'run feature selection {method}',
+            'run feature selection {method} {target}',
             '{verb} {number} {object}',
+            '{verb} {number} {object} {target}',
             '{method} to {verb} {object}',
             '{verb} {object} {method} {purpose}',
+            '{verb} {object} for prediction of {col}',
+            '{verb} relevant {object} {target}',
+            '{verb} {object} related to {col}',
+            '{verb} {object} relevant to {col}',
+            '{verb} {object} that predict {col}',
+            '{verb} {object} for predicting {col}',
         ]
     },
     
@@ -283,6 +300,13 @@ def generate_phrase(intent, rules):
         phrase = phrase.replace('{types}', random.choice(rules['types']))
     if '{examples}' in phrase and 'examples' in rules:
         phrase = phrase.replace('{examples}', random.choice(rules['examples']))
+    if '{target}' in phrase and 'targets' in rules:
+        target_phrase = random.choice(rules['targets'])
+        if '{col}' in target_phrase:
+            target_phrase = target_phrase.replace('{col}', random.choice(column_names))
+        phrase = phrase.replace('{target}', target_phrase)
+    if '{col}' in phrase:
+        phrase = phrase.replace('{col}', random.choice(column_names))
     
     return phrase.strip()
 
@@ -331,7 +355,7 @@ for intent in target_intents:
             attempts += 1
     
     current_count = len([d for d in augmented_data if d[1] == intent])
-    print(f"  ✅ Generated {current_count} phrases for {intent}")
+    print(f"  [OK] Generated {current_count} phrases for {intent}")
 
 # Create final dataframe
 augmented_df = pd.DataFrame(augmented_data, columns=['prompt', 'intent'])
@@ -342,14 +366,14 @@ augmented_df = augmented_df.sample(frac=1, random_state=42).reset_index(drop=Tru
 # Save to new file
 augmented_df.to_csv('intents_augmented.csv', index=False)
 
-print(f"\n🎉 Augmentation complete!")
+print(f"\nAugmentation complete!")
 print(f"Total samples: {len(augmented_df)}")
-print("\n📊 Samples per intent:")
+print("\nSamples per intent:")
 print(augmented_df['intent'].value_counts().sort_index())
-print("\n💾 Saved to: intents_augmented.csv")
+print("\nSaved to: intents_augmented.csv")
 
 # Show some examples
-print("\n🔍 Sample generated prompts:")
+print("\nSample generated prompts:")
 for intent in target_intents:
     print(f"\n{intent}:")
     samples = augmented_df[augmented_df['intent'] == intent].head(5)

@@ -1,0 +1,216 @@
+id,age,income,education_years,credit_score,dependents,has_home,marital_status,city,text_review,target,useless_id_col,constant_col,random_noise
+0,56.0,51905.18359057698,18.0,615,1,yes,divorced,Chicago,Very disappointed with the service and product quality,0,58320,42,-1.687249423453071
+1,69.0,31258.3441580011,20.0,477,3,yes,married,Houston,"Average experience, nothing special to mention here",1,57414,42,-1.2531247882010523
+2,46.0,79176.73421730178,15.0,839,3,yes,divorced,Houston,"Average experience, nothing special to mention here",1,25577,42,1.1619236021470807
+3,32.0,47699.95313725789,11.0,340,2,no,married,Phoenix,"Average experience, nothing special to mention here",1,98009,42,-1.5515305467501768
+4,60.0,36395.191618926794,16.0,801,3,yes,divorced,Los Angeles,"Product quality is outstanding, highly recommend this item",1,65409,42,1.2385499549119328
+5,25.0,37739.68767315756,12.0,444,5,yes,divorced,Chicago,"Average experience, nothing special to mention here",1,38625,42,-0.2149325059853921
+6,38.0,42753.15981873061,20.0,500,5,no,divorced,Phoenix,Delivery was fast but the packaging could be improved,1,91040,42,-0.5209138193366847
+7,56.0,41452.574774023946,16.0,760,0,no,single,Chicago,The customer service was excellent and very helpful,1,34089,42,0.20542859627146925
+8,36.0,18626.004954691034,11.0,846,5,no,single,Los Angeles,"Average experience, nothing special to mention here",1,46487,42,-1.3453684522354987
+9,40.0,68956.1079614958,17.0,552,5,no,married,Houston,The customer service was excellent and very helpful,0,75838,42,0.8240148305983517
+10,28.0,49767.74989982332,12.0,689,2,yes,married,New York,"Product quality is outstanding, highly recommend this item",0,60138,42,1.6896369976946968
+11,28.0,49589.35331622262,16.0,555,5,yes,single,Houston,The customer service was excellent and very helpful,1,52823,42,0.8705762158142415
+12,41.0,62268.10268324847,15.0,749,0,yes,married,Phoenix,"Product quality is outstanding, highly recommend this item",0,47208,42,-0.24650869255414082
+13,53.0,34180.93295799744,10.0,309,1,yes,single,New York,Delivery was fast but the packaging could be improved,1,64061,42,-1.538035707765441
+14,57.0,38625.09319222637,8.0,541,2,no,divorced,Phoenix,"Product quality is outstanding, highly recommend this item",1,40659,42,-1.499587456202933
+15,41.0,56861.23473078714,10.0,550,1,yes,married,Los Angeles,"Product quality is outstanding, highly recommend this item",0,41890,42,-1.3296433022393077
+16,20.0,49034.3292379855,11.0,304,2,yes,married,New York,Very disappointed with the service and product quality,1,89134,42,-0.012278277112317357
+17,,55173.53502567093,9.0,418,4,no,single,Phoenix,"Average experience, nothing special to mention here",1,57055,42,0.11340006327260466
+18,19.0,48798.689969712665,8.0,673,3,yes,married,Los Angeles,"Average experience, nothing special to mention here",1,29508,42,0.8684435107409955
+19,41.0,,14.0,364,4,yes,married,Houston,Delivery was fast but the packaging could be improved,1,52287,42,-1.7960289864830756
+20,61.0,,15.0,445,5,yes,divorced,Los Angeles,Delivery was fast but the packaging could be improved,0,88916,42,1.3112102303923998
+21,47.0,65986.90562823956,14.0,523,1,yes,married,Chicago,"Average experience, nothing special to mention here",1,36984,42,0.6944063189453711
+22,55.0,12518.612875419334,21.0,538,5,yes,divorced,Los Angeles,Very disappointed with the service and product quality,1,18125,42,-0.32683629306213485
+23,19.0,72204.92841758246,12.0,476,3,yes,,Los Angeles,"Average experience, nothing special to mention here",1,46059,42,-1.1897615417321001
+24,38.0,82380.92785044655,19.0,581,2,no,married,Chicago,Very disappointed with the service and product quality,0,79569,42,1.2491406416911188
+25,50.0,68476.67565074166,8.0,362,3,no,divorced,Phoenix,Delivery was fast but the packaging could be improved,1,27087,42,-0.300093961237384
+26,29.0,46785.13275115711,14.0,516,0,yes,,Phoenix,The customer service was excellent and very helpful,0,15704,42,-0.02001889934442878
+27,39.0,39662.08684303632,20.0,760,3,yes,married,Los Angeles,Delivery was fast but the packaging could be improved,0,70576,42,0.38361197078793213
+28,,60917.496712488006,,404,0,no,single,Chicago,Delivery was fast but the packaging could be improved,1,83384,42,-0.9131989057816112
+29,42.0,,,398,3,yes,,Chicago,"Product quality is outstanding, highly recommend this item",1,97128,42,-0.28218057902524896
+30,66.0,55342.3974558407,10.0,810,0,yes,single,Houston,"Product quality is outstanding, highly recommend this item",0,82460,42,0.86531690202038
+31,44.0,49671.786884918525,16.0,684,1,yes,single,Phoenix,"Product quality is outstanding, highly recommend this item",1,37208,42,0.764096078496275
+32,59.0,68270.75656634766,21.0,704,5,no,divorced,New York,"Product quality is outstanding, highly recommend this item",0,95150,42,0.7731072066952375
+33,45.0,44158.12963544777,8.0,817,5,yes,single,Phoenix,Very disappointed with the service and product quality,0,76024,42,-1.1551797511404318
+34,33.0,43357.964826415366,8.0,775,4,no,married,Phoenix,"Average experience, nothing special to mention here",1,49882,42,-0.23658035072914094
+35,32.0,55673.399221112784,21.0,736,5,yes,married,Houston,The customer service was excellent and very helpful,1,35923,42,-0.3963938350478049
+36,64.0,79007.59701392178,11.0,322,2,no,divorced,New York,Delivery was fast but the packaging could be improved,0,39165,42,0.42517884227470176
+37,68.0,,16.0,757,3,no,married,Houston,Very disappointed with the service and product quality,0,77203,42,0.3356579896488977
+38,61.0,43753.154546729376,13.0,382,4,yes,married,New York,The customer service was excellent and very helpful,0,14114,42,0.15542733074293652
+39,69.0,62862.54877382169,20.0,444,2,no,married,Los Angeles,Very disappointed with the service and product quality,0,74965,42,2.465733955419929
+40,20.0,60771.92419737066,18.0,384,2,yes,single,New York,Very disappointed with the service and product quality,1,46321,42,-0.2908060801440377
+41,54.0,,10.0,377,0,no,single,Houston,Delivery was fast but the packaging could be improved,1,83297,42,-0.4078230860685443
+42,68.0,41957.59849731467,8.0,756,5,yes,married,Phoenix,"Average experience, nothing special to mention here",1,35426,42,-1.156749670336056
+43,24.0,66447.93284742325,,300,1,yes,divorced,New York,"Product quality is outstanding, highly recommend this item",1,27772,42,-1.5378473259288705
+44,38.0,56420.19261484141,19.0,350,1,no,single,New York,"Average experience, nothing special to mention here",1,13712,42,-1.2203173772157754
+45,26.0,12954.517023986038,20.0,745,4,yes,divorced,Chicago,Delivery was fast but the packaging could be improved,0,11367,42,-0.7186819254432798
+46,56.0,57229.68708504341,16.0,748,1,yes,married,Phoenix,Delivery was fast but the packaging could be improved,1,61924,42,1.3100730944378527
+47,35.0,63896.84537930483,10.0,787,3,no,married,Los Angeles,Delivery was fast but the packaging could be improved,1,13726,42,0.03916390436185879
+48,21.0,37436.279123553286,19.0,333,1,yes,single,Houston,The customer service was excellent and very helpful,1,99152,42,0.19333066695273338
+49,42.0,60157.790983731495,16.0,647,4,yes,married,Los Angeles,"Average experience, nothing special to mention here",1,37723,42,-0.09627330820209662
+50,31.0,78084.78675981081,14.0,394,1,no,single,Phoenix,"Average experience, nothing special to mention here",1,19108,42,0.36530099302178864
+51,67.0,55945.60910096663,,371,3,no,married,New York,Very disappointed with the service and product quality,0,87714,42,1.4020721472178432
+52,,40615.75557150602,21.0,453,0,yes,married,New York,Very disappointed with the service and product quality,0,45643,42,-1.993930836268036
+53,43.0,42163.07780701126,11.0,549,4,yes,,Phoenix,Very disappointed with the service and product quality,0,41324,42,1.2183373155853803
+54,19.0,50195.50849649827,10.0,737,0,no,,New York,Delivery was fast but the packaging could be improved,1,93360,42,-2.515038452535007
+55,37.0,55666.54387959637,17.0,417,0,no,single,New York,"Average experience, nothing special to mention here",0,18927,42,0.028202711521927642
+56,45.0,50942.368995997735,12.0,605,0,yes,married,New York,Delivery was fast but the packaging could be improved,0,32443,42,2.1919073547444152
+57,64.0,57523.94548019259,12.0,567,2,no,married,Houston,The customer service was excellent and very helpful,1,89973,42,0.680657939531544
+58,24.0,47795.81910619441,10.0,353,5,yes,divorced,Houston,Very disappointed with the service and product quality,1,73449,42,0.37305893532063655
+59,61.0,,,535,2,yes,single,Chicago,Delivery was fast but the packaging could be improved,1,86743,42,2.0019459668029733
+60,25.0,64472.158734926525,16.0,688,5,yes,,Los Angeles,Delivery was fast but the packaging could be improved,0,70233,42,-0.7030628980011439
+61,64.0,34027.53270705491,,700,0,yes,married,Phoenix,The customer service was excellent and very helpful,0,35537,42,0.4339674224650475
+62,52.0,51630.67699441078,18.0,602,4,yes,single,Phoenix,"Product quality is outstanding, highly recommend this item",1,87576,42,0.5781170974738931
+63,31.0,51586.45470541641,12.0,506,5,no,divorced,Phoenix,"Average experience, nothing special to mention here",1,32612,42,-0.5224021342270257
+64,34.0,63810.00073569607,11.0,528,3,no,single,Chicago,"Product quality is outstanding, highly recommend this item",0,16471,42,-0.4341101794959805
+65,53.0,46599.16316675957,12.0,374,3,no,divorced,Houston,Very disappointed with the service and product quality,0,45631,42,-0.5437794332233397
+66,67.0,59795.72466574641,14.0,734,1,no,,Chicago,Delivery was fast but the packaging could be improved,1,41348,42,0.08731497400856388
+67,,,16.0,402,5,yes,divorced,Phoenix,The customer service was excellent and very helpful,1,74732,42,0.546691605771313
+68,21.0,22252.955942536526,14.0,721,4,yes,married,Los Angeles,The customer service was excellent and very helpful,0,11177,42,0.1232302729146622
+69,,67529.46865175801,20.0,605,2,yes,single,New York,"Average experience, nothing special to mention here",1,14760,42,0.7094618174298554
+70,23.0,35219.27304311469,12.0,397,0,yes,single,Houston,"Product quality is outstanding, highly recommend this item",0,42779,42,-1.9691472859735475
+71,59.0,33590.89386397289,17.0,634,1,no,single,Houston,"Average experience, nothing special to mention here",0,31636,42,-0.21825116374283668
+72,21.0,,17.0,734,3,yes,divorced,Chicago,Delivery was fast but the packaging could be improved,0,91889,42,-1.0234193103506461
+73,46.0,37952.33502481029,14.0,746,2,yes,married,Houston,"Average experience, nothing special to mention here",0,63551,42,0.30172251268289835
+74,35.0,49927.14583023455,21.0,607,2,no,single,Phoenix,The customer service was excellent and very helpful,1,21556,42,0.2869174286723232
+75,43.0,44250.15040601145,17.0,548,0,no,single,Phoenix,The customer service was excellent and very helpful,1,37598,42,-0.11562211495745531
+76,61.0,43062.09709697372,,465,5,no,married,Chicago,Very disappointed with the service and product quality,0,21563,42,0.5102790105320711
+77,51.0,33312.53968505828,10.0,780,3,no,single,Phoenix,Very disappointed with the service and product quality,0,56819,42,0.9978127182640276
+78,27.0,,14.0,634,4,yes,married,Los Angeles,Delivery was fast but the packaging could be improved,0,83770,42,-0.06052052230630854
+79,53.0,64376.207543199474,,841,2,yes,married,Chicago,"Product quality is outstanding, highly recommend this item",0,36966,42,-1.051694888099702
+80,,,18.0,405,0,no,,Los Angeles,"Average experience, nothing special to mention here",0,91709,42,-1.581257570919481
+81,48.0,,18.0,380,4,yes,,New York,Delivery was fast but the packaging could be improved,1,69889,42,0.03611017533012821
+82,65.0,84100.17737026222,9.0,432,5,yes,married,Los Angeles,Very disappointed with the service and product quality,1,36987,42,0.24186670151354087
+83,32.0,52204.61975685824,19.0,437,3,yes,divorced,New York,"Average experience, nothing special to mention here",1,88714,42,-0.969523889519979
+84,,58094.13802375499,16.0,483,5,no,,New York,Very disappointed with the service and product quality,1,68348,42,0.7257668231630326
+85,31.0,27525.56543942104,17.0,700,2,yes,,Los Angeles,"Average experience, nothing special to mention here",0,34596,42,-0.45895688582457345
+86,40.0,49828.34828795407,17.0,629,4,no,single,Chicago,"Product quality is outstanding, highly recommend this item",0,43174,42,-1.6564328651711504
+87,57.0,56200.31131435468,19.0,807,4,yes,divorced,Phoenix,Delivery was fast but the packaging could be improved,0,74106,42,1.2564363423451892
+88,38.0,47886.52168298975,8.0,368,4,yes,married,Phoenix,"Average experience, nothing special to mention here",0,79967,42,1.1439879192021631
+89,33.0,,20.0,845,2,yes,single,New York,The customer service was excellent and very helpful,0,69182,42,-2.015599436663098
+90,62.0,69505.17721994809,13.0,352,2,no,single,New York,The customer service was excellent and very helpful,1,97163,42,-0.5626002816536924
+91,35.0,29847.14353898851,14.0,749,5,yes,divorced,Chicago,"Average experience, nothing special to mention here",0,49310,42,-0.6015836814142763
+92,64.0,62751.80873185786,21.0,504,1,no,divorced,Houston,"Average experience, nothing special to mention here",1,66088,42,1.6394886594175027
+93,41.0,55915.099271972445,20.0,425,5,no,single,Los Angeles,"Average experience, nothing special to mention here",1,18906,42,-0.09929271004165632
+94,43.0,49929.56007989661,15.0,342,3,no,divorced,New York,The customer service was excellent and very helpful,1,46914,42,-1.4958781980554177
+95,42.0,26437.82024708577,17.0,410,0,yes,divorced,Phoenix,The customer service was excellent and very helpful,1,55379,42,0.8821047822408783
+96,62.0,72197.7316279783,16.0,482,4,yes,,Chicago,"Average experience, nothing special to mention here",0,88612,42,-1.230775545766081
+97,58.0,55951.614219066934,9.0,394,1,yes,married,Los Angeles,Very disappointed with the service and product quality,1,47650,42,-0.26034049072176124
+98,46.0,23251.234067517144,18.0,673,0,yes,married,Chicago,Very disappointed with the service and product quality,1,56881,42,-0.7697688778808768
+99,,46352.98309389477,17.0,819,1,no,divorced,Los Angeles,"Product quality is outstanding, highly recommend this item",1,56413,42,-0.56045509827994
+100,62.0,,9.0,659,5,no,divorced,Los Angeles,Delivery was fast but the packaging could be improved,0,16012,42,0.9372580895639391
+101,18.0,,12.0,580,2,no,married,New York,Very disappointed with the service and product quality,0,60115,42,1.5213301613321657
+102,42.0,48085.928085779386,20.0,494,4,yes,,Chicago,The customer service was excellent and very helpful,0,17151,42,-1.2743687463793785
+103,24.0,55123.862089230744,12.0,494,5,no,single,Chicago,Very disappointed with the service and product quality,1,67716,42,0.6260764255078172
+104,26.0,81783.29318344987,13.0,392,0,yes,single,Phoenix,"Product quality is outstanding, highly recommend this item",1,46378,42,-0.7327536296899959
+105,41.0,73198.05133207263,10.0,360,0,no,married,Phoenix,"Product quality is outstanding, highly recommend this item",0,52652,42,-0.7016719100240756
+106,18.0,35757.21432231713,15.0,350,0,yes,divorced,New York,Delivery was fast but the packaging could be improved,1,82430,42,0.4906362214227146
+107,61.0,41046.54002655871,20.0,702,0,yes,divorced,New York,Very disappointed with the service and product quality,0,23467,42,-1.027902765713695
+108,25.0,48331.940002845964,8.0,304,0,no,divorced,Houston,The customer service was excellent and very helpful,0,41010,42,0.47060260077504473
+109,41.0,23763.958487425796,13.0,765,1,no,divorced,Phoenix,The customer service was excellent and very helpful,1,64691,42,0.7301133565097351
+110,28.0,29878.947530807534,11.0,833,5,no,single,Los Angeles,"Average experience, nothing special to mention here",1,74157,42,-0.4325322616990184
+111,68.0,25674.58068584775,8.0,704,4,no,married,Chicago,The customer service was excellent and very helpful,1,22289,42,1.3270781020136666
+112,34.0,32784.200407625,14.0,812,2,yes,divorced,New York,Delivery was fast but the packaging could be improved,1,54976,42,-1.272824612061507
+113,25.0,70844.04242219887,16.0,532,2,no,single,Chicago,Delivery was fast but the packaging could be improved,0,53596,42,1.345406190611672
+114,52.0,,20.0,823,5,no,divorced,Chicago,The customer service was excellent and very helpful,0,33171,42,-1.943987429485133
+115,52.0,34594.073615966045,11.0,645,5,no,married,Houston,The customer service was excellent and very helpful,0,96365,42,2.6997141404195095
+116,50.0,,11.0,345,2,yes,single,Phoenix,"Average experience, nothing special to mention here",0,54139,42,-0.4062022386218326
+117,22.0,43260.43420856327,13.0,845,2,yes,married,New York,The customer service was excellent and very helpful,0,58713,42,-1.1623071563876177
+118,59.0,,19.0,377,1,no,married,Chicago,"Average experience, nothing special to mention here",1,39734,42,-0.23267190851999858
+119,56.0,39077.31125955,10.0,372,3,yes,,New York,"Average experience, nothing special to mention here",0,82588,42,-1.0464779426244284
+120,58.0,22971.680464901594,20.0,548,4,no,single,Los Angeles,The customer service was excellent and very helpful,0,73646,42,0.38696529885454223
+121,45.0,57015.75616247175,19.0,346,0,yes,single,Houston,"Product quality is outstanding, highly recommend this item",0,13654,42,1.3676573314701472
+122,24.0,26728.490838640217,13.0,420,3,yes,single,Los Angeles,"Product quality is outstanding, highly recommend this item",1,99022,42,-0.9934562260566775
+123,,,14.0,513,5,yes,single,New York,"Average experience, nothing special to mention here",1,28743,42,0.5793992391740034
+124,25.0,,18.0,538,2,yes,,New York,The customer service was excellent and very helpful,1,58368,42,-1.5327353688957595
+125,29.0,52930.19708820459,17.0,355,3,no,single,Phoenix,"Product quality is outstanding, highly recommend this item",1,84172,42,1.0329547332286124
+126,51.0,41660.826533380736,17.0,649,4,no,divorced,Chicago,The customer service was excellent and very helpful,0,16441,42,0.41623636692759547
+127,50.0,48083.97757304171,10.0,406,5,no,married,Chicago,The customer service was excellent and very helpful,0,34611,42,1.0761833213303202
+128,65.0,26591.643913440963,14.0,347,0,yes,single,Los Angeles,The customer service was excellent and very helpful,1,22149,42,-0.12234690264110538
+129,40.0,,21.0,636,0,no,divorced,Houston,Very disappointed with the service and product quality,1,69189,42,-0.4351565978547518
+130,41.0,31998.023934047553,10.0,325,4,no,divorced,Chicago,The customer service was excellent and very helpful,0,31675,42,0.8161174360573329
+131,54.0,68020.70666326536,20.0,556,4,no,divorced,Phoenix,Very disappointed with the service and product quality,0,81031,42,-1.3080485215584186
+132,52.0,52247.50574509397,20.0,307,2,yes,married,Los Angeles,"Average experience, nothing special to mention here",1,52668,42,-1.7428243317335752
+133,,52113.61052106983,,552,0,yes,single,Los Angeles,"Product quality is outstanding, highly recommend this item",1,23673,42,-0.0049619840400380874
+134,57.0,55316.29377679493,19.0,602,5,yes,divorced,Phoenix,"Product quality is outstanding, highly recommend this item",1,86666,42,-0.38959660685879244
+135,39.0,21795.311173211652,,355,3,no,married,Houston,"Product quality is outstanding, highly recommend this item",1,98204,42,0.553833331781546
+136,44.0,,17.0,825,5,no,married,Phoenix,"Product quality is outstanding, highly recommend this item",0,90758,42,1.091551424313997
+137,,42335.83299069557,11.0,773,1,no,married,Houston,"Product quality is outstanding, highly recommend this item",0,75429,42,0.533014079151139
+138,,68155.97949704959,19.0,327,1,yes,divorced,Phoenix,"Product quality is outstanding, highly recommend this item",0,33669,42,1.0119033118267453
+139,52.0,47731.460517616564,15.0,377,4,yes,single,Phoenix,"Product quality is outstanding, highly recommend this item",1,44068,42,0.32105233333216393
+140,54.0,,20.0,515,2,no,divorced,New York,"Average experience, nothing special to mention here",1,98789,42,0.4945957483210984
+141,64.0,30631.75830295726,,685,1,yes,divorced,Los Angeles,The customer service was excellent and very helpful,0,19435,42,-0.11665720983227088
+142,31.0,38517.35951288992,14.0,664,0,yes,single,Phoenix,Delivery was fast but the packaging could be improved,0,62249,42,0.46504546101518207
+143,20.0,56334.70642496097,8.0,825,5,yes,single,Phoenix,Very disappointed with the service and product quality,0,47384,42,0.16665282856351338
+144,,30381.285504959375,10.0,611,5,yes,single,Chicago,Delivery was fast but the packaging could be improved,0,91929,42,0.3251767965290638
+145,22.0,20141.006756339542,20.0,306,4,no,married,Los Angeles,Delivery was fast but the packaging could be improved,1,86153,42,-0.1667240330868389
+146,,,19.0,302,3,yes,single,Chicago,The customer service was excellent and very helpful,0,85388,42,0.8089292004712981
+147,,62600.080649336436,,662,4,yes,divorced,Los Angeles,The customer service was excellent and very helpful,0,41401,42,-0.7104525498349515
+148,56.0,76719.3661553955,16.0,807,3,yes,single,Chicago,The customer service was excellent and very helpful,0,81831,42,-0.018349020904106537
+149,44.0,39838.76498427865,19.0,573,4,yes,divorced,Phoenix,"Product quality is outstanding, highly recommend this item",0,44084,42,1.3117839002075757
+150,26.0,,8.0,805,4,no,married,Phoenix,"Average experience, nothing special to mention here",0,65826,42,-0.9487218229211253
+151,32.0,44853.064038438526,16.0,314,4,no,divorced,New York,"Product quality is outstanding, highly recommend this item",0,46451,42,-2.161845461752631
+152,32.0,,15.0,491,3,yes,divorced,Chicago,"Average experience, nothing special to mention here",0,17227,42,0.36645716629797204
+153,43.0,58668.457026482516,8.0,784,3,yes,single,Houston,"Average experience, nothing special to mention here",1,41910,42,-0.2569544903534993
+154,59.0,,13.0,327,4,yes,single,New York,Delivery was fast but the packaging could be improved,1,46041,42,1.0108622403718392
+155,30.0,53402.7323297118,12.0,338,1,yes,divorced,Chicago,Delivery was fast but the packaging could be improved,1,98920,42,-0.13051507989699376
+156,68.0,74831.92438068382,13.0,572,2,yes,single,Chicago,"Average experience, nothing special to mention here",1,75681,42,-0.6043390715633118
+157,49.0,43056.118669045274,17.0,530,2,yes,married,New York,"Average experience, nothing special to mention here",0,91571,42,-0.07581739581821335
+158,,51298.48721783832,19.0,385,2,no,married,Phoenix,"Product quality is outstanding, highly recommend this item",1,75481,42,1.0930685866132108
+159,66.0,41106.75901309468,20.0,773,3,yes,single,Chicago,"Product quality is outstanding, highly recommend this item",1,78576,42,0.5753696271923753
+160,69.0,39799.93498823086,20.0,425,3,no,married,Phoenix,Delivery was fast but the packaging could be improved,0,74174,42,-2.4339022565480346
+161,49.0,46048.9123269909,20.0,836,1,no,single,New York,The customer service was excellent and very helpful,0,36160,42,0.18576749208677126
+162,21.0,45790.17686988769,12.0,444,2,yes,divorced,Phoenix,"Average experience, nothing special to mention here",1,27633,42,0.23576213240140492
+163,47.0,40940.36120753378,13.0,824,2,no,divorced,Los Angeles,"Product quality is outstanding, highly recommend this item",1,27014,42,-0.01824996520051934
+164,,41761.20638953547,12.0,511,4,no,married,Houston,Delivery was fast but the packaging could be improved,0,90532,42,-0.6108898915685892
+165,40.0,66451.94381662106,18.0,324,3,no,single,Chicago,"Product quality is outstanding, highly recommend this item",1,59104,42,1.1945318745064444
+166,56.0,81696.68235437304,19.0,693,2,no,single,Houston,"Average experience, nothing special to mention here",0,51621,42,1.2440339481348617
+167,62.0,42523.90065940331,12.0,366,5,no,married,Phoenix,"Average experience, nothing special to mention here",0,87231,42,-2.203160460825862
+168,32.0,,11.0,532,1,no,divorced,Chicago,Very disappointed with the service and product quality,0,78388,42,-0.7979594777414443
+169,60.0,,10.0,408,5,yes,married,Phoenix,The customer service was excellent and very helpful,0,26014,42,-0.14473065128572005
+170,46.0,97805.50007109455,10.0,445,5,no,divorced,Los Angeles,Very disappointed with the service and product quality,1,43755,42,0.9485082037166699
+171,53.0,,11.0,410,1,no,single,New York,Delivery was fast but the packaging could be improved,0,50390,42,0.034852876391766284
+172,30.0,64589.49300348187,16.0,527,5,no,divorced,Chicago,"Product quality is outstanding, highly recommend this item",0,33711,42,-0.6835938001649233
+173,49.0,73167.12258061688,9.0,410,2,yes,married,Los Angeles,Delivery was fast but the packaging could be improved,1,67993,42,0.7095335773073748
+174,24.0,55161.021971030335,16.0,769,3,no,single,Los Angeles,"Average experience, nothing special to mention here",0,84696,42,-0.21133608555099248
+175,68.0,,8.0,333,1,yes,,Chicago,Very disappointed with the service and product quality,1,37213,42,-0.11740085915495976
+176,39.0,59117.57810502207,21.0,668,4,no,married,Phoenix,Very disappointed with the service and product quality,1,67784,42,-0.0271584334040762
+177,45.0,65487.691892418225,8.0,724,5,yes,divorced,Los Angeles,Very disappointed with the service and product quality,1,17421,42,0.5743084408384841
+178,19.0,34483.96465271473,12.0,817,1,yes,married,Houston,Delivery was fast but the packaging could be improved,0,96936,42,-0.3085496016737873
+179,59.0,,13.0,581,0,no,divorced,Los Angeles,"Average experience, nothing special to mention here",1,27727,42,0.6869464926472221
+180,62.0,57218.265926421904,13.0,619,0,no,single,Phoenix,"Product quality is outstanding, highly recommend this item",1,14358,42,-0.07306896840707273
+181,23.0,57005.85759093332,10.0,742,3,yes,divorced,Phoenix,"Product quality is outstanding, highly recommend this item",0,75108,42,-1.067016586417876
+182,45.0,67055.26127950186,14.0,614,2,no,single,Houston,Delivery was fast but the packaging could be improved,1,42117,42,-0.03677630569544812
+183,45.0,56703.35217161101,,676,3,yes,divorced,Los Angeles,Very disappointed with the service and product quality,1,98700,42,-1.015213403145215
+184,,32825.77219892897,18.0,588,3,yes,married,Phoenix,The customer service was excellent and very helpful,1,41910,42,0.04098678977594188
+185,61.0,58869.74175391973,19.0,736,3,yes,divorced,Chicago,Delivery was fast but the packaging could be improved,1,65754,42,0.8294739292314663
+186,37.0,36753.820122806996,17.0,576,3,yes,divorced,New York,Delivery was fast but the packaging could be improved,1,72438,42,-1.0736290060021147
+187,,39509.32927405277,15.0,802,4,yes,single,New York,"Average experience, nothing special to mention here",0,39371,42,0.36427340580443873
+188,28.0,43722.36678184351,13.0,815,4,no,married,New York,"Product quality is outstanding, highly recommend this item",1,61501,42,-0.8290374583532079
+189,45.0,48328.71835127613,19.0,649,1,yes,divorced,Los Angeles,Delivery was fast but the packaging could be improved,1,70946,42,0.20170055991654703
+190,42.0,26844.11895962156,15.0,745,0,yes,married,Houston,Delivery was fast but the packaging could be improved,0,48467,42,0.8602042420204842
+191,56.0,66753.40160302518,19.0,649,3,no,divorced,Phoenix,Very disappointed with the service and product quality,0,27625,42,-2.1295130741100414
+192,50.0,32667.261348657736,12.0,436,1,yes,divorced,Chicago,Very disappointed with the service and product quality,0,43893,42,-1.1144758268713455
+193,18.0,73551.6593305828,15.0,542,0,no,married,Chicago,The customer service was excellent and very helpful,1,86329,42,-0.3689794451099221
+194,44.0,33125.72393250714,17.0,842,5,no,divorced,Los Angeles,"Average experience, nothing special to mention here",0,41007,42,0.31504048918161526
+195,69.0,69228.80570471303,19.0,339,2,no,married,New York,The customer service was excellent and very helpful,1,49532,42,-0.1663833293583238
+196,30.0,49573.678136013994,11.0,528,4,yes,divorced,Los Angeles,Very disappointed with the service and product quality,1,64253,42,-0.045880781980918925
+197,58.0,24253.633310840425,17.0,847,5,yes,single,Houston,"Product quality is outstanding, highly recommend this item",0,22323,42,2.0429845253512564
+198,20.0,34355.57909595723,15.0,522,0,yes,married,Houston,Very disappointed with the service and product quality,0,83379,42,-1.2124572788492276
+199,56.0,,17.0,305,5,no,divorced,Phoenix,"Average experience, nothing special to mention here",1,24210,42,1.1354850163627703
+0,56.0,51905.18359057698,18.0,615,1,yes,divorced,Chicago,Very disappointed with the service and product quality,0,58320,42,-1.687249423453071
+1,69.0,31258.3441580011,20.0,477,3,yes,married,Houston,"Average experience, nothing special to mention here",1,57414,42,-1.2531247882010523
+2,46.0,79176.73421730178,15.0,839,3,yes,divorced,Houston,"Average experience, nothing special to mention here",1,25577,42,1.1619236021470807
+3,32.0,47699.95313725789,11.0,340,2,no,married,Phoenix,"Average experience, nothing special to mention here",1,98009,42,-1.5515305467501768
+4,60.0,36395.191618926794,16.0,801,3,yes,divorced,Los Angeles,"Product quality is outstanding, highly recommend this item",1,65409,42,1.2385499549119328
+5,25.0,37739.68767315756,12.0,444,5,yes,divorced,Chicago,"Average experience, nothing special to mention here",1,38625,42,-0.2149325059853921
+6,38.0,42753.15981873061,20.0,500,5,no,divorced,Phoenix,Delivery was fast but the packaging could be improved,1,91040,42,-0.5209138193366847
+7,56.0,41452.574774023946,16.0,760,0,no,single,Chicago,The customer service was excellent and very helpful,1,34089,42,0.20542859627146925
+8,36.0,18626.004954691034,11.0,846,5,no,single,Los Angeles,"Average experience, nothing special to mention here",1,46487,42,-1.3453684522354987
+9,40.0,68956.1079614958,17.0,552,5,no,married,Houston,The customer service was excellent and very helpful,0,75838,42,0.8240148305983517
+10,27.0,49267.74989982332,12.0,689,2,yes,married,New York,"Product quality is outstanding, highly recommend this item",0,60138,42,1.6896369976946968
+11,29.0,49089.35331622262,16.0,555,5,yes,single,Houston,The customer service was excellent and very helpful,1,52823,42,0.8705762158142415
+12,40.0,62768.10268324847,15.0,749,0,yes,married,Phoenix,"Product quality is outstanding, highly recommend this item",0,47208,42,-0.24650869255414082
+13,52.0,34180.93295799744,10.0,309,1,yes,single,New York,Delivery was fast but the packaging could be improved,1,64061,42,-1.538035707765441
+14,57.0,38125.09319222637,8.0,541,2,no,divorced,Phoenix,"Product quality is outstanding, highly recommend this item",1,40659,42,-1.499587456202933
