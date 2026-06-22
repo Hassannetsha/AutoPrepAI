@@ -8,7 +8,6 @@ class StrategySelector:
     @staticmethod
     def choose_strategy(df):
         numeric_df = df.select_dtypes(include=[np.number])
-        n_samples = numeric_df.shape[0]
         n_features = numeric_df.shape[1]
 
         # Calculate absolute skewness and take the average or max as the dataset representative

@@ -1,6 +1,8 @@
 import io
 from pathlib import Path
 
+import datetime as _datetime
+
 import pandas as pd
 
 
@@ -77,5 +79,38 @@ def read_excel_clean(file_source: str | Path | bytes | io.BytesIO) -> pd.DataFra
             str_mask = data[col].apply(lambda x: isinstance(x, str))
             if str_mask.any():
                 data.loc[str_mask, col] = data.loc[str_mask, col].str.strip()
+
+    for col in data.columns:
+        dt = data[col].dtype
+        if not (pd.api.types.is_object_dtype(dt) or pd.api.types.is_string_dtype(dt)):
+            continue
+
+        converted = pd.to_numeric(data[col], errors="coerce")
+        if converted.notna().all():
+            data[col] = converted
+            continue
+
+        has_datetime = any(
+            isinstance(x, _datetime.datetime)
+            for x in data[col].iloc[:100]
+            if pd.notna(x)
+        )
+        if has_datetime:
+            data[col] = pd.to_datetime(data[col])
+
+    for col in data.columns:
+        if pd.api.types.is_datetime64_any_dtype(data[col]):
+            continue
+        if not pd.api.types.is_numeric_dtype(data[col]):
+            continue
+        col_lower = col.lower()
+        is_date_col = any(kw in col_lower for kw in ["date", "start", "end", "time"])
+        if not is_date_col:
+            continue
+        if data[col].between(40000, 60000).all():
+            try:
+                data[col] = pd.to_datetime(data[col], origin="1899-12-30", unit="D")
+            except Exception:
+                pass
 
     return data
