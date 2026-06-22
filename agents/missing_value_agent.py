@@ -36,12 +36,18 @@ class MissingValueAgent(PipelineAgent):
         numeric_cols: list
     ):
 
+        has_integer = any(
+            pd.api.types.is_integer_dtype(data[c])
+            for c in numeric_cols
+        )
+
         strategies = [
-            "mean",
             "median",
             "knn",
             "mice"
         ]
+        if not has_integer:
+            strategies.insert(0, "mean")
 
         scores = {}
 
