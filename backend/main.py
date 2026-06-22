@@ -282,6 +282,14 @@ async def chat_feedback(
     else:
         
         result = session["result"]
+        if not body.accept:
+            result["data_preview"] = json.loads(
+                dataset_df.head(50).to_json(orient="records")
+            )
+            result["shape"] = (int(dataset_df.shape[0]), int(dataset_df.shape[1]))
+            result ["output_file"] = MLPipelineService.save_processed_dataframe(
+            dataset_df, conversation_uuid
+        )
         result["logs"] = session["previous_logs"].copy()
         result["output_file"] = MLPipelineService.save_processed_dataframe(
             dataset_df, str(conversation_uuid)
