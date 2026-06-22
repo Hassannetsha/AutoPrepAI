@@ -210,12 +210,12 @@ async def chat(
     assistant_message = result.pop("assistant_message", "Processing completed successfully.")
     # print(f"[DEBUG] Session after processing in line 211")
     finished = True
-    if mode=="manual" or mode == "chat":
+    if mode=="manual" or mode == "chat" and "sorry your request" not in assistant_message.lower():
         assistant_message += "\n[System] Waiting for your feedback to proceed to the next step."
         finished = False
     stored_message = clean_message or f"[{mode}]"
-    if "sorry your request" in assistant_message.lower():
-        finished = True
+    # if :
+    #     finished = True
     db.add(ConversationMessage(
         conversation_id=conversation.id,
         role="user",
