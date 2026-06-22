@@ -332,6 +332,26 @@ class MLPipelineService:
             )
             # print("[DEBUG] Starting chat-mode execution with command:", effective_command)
             final_context, finished = pipeline.run_single_agent(context=context, session=session, user_command=effective_command)
+            
+            # Check if NLP returned unknown_intent → skip pipeline, return sorry message
+            detected_intents = final_context.metadata.get("intents", [])
+            if any(
+                isinstance(i, list) and len(i) > 0 and i[0] == "unknown_intent"
+                for i in detected_intents
+            ):
+                result = {
+                    "shape": final_context.data.shape,
+                    "logs": final_context.logs,
+                    "metadata": final_context.metadata,
+                    "data_preview": final_context.data.head(50).to_dict(orient="records"),
+                    "output_file": None,
+                    "download_url": None,
+                }
+                jsonable = MLPipelineService._to_jsonable(result)
+                jsonable["assistant_message"] = "sorry your request can't be identified but I can:\n- Fix missing values\n- Detect and handle outliers\n- Detect and handle duplicates\n- Resolve feature inconsistency\n- Scale and encode data\n- Feature selection\n- Feature engineering"
+                utilities.sessions.pop(conversation_id, None)
+                return jsonable, True
+            
             final_context, finished = pipeline.run_single_agent(context=final_context, session=session, user_command=effective_command)
             print(f"[DEBUG]In line 334")
             # if not finished:

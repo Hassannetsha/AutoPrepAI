@@ -182,9 +182,12 @@ class NLPService:
         - standardize_data: Normalize or standardize categorical values
         - scale_numerical: Scale numerical columns (standard, minmax, robust)
         - feature_engineering / suggest_features: Suggest and/or apply new derived features
+        - unknown_intent: Any request that is NOT about data preprocessing — e.g. cooking, cleaning the house, playing games, weather, jokes, general chat, or anything unrelated to cleaning or transforming a dataset.
+          WARNING: Just because a request contains the word "clean", "top", "fix", "prepare", or "handle" does NOT make it data preprocessing.
+          Words like "clean the top", "clean my room", "clean the table", "wash the dishes", "fix the car", "cook dinner", "play music", "weather today" are NOT data preprocessing — classify them as unknown_intent.
         """
         task = dspy.InputField(desc="A single preprocessing task description")
-        intent = dspy.OutputField(desc="The intent category (must be one of: handle_missing_values, detect_outliers, remove_outliers, keep_outliers, remove_duplicates, encode_categorical, feature_selection, select_features, fix_data_types, remove_inconsistencies, correct_spelling, standardize_data, scale_numerical, feature_engineering, suggest_features)")
+        intent = dspy.OutputField(desc="The intent category (must be one of: handle_missing_values, detect_outliers, remove_outliers, keep_outliers, remove_duplicates, encode_categorical, feature_selection, select_features, fix_data_types, remove_inconsistencies, correct_spelling, standardize_data, scale_numerical, feature_engineering, suggest_features, unknown_intent)")
         confidence = dspy.OutputField(desc="Confidence score between 0.0 and 1.0")
         reasoning = dspy.OutputField(desc="Brief explanation for the classification")
 
@@ -240,7 +243,80 @@ class NLPService:
                             ).with_inputs('task')
                         )
             if classify_demos:
-                self.classify.demos = classify_demos[:15]
+                # Keep 2 per intent to ensure all intents (including unknown_intent) are represented
+                per_intent = 2
+                limited = []
+                for intent in examples['intent'].unique():
+                    count = 0
+                    for demo in classify_demos:
+                        if demo.intent == intent and count < per_intent:
+                            limited.append(demo)
+                            count += 1
+                # Prepend hard-coded unknown_intent examples to disambiguate ambiguous words
+                # (most ambiguous ones first so DSPy sees them first)
+                unknown_demos = [
+                    dspy.Example(
+                        task="clean the head",
+                        intent="unknown_intent",
+                        confidence="0.98",
+                        reasoning="This is about washing one's head/hair, not data cleaning. 'head' here is a body part, not a CSV header"
+                    ).with_inputs('task'),
+                    dspy.Example(
+                        task="clean the top for me please",
+                        intent="unknown_intent",
+                        confidence="0.98",
+                        reasoning="This is about cleaning a physical table top, not data cleaning"
+                    ).with_inputs('task'),
+                    dspy.Example(
+                        task="clean the floor",
+                        intent="unknown_intent",
+                        confidence="0.98",
+                        reasoning="This is about sweeping/mopping a physical floor, not data cleaning"
+                    ).with_inputs('task'),
+                    dspy.Example(
+                        task="clean my room",
+                        intent="unknown_intent",
+                        confidence="0.98",
+                        reasoning="This is about tidying a physical room, not a dataset"
+                    ).with_inputs('task'),
+                    dspy.Example(
+                        task="clean the car",
+                        intent="unknown_intent",
+                        confidence="0.98",
+                        reasoning="This is about washing a vehicle, not data cleaning"
+                    ).with_inputs('task'),
+                    dspy.Example(
+                        task="clean the kitchen",
+                        intent="unknown_intent",
+                        confidence="0.98",
+                        reasoning="This is about cleaning a physical kitchen, not data preprocessing"
+                    ).with_inputs('task'),
+                    dspy.Example(
+                        task="organize my room",
+                        intent="unknown_intent",
+                        confidence="0.98",
+                        reasoning="This is about organizing a physical room, not data"
+                    ).with_inputs('task'),
+                    dspy.Example(
+                        task="prepare lunch",
+                        intent="unknown_intent",
+                        confidence="0.98",
+                        reasoning="This is about cooking food, not data preparation"
+                    ).with_inputs('task'),
+                    dspy.Example(
+                        task="fix the car",
+                        intent="unknown_intent",
+                        confidence="0.98",
+                        reasoning="This is about fixing a vehicle, not data fixing/cleaning"
+                    ).with_inputs('task'),
+                    dspy.Example(
+                        task="wash the dishes",
+                        intent="unknown_intent",
+                        confidence="0.98",
+                        reasoning="This is about washing dishes, not data cleaning"
+                    ).with_inputs('task'),
+                ]
+                self.classify.demos = unknown_demos + limited
 
             # ── ExtractParameters demos ─────────────────────────────────────
             self.extract_params.demos = [
@@ -650,7 +726,13 @@ class NLPService:
         if not isinstance(user_input, str) or not user_input.strip():
             raise ValueError("user_input must be a non-empty string.")
 
-        # 6) Run pipeline with rate limit handling
+        # 6) Pre-filter: detect obvious non-data requests without calling the LLM
+        if self._is_unknown_intent(user_input):
+            print(f"🔍 Pre-filter: '{user_input}' detected as unknown_intent (physical-world keywords, no data keywords)")
+            intents = [["unknown_intent", "none", "none", "none"]]
+            return df, intents
+
+        # 7) Run pipeline with rate limit handling
         max_pipeline_retries = _key_manager.get_total_keys_count()
         pipeline_retry = 0
         
@@ -698,3 +780,54 @@ class NLPService:
             intents.append(temp)
         print(intents)
         return df,intents
+
+    @staticmethod
+    def _is_unknown_intent(user_input: str) -> bool:
+        """Pre-filter: detect obvious non-data requests without calling the LLM.
+
+        Checks if the input contains physical-world action keywords AND lacks
+        any data-related keywords. Returns True if it's almost certainly not
+        a data preprocessing request.
+        """
+        text = user_input.lower().strip()
+
+        # Physical-world action verbs (look like data terms but aren't)
+        physical_verbs = {
+            'clean', 'cook', 'bake', 'wash', 'paint', 'draw', 'sing', 'dance',
+            'run', 'jump', 'play', 'read', 'write', 'drink', 'eat', 'sleep',
+            'walk', 'talk', 'listen', 'watch', 'buy', 'sell', 'build', 'fix',
+            'drive', 'swim', 'climb', 'throw', 'catch', 'cut', 'chop', 'mix',
+            'stir', 'boil', 'fry', 'grill', 'roast', 'steam', 'freeze',
+            'organize', 'tidy', 'scrub', 'polish', 'dust', 'mop', 'sweep', 'vacuum',
+        }
+
+        # Physical/non-data objects
+        physical_objects = {
+            'head', 'top', 'floor', 'room', 'house', 'car', 'kitchen', 'bathroom',
+            'garage', 'garden', 'table', 'window', 'door', 'shoes', 'clothes',
+            'laundry', 'dishes', 'shower', 'bath', 'hair', 'teeth', 'hands', 'face',
+            'nails', 'bed', 'dinner', 'lunch', 'breakfast', 'cake', 'music', 'song',
+            'movie', 'tv', 'book', 'football', 'basketball', 'tennis', 'dog', 'cat',
+        }
+
+        # Data-related keywords (if any appear, it MIGHT be data preprocessing)
+        data_keywords = {
+            'column', 'row', 'dataset', 'dataframe', 'csv', 'excel', 'table',
+            'missing', 'null', 'nan', 'outlier', 'duplicate', 'encoding',
+            'scaling', 'normalize', 'standardize', 'impute', 'fill', 'drop',
+            'remove', 'spelling', 'inconsistency', 'feature', 'target', 'label',
+            'category', 'numeric', 'categorical', 'text', 'string', 'date',
+            'model', 'predict', 'analysis', 'data', 'value', 'values',
+        }
+
+        words = set(text.split())
+        found_physical_verb = any(v in text for v in physical_verbs)
+        found_physical_object = any(v in text for v in physical_objects)
+        found_data_keyword = any(v in text for v in data_keywords)
+
+        # If we see a physical verb + object combo with NO data keywords,
+        # it's almost certainly not data preprocessing
+        if found_physical_verb and found_physical_object and not found_data_keyword:
+            return True
+
+        return False

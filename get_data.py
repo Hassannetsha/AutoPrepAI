@@ -242,6 +242,48 @@ augmentation_rules = {
         ]
     },
     
+    'unknown_intent': {
+        'subjects': ['clean', 'cook', 'bake', 'wash', 'paint', 'draw', 'sing', 'dance', 'run', 'jump',
+                    'play', 'read', 'write', 'drink', 'eat', 'sleep', 'walk', 'talk', 'listen', 'watch',
+                    'buy', 'sell', 'build', 'fix', 'drive', 'fly', 'swim', 'climb', 'throw', 'catch',
+                    'cut', 'chop', 'mix', 'stir', 'boil', 'fry', 'grill', 'roast', 'steam', 'freeze',
+                    'organize', 'tidy', 'scrub', 'polish', 'dust', 'mop', 'sweep', 'vacuum'],
+        'objects': ['the car', 'a cake', 'dinner', 'lunch', 'breakfast', 'music', 'a song', 'a movie',
+                   'TV', 'a book', 'the news', 'a game', 'football', 'basketball', 'tennis',
+                   'coffee', 'tea', 'water', 'beer', 'wine', 'the dog', 'the cat', 'a picture',
+                   'a photo', 'a letter', 'an email', 'a text', 'a message', 'my homework',
+                   'the dishes', 'the laundry', 'the bed', 'the table', 'the window', 'the door',
+                   'my hair', 'my teeth', 'my hands', 'my face', 'my nails', 'a shower', 'a bath',
+                   'the top', 'the floor', 'the kitchen', 'the bathroom', 'the garage', 'the garden',
+                   'my car', 'my shoes', 'my clothes', 'my room', 'the house', 'the office'],
+        'templates': [
+            '{subjects}',
+            '{subjects} {objects}',
+            '{subjects} the {objects}',
+            'how to {subjects}',
+            'i want to {subjects}',
+            'tell me about {objects}',
+            'what is {objects}',
+            'how does {objects} work',
+            'why is {objects}',
+            'where is {objects}',
+            'can you {subjects}',
+            'please {subjects}',
+            'i like to {subjects}',
+            '{subjects} for me',
+            'let us {subjects}',
+            '{subjects} today',
+            'time to {subjects}',
+            'i need to {subjects}',
+            'what about {objects}',
+            'show me {objects}',
+            '{subjects} for me please',
+            'please {subjects} {objects}',
+            'can you {subjects} {objects}',
+            'i want to {subjects} {objects}',
+        ]
+    },
+    
     'feature_engineering': {
         'verbs': ['create', 'engineer', 'generate', 'build', 'construct', 'design', 'develop', 'derive', 'extract'],
         'objects': ['new features', 'features', 'feature columns', 'derived features', 'engineered features',
@@ -275,6 +317,8 @@ def generate_phrase(intent, rules):
     # Build the phrase
     phrase = template
     
+    if '{subjects}' in phrase and 'subjects' in rules:
+        phrase = phrase.replace('{subjects}', random.choice(rules['subjects']))
     if '{verb}' in phrase:
         phrase = phrase.replace('{verb}', random.choice(rules['verbs']))
     if '{verb2}' in phrase:
@@ -327,7 +371,8 @@ target_intents = [
     'correct_spelling',
     'standardize_data',
     'scale_numerical',
-    'feature_engineering'
+    'feature_engineering',
+    'unknown_intent'
 ]
 
 for intent in target_intents:
