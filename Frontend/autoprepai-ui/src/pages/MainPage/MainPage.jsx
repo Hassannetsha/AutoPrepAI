@@ -19,7 +19,7 @@ import {
   listConversations,
   sendFeedback,
 } from "../../api/chat";
-import { getAuthToken } from "../../api/auth";
+import { getAuthToken,downloadDataset } from "../../api/auth";
 import * as XLSX from "xlsx";
 
 // Map display action labels → backend snake_case intents
@@ -461,33 +461,80 @@ export default function MainPage() {
 
   // ─── Reset ────────────────────────────────────────────────────────────────────
   const handleReset = () => {
+    const confirmed = window.confirm('Are you sure you want to reset all uploaded data? This action cannot be undone.');
+    if (!confirmed) return;
     setUploaded(false);
-    setDatasetName("");
+    setDatasetName('');
     setRows(0);
     setColumns(0);
     setTableData([]);
     setFullTableData([]);
     setHeaders([]);
-    setUploadError("");
+    setUploadError('');
     setSelectedActions([]);
   };
 
   // ─── Download current table as CSV ────────────────────────────────────────────
-  const handleDownload = () => {
-    const sourceData = fullTableData.length ? fullTableData : tableData;
-    if (!sourceData.length) return;
-    const csvContent = [
-      headers.join(","),
-      ...sourceData.map((row) => headers.map((h) => row[h]).join(",")),
-    ].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `cleaned_${datasetName}`;
-    a.click();
-    URL.revokeObjectURL(url);
+
+  const handleDownload = async () => {
+    console.log("DOWNLOAD CLICKED");
+
+    const lastWithDownload = activeChat.messages
+      .slice()
+      .reverse()
+      .find((m) => m.downloadUrl);
+
+    console.log("FOUND MESSAGE:", lastWithDownload);
+
+    if (!lastWithDownload) {
+      console.error("No download URL found");
+      return;
+    }
+
+    console.log(
+      "DOWNLOAD URL FROM MESSAGE:",
+      lastWithDownload.downloadUrl
+    );
+
+    try {
+      console.log(
+        "Attempting backend download from:",
+        lastWithDownload.downloadUrl
+      );
+
+      const blob = await downloadDataset(
+        lastWithDownload.downloadUrl
+      );
+
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cleaned_${datasetName || "data.csv"}`;
+      a.click();
+
+      URL.revokeObjectURL(url);
+
+    } catch (err) {
+      console.error("Backend download failed:", err);
+    }
   };
+
+  // const handleDownload = () => {
+  //   const sourceData = fullTableData.length ? fullTableData : tableData;
+  //   if (!sourceData.length) return;
+  //   const csvContent = [
+  //     headers.join(","),
+  //     ...sourceData.map((row) => headers.map((h) => row[h]).join(",")),
+  //   ].join("\n");
+  //   const blob = new Blob([csvContent], { type: "text/csv" });
+  //   const url = URL.createObjectURL(blob);
+  //   const a = document.createElement("a");
+  //   a.href = url;
+  //   a.download = `cleaned_${datasetName}`;
+  //   a.click();
+  //   URL.revokeObjectURL(url);
+  // };
 
   // ─── History ──────────────────────────────────────────────────────────────────
   const handleShowHistory = async () => {
@@ -786,7 +833,7 @@ export default function MainPage() {
 
   const getFileIcon = (name) => {
     if (name.endsWith(".json")) return FileJson;
-    if (name.endsWith(".csv")) return FileSpreadsheet;
+    if (name.endsWith(".csv") || name.endsWith(".xlsx") || name.endsWith(".xls")) return FileSpreadsheet;
     return FileIcon;
   };
 
@@ -840,7 +887,7 @@ export default function MainPage() {
           toggleAction={toggleAction}
           onActionClick={handleActionClick}
           // onApplySelected={handleApplySelected}   // new
-          isLoading={isLoadingChat}               // new
+          isLoading={isLoadingChat || pendingFeedback}               // new
         />
         {chatError && (
           <div
@@ -863,6 +910,7 @@ export default function MainPage() {
           setInputValue={setInputValue}
           handleSend={handleSend}
           canSend={canSend}
+          isLoading={isLoadingChat || pendingFeedback }
         />
       </div>
 

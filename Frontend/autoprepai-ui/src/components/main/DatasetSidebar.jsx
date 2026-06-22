@@ -29,7 +29,7 @@ export default function DatasetSidebar({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".csv,.json"
+        accept=".csv,.json,.xlsx,.xls"
         onChange={handleFileUpload}
         style={{ display: "none" }}
       />

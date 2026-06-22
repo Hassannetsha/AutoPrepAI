@@ -1,14 +1,15 @@
-export default function ChatInput({ inputValue, setInputValue, handleSend , canSend }) {
+export default function ChatInput({ inputValue, setInputValue, handleSend, canSend, isLoading }) {
   return (
     <div className="inputArea">
       <input
         placeholder="Ask me about your data..."
         value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && handleSend()}
+        onChange={(e) => { if (!isLoading) setInputValue(e.target.value); }}
+        onKeyDown={(e) => { if (e.key === "Enter" && !isLoading) handleSend(); }}
+        disabled={isLoading}
       />
-      <button onClick={handleSend}  disabled={!canSend}>
-        Send
+      <button onClick={handleSend} disabled={isLoading || !canSend}>
+        {isLoading ? "Processing..." : "Send"}
       </button>
     </div>
   );

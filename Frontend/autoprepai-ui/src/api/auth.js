@@ -46,7 +46,6 @@ export function signupUser({
   firstName,
   lastName,
   phoneNumber,
-  
 }) {
   return request("/auth/signup", {
     method: "POST",
@@ -79,10 +78,14 @@ export function forgotPassword({ email }) {
   });
 }
 
-export function resetPassword({ token, newPassword,confirmPassword }) {
+export function resetPassword({ token, newPassword, confirmPassword }) {
   return request("/auth/reset-password", {
     method: "POST",
-    body: JSON.stringify({ token, new_password: newPassword, confirm_password: confirmPassword }),
+    body: JSON.stringify({
+      token,
+      new_password: newPassword,
+      confirm_password: confirmPassword,
+    }),
   });
 }
 
@@ -94,7 +97,8 @@ export function getAuthToken() {
   return localStorage.getItem("autoprepai_access_token");
 }
 
-export function removeAuthToken() { // for logout
+export function removeAuthToken() {
+  // for logout
   localStorage.removeItem("autoprepai_access_token");
 }
 
@@ -105,4 +109,31 @@ export async function logoutUser() {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
+}
+
+export async function downloadDataset(downloadUrl) {
+  const token = getAuthToken();
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  console.log("Downloading dataset from URL:", downloadUrl);
+
+  const resolvedUrl = downloadUrl.startsWith("/")
+    ? `${API_BASE_URL}${downloadUrl}`
+    : downloadUrl;
+
+  console.log("Resolved download URL:", resolvedUrl);
+
+  const response = await fetch(resolvedUrl, { headers });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(
+      data?.detail || response.statusText || "Failed to download file",
+    );
+  }
+
+  return response.blob();
 }

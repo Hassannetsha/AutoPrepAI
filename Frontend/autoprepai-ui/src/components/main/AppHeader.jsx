@@ -1,18 +1,15 @@
 import { useEffect, useState } from "react";
 import { Database } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { getAuthToken, logoutUser } from "../../api/auth";
+import { getAuthToken, logoutUser, removeAuthToken } from "../../api/auth";
 
 export const LOGOUT_EVENT = "autoprepai_logout";
 
-export async function emitLogout() {
-  try {
-    await logoutUser();
-  } catch {
-    // best-effort — clear local state regardless
-  }
-  localStorage.removeItem("autoprepai_access_token");
+export function emitLogout() {
+  removeAuthToken();
   window.dispatchEvent(new Event(LOGOUT_EVENT));
+  // best-effort backend call, don't block the UI
+  logoutUser().catch(() => {});
 }
 
 export default function AppHeader({ onLoginClick }) {
