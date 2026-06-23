@@ -17,15 +17,11 @@ export default function AppHeader({ onLoginClick }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleStorage = () => setIsLoggedIn(!!getAuthToken());
     const handleLogoutEvent = () => {
       setIsLoggedIn(false);
-      // navigate("/login", { replace: true });
     };
-    window.addEventListener("storage", handleStorage);
     window.addEventListener(LOGOUT_EVENT, handleLogoutEvent);
     return () => {
-      window.removeEventListener("storage", handleStorage);
       window.removeEventListener(LOGOUT_EVENT, handleLogoutEvent);
     };
   }, [navigate]);

@@ -19,7 +19,7 @@ import {
   listConversations,
   sendFeedback,
 } from "../../api/chat";
-import { getAuthToken,downloadDataset } from "../../api/auth";
+import { getAuthToken } from "../../api/auth";
 import * as XLSX from "xlsx";
 
 // Map display action labels → backend snake_case intents
@@ -93,6 +93,9 @@ export default function MainPage() {
   // ─── Restore dataset state from a payload ────────────────────────────────────
   const restoreDatasetFromPayload = useCallback((payload) => {
     if (!payload) return;
+    if (payload.dataset_name) {
+      setDatasetName(payload.dataset_name);
+    }
     if (payload.data_preview?.length) {
       const newHeaders = Object.keys(payload.data_preview[0]);
       setHeaders(newHeaders);
@@ -130,7 +133,17 @@ export default function MainPage() {
           )
         );
 
-        // Restore dataset from last assistant payload
+        // Restore dataset name from the upload message (first assistant with dataset_name)
+        const uploadMessage = data.messages.find((m) => {
+          const sender = m.sender ?? m.role;
+          return (sender === "assistant" || sender === "bot") && m.payload?.dataset_name;
+        });
+
+        if (uploadMessage?.payload?.dataset_name) {
+          setDatasetName(uploadMessage.payload.dataset_name);
+        }
+
+        // Restore data preview from last assistant payload
         const lastAssistant = [...data.messages]
           .reverse()
           .find((m) => {
@@ -282,9 +295,10 @@ export default function MainPage() {
       )
     );
 
-    if (currentConversationId && chatId === activeChatId) {
+    // Only persist to backend if this chat has been synced (has a string UUID)
+    if (typeof chatId === "string") {
       try {
-        await renameConversation(currentConversationId, trimmedTitle);
+        await renameConversation(chatId, trimmedTitle);
       } catch (error) {
         console.error("Failed to rename conversation:", error);
         const message = error?.message || "Could not rename conversation";
@@ -390,7 +404,7 @@ export default function MainPage() {
       return;
     }
 
-    // ✅ Capture ids before any async/state changes
+    // Capture ids before any async/state changes
     const thisChatId = activeChatId;
     const thisConvId = currentConversationId;
 
@@ -476,65 +490,20 @@ export default function MainPage() {
 
   // ─── Download current table as CSV ────────────────────────────────────────────
 
-  const handleDownload = async () => {
-    console.log("DOWNLOAD CLICKED");
-
+  const handleDownload = () => {
     const lastWithDownload = activeChat.messages
       .slice()
       .reverse()
       .find((m) => m.downloadUrl);
-
-    console.log("FOUND MESSAGE:", lastWithDownload);
 
     if (!lastWithDownload) {
       console.error("No download URL found");
       return;
     }
 
-    console.log(
-      "DOWNLOAD URL FROM MESSAGE:",
-      lastWithDownload.downloadUrl
-    );
-
-    try {
-      console.log(
-        "Attempting backend download from:",
-        lastWithDownload.downloadUrl
-      );
-
-      const blob = await downloadDataset(
-        lastWithDownload.downloadUrl
-      );
-
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `cleaned_${datasetName || "data.csv"}`;
-      a.click();
-
-      URL.revokeObjectURL(url);
-
-    } catch (err) {
-      console.error("Backend download failed:", err);
-    }
+    // Open pre-signed B2 URL directly – bypasses CORS
+    window.open(lastWithDownload.downloadUrl, "_blank");
   };
-
-  // const handleDownload = () => {
-  //   const sourceData = fullTableData.length ? fullTableData : tableData;
-  //   if (!sourceData.length) return;
-  //   const csvContent = [
-  //     headers.join(","),
-  //     ...sourceData.map((row) => headers.map((h) => row[h]).join(",")),
-  //   ].join("\n");
-  //   const blob = new Blob([csvContent], { type: "text/csv" });
-  //   const url = URL.createObjectURL(blob);
-  //   const a = document.createElement("a");
-  //   a.href = url;
-  //   a.download = `cleaned_${datasetName}`;
-  //   a.click();
-  //   URL.revokeObjectURL(url);
-  // };
 
   // ─── History ──────────────────────────────────────────────────────────────────
   const handleShowHistory = async () => {
@@ -560,7 +529,7 @@ export default function MainPage() {
     setChatError("");
     setIsLoadingChat(true);
 
-    // ✅ Capture ids before any async/state changes
+    // Capture ids before any async/state changes
     const thisChatId = activeChatId;
     const thisConvId = currentConversationId;
 
@@ -595,7 +564,7 @@ export default function MainPage() {
         dataset: file,
       });
 
-      // ✅ Capture real conv id BEFORE syncing (sync mutates activeChatId)
+      // Capture real conv id BEFORE syncing (sync mutates activeChatId)
       const realConvId = response.conversation_id ?? thisConvId;
       syncConversationId(response.conversation_id, thisChatId);
 
@@ -653,7 +622,7 @@ export default function MainPage() {
   const handleSend = async () => {
     if (!inputValue.trim() && selectedActions.length === 0) return;
 
-    // ✅ Capture ids before any async/state changes
+    // Capture ids before any async/state changes
     const thisChatId = activeChatId;
     const thisConvId = currentConversationId;
 

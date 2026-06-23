@@ -90,16 +90,16 @@ export function resetPassword({ token, newPassword, confirmPassword }) {
 }
 
 export function storeAuthToken(accessToken) {
-  localStorage.setItem("autoprepai_access_token", accessToken);
+  sessionStorage.setItem("autoprepai_access_token", accessToken);
 }
 
 export function getAuthToken() {
-  return localStorage.getItem("autoprepai_access_token");
+  return sessionStorage.getItem("autoprepai_access_token");
 }
 
 export function removeAuthToken() {
   // for logout
-  localStorage.removeItem("autoprepai_access_token");
+  sessionStorage.removeItem("autoprepai_access_token");
 }
 
 export async function logoutUser() {
@@ -109,31 +109,4 @@ export async function logoutUser() {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
-}
-
-export async function downloadDataset(downloadUrl) {
-  const token = getAuthToken();
-  const headers = {};
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  console.log("Downloading dataset from URL:", downloadUrl);
-
-  const resolvedUrl = downloadUrl.startsWith("/")
-    ? `${API_BASE_URL}${downloadUrl}`
-    : downloadUrl;
-
-  console.log("Resolved download URL:", resolvedUrl);
-
-  const response = await fetch(resolvedUrl, { headers });
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(
-      data?.detail || response.statusText || "Failed to download file",
-    );
-  }
-
-  return response.blob();
 }

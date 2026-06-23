@@ -139,6 +139,7 @@ async def chat(
 
     if IS_UPLOAD_MESSAGE:
         upload_result = {
+            "dataset_name": dataset.filename,
             "shape": list(dataset_df.shape),
             "logs": ["Dataset received and ready for processing."],
             "metadata": {},
