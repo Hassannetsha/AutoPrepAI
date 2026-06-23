@@ -6,10 +6,9 @@ export default function ChatInput({ inputValue, setInputValue, handleSend, canSe
         value={inputValue}
         onChange={(e) => { if (!isLoading) setInputValue(e.target.value); }}
         onKeyDown={(e) => { if (e.key === "Enter" && !isLoading) handleSend(); }}
-        disabled={isLoading}
       />
       <button onClick={handleSend} disabled={isLoading || !canSend}>
-        {isLoading ? "Processing..." : "Send"}
+        {isLoading ? "Processing" : "Send"}
       </button>
     </div>
   );

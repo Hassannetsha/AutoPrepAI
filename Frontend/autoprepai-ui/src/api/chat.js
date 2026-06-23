@@ -26,6 +26,9 @@ async function chatRequest(path, options = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("SESSION_EXPIRED");
+    }
     const message =
       data?.detail ||
       data?.message ||
@@ -90,6 +93,9 @@ export async function sendChatMessage({
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("SESSION_EXPIRED");
+    }
     const message = data?.detail || data?.message || "Failed to send message";
     throw new Error(
       Array.isArray(message)
@@ -153,6 +159,9 @@ export async function sendFeedback({ conversationId, accept }) {
     body: JSON.stringify({ conversation_id: conversationId, accept }),
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error("SESSION_EXPIRED");
+    }
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || res.statusText);
   }

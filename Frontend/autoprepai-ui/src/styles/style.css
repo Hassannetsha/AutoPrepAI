@@ -489,8 +489,8 @@ tr:hover td {
 
 /* ─── Missing Badge ─────────────────────────────────── */
 .missing {
-  background: #dff3ef;
-  color: #2ca58d;
+  background: #fef2f2;
+  color: #dc2626;
   padding: 3px 8px;
   border-radius: 20px;
   font-size: 12px;
@@ -626,6 +626,15 @@ tr:hover td {
   border-color: #2bb3a3;
 }
 
+.autoCleanBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  background: #b0bec5;
+  border-color: #90a4ae;
+  box-shadow: none;
+}
+
 .autoSection {
   margin-top: 160px;
   padding-top: 14px;
@@ -643,7 +652,27 @@ tr:hover td {
   padding: 10px 14px;
   background: #f9fafb;
   border-radius: 10px;
-  border: 1px solid #2bb3a3;
+  border: 1px solid #d1d5db;
+}
+
+.history-item.history-accept {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.history-item.history-reject {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.history-item.history-system {
+  background: #f0f9ff;
+  border-color: #93c5fd;
+}
+
+.history-item.history-agent {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
 }
 
 .history-text {
@@ -944,6 +973,65 @@ tr:hover td {
   transition: all 0.2s ease;
 }
 
+/* ─── Chat error & loading bar ───────────────────────────── */
+.chat-error {
+  padding: 10px 14px;
+  margin: 0 12px 6px;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #ef4444;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.chat-error::before {
+  content: "!";
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.chat-loading {
+  padding: 8px 14px;
+  margin: 0 12px 4px;
+  background: #f7fffd;
+  border: 1px solid #cfeeea;
+  border-radius: 8px;
+  color: #00897b;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-loading::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid #b2e4de;
+  border-top-color: #2bb3a3;
+  border-radius: 50%;
+  animation: chat-spin 0.6s linear infinite;
+}
+
+@keyframes chat-spin {
+  to { transform: rotate(360deg); }
+}
+
 .feedback-btn-accept:disabled,
 .feedback-btn-reject:disabled {
   opacity: 0.5;
@@ -973,4 +1061,187 @@ tr:hover td {
 .feedback-btn-reject:hover:not(:disabled) {
   background: #fff5f5;
   border-color: #f87171;
+}
+
+/* ════════════════════════════════════════════════════
+   NEW — Agent Message (structured pipeline-log bubble)
+   Reuses the existing teal/gray/purple semantics from
+   .history-* so it feels native to the rest of the app.
+   ════════════════════════════════════════════════════ */
+
+.agent-message {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.agent-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* "✅ Applied: ..." header */
+.agent-line-success {
+  font-weight: 600;
+  color: #16794f;
+}
+
+.agent-line-success svg {
+  color: #2bb3a3;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.agent-line-text {
+  color: #1f2937;
+  margin: 2px 0;
+}
+
+/* "Skipping agent: X" lines, collapsed into one toggle */
+.agent-skip-group {
+  margin: 2px 0;
+}
+
+.agent-skip-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.agent-skip-toggle:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.agent-skip-list {
+  list-style: none;
+  margin: 6px 0 0 4px;
+  padding-left: 14px;
+  border-left: 2px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.agent-skip-list li {
+  font-size: 12.5px;
+  color: #9ca3af;
+}
+
+/* "Executing agent: X" — the one step that matters, highlighted */
+.agent-line-exec {
+  background: #f5fbfa;
+  border: 1px solid #cfeeea;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 600;
+  color: #00695c;
+}
+
+.agent-exec-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #2bb3a3;
+  margin-top: 5px;
+  flex-shrink: 0;
+  animation: agentPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes agentPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(43, 179, 163, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(43, 179, 163, 0);
+  }
+}
+
+/* sub-step nested under the executing agent, e.g. "Handling outliers" */
+.agent-line-sub {
+  margin-left: 24px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* "Explanation for 'X': ..." callout, truncates if long */
+.agent-explanation {
+  background: #fafbfb;
+  border-left: 3px solid #b2e4de;
+  border-radius: 0 10px 10px 0;
+  padding: 8px 12px;
+  margin: 2px 0;
+}
+
+.agent-explanation-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #249e90;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.agent-explanation-body {
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.55;
+}
+
+.agent-explanation-toggle {
+  margin-top: 4px;
+  border: none;
+  background: none;
+  color: #2bb3a3;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.agent-explanation-toggle:hover {
+  text-decoration: underline;
+}
+
+/* "📊 Dataset now has X rows and Y columns" stat pill */
+.agent-stat-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eefcf9;
+  color: #00897b;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 20px;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+/* "[System] Waiting for your feedback..." trailing note */
+.agent-line-system {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed #e5e7eb;
+  font-size: 12.5px;
+  color: #9ca3af;
+  font-style: italic;
 }

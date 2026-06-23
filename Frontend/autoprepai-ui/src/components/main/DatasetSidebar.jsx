@@ -23,6 +23,7 @@ export default function DatasetSidebar({
   handleShowHistory,
   handleReset,
   handleAutoClean,
+  autoCleanDisabled,
 }) {
   return (
     <div className="sidebar">
@@ -73,7 +74,7 @@ export default function DatasetSidebar({
           </button>
 
           <div className="autoSection">
-            <button className="autoCleanBtn" onClick={handleAutoClean}>
+            <button className="autoCleanBtn" onClick={handleAutoClean} disabled={autoCleanDisabled}>
               <Bot size={16} /> Automatic Data Cleaning 
             </button>
           </div>

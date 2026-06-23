@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { File as FileIcon, FileJson, FileSpreadsheet } from "lucide-react";
+import { File as FileIcon, FileSpreadsheet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import "../../styles/style.css";
 import ActionList from "../../components/main/ActionList";
@@ -30,7 +30,7 @@ const ACTION_TO_INTENT = {
   "Detect Feature Inconsistency": "remove_inconsistencies",
   "Scale Data": "scale_numerical",
   "Encode Data": "encode_categorical",
-  "Select Features": "select_features",
+  "Feature Engineering": "feature_engineering",
 };
 
 const INITIAL_BOT_MESSAGE = {
@@ -43,7 +43,8 @@ const INITIAL_BOT_MESSAGE = {
     "Detect and handle duplicates",
     "Resolve feature inconsistency",
     "Scale and encode data",
-    "Feature selection",
+    "Feature selection with a focus on the target variable", 
+    "Features engineering",
   ],
 };
 
@@ -61,6 +62,15 @@ export default function MainPage() {
   const [inputValue, setInputValue] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [historyLogs, setHistoryLogs] = useState([]);
+
+  const cleanError = (msg) => {
+    if (!msg) return "Something went wrong. Please try again.";
+    if (msg.includes("does not support image") || msg.includes("Cannot read")) return "Image files are not supported. Please upload a CSV, Excel, or JSON file.";
+    if (msg.includes("Failed to parse dataset")) return "Could not read the file. Make sure it's a valid CSV, Excel, or JSON file.";
+    if (msg.includes("Dataset is required")) return "No dataset found. Please upload a file first.";
+    if (msg === "SESSION_EXPIRED" || msg.includes("token") || msg.includes("unauthorized") || msg.includes("expired")) return "Your session has expired. Please log out and log in again.";
+    return msg;
+  };
 
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
@@ -80,7 +90,7 @@ export default function MainPage() {
     "Detect Feature Inconsistency",
     "Scale Data",
     "Encode Data",
-    "Select Features",
+    "Feature Engineering",
   ];
 
   const [chats, setChats] = useState([
@@ -159,6 +169,10 @@ export default function MainPage() {
         setPendingFeedback(lastAssistant?.payload?.finished === false);
       } catch (error) {
         console.error("Failed to load messages:", error);
+        const friendly = cleanError(error.message);
+        if (friendly.includes("log out")) {
+          setChatError(friendly);
+        }
       }
     },
     [restoreDatasetFromPayload]
@@ -182,6 +196,10 @@ export default function MainPage() {
       }
     } catch (error) {
       console.error("Failed to load conversations:", error);
+      const friendly = cleanError(error.message);
+      if (friendly.includes("log out")) {
+        setChatError(friendly);
+      }
     }
   }, [loadChatMessages]);
 
@@ -330,7 +348,7 @@ export default function MainPage() {
     }
   };
 
-  // ─── CSV / JSON parsers ───────────────────────────────────────────────────────
+  // ─── CSV / Excel parsers ───────────────────────────────────────────────────────
   const parseCSV = (text) => {
     const lines = text.replace(/\r\n/g, "\n").trim().split("\n").filter(Boolean);
     if (lines.length === 0) return { rows: 0, columns: 0, data: [], headers: [] };
@@ -342,14 +360,6 @@ export default function MainPage() {
       return obj;
     });
     return { rows: data.length, columns: hdrs.length, data, headers: hdrs };
-  };
-
-  const parseJSON = (text) => {
-    const parsed = JSON.parse(text);
-    const records = Array.isArray(parsed) ? parsed : [parsed];
-    if (records.length === 0) return { rows: 0, columns: 0, data: [], headers: [] };
-    const hdrs = Object.keys(records[0]);
-    return { rows: records.length, columns: hdrs.length, data: records, headers: hdrs };
   };
 
   const parseXLSX = async (file) => {
@@ -395,11 +405,20 @@ export default function MainPage() {
 
     const fileName = selectedFile.name.toLowerCase();
     const isCSV = fileName.endsWith(".csv");
-    const isJSON = fileName.endsWith(".json");
     const isXLSX = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
+    const allowedMimeTypes = [
+      "text/csv",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+    ];
 
-    if (!isCSV && !isJSON && !isXLSX) {
-      setUploadError("Please upload a CSV or XLS or JSON file.");
+    if (!isCSV && !isXLSX) {
+      setUploadError(`"${selectedFile.name}" is not supported. Please upload a CSV, or Excel file.`);
+      event.target.value = "";
+      return;
+    }
+    if (selectedFile.type && !allowedMimeTypes.includes(selectedFile.type)) {
+      setUploadError(`"${selectedFile.name}" appears to be an image or unsupported file. Please upload a CSV, or Excel file.`);
       event.target.value = "";
       return;
     }
@@ -414,16 +433,9 @@ export default function MainPage() {
     try {
       let parsed;
 
-      if (isXLSX) {
-        parsed = await parseXLSX(selectedFile);
-      } 
-      else {
-        const text = await selectedFile.text();
+      parsed = isCSV ? parseCSV(await selectedFile.text())
+        : parsed = await parseXLSX(selectedFile);
 
-        parsed = isJSON 
-          ? parseJSON(text) 
-          : parseCSV(text);
-      }
       setDatasetName(selectedFile.name);
       setRows(parsed.rows);
       setColumns(parsed.columns);
@@ -465,8 +477,8 @@ export default function MainPage() {
       );
     } catch (error) {
       console.error("File upload error:", error);
-      setChatError(error.message);
-      setUploadError(error.message || "Could not upload file.");
+      setChatError(cleanError(error.message));
+      setUploadError(cleanError(error.message));
     } finally {
       setIsLoadingChat(false);
       event.target.value = "";
@@ -510,8 +522,29 @@ export default function MainPage() {
     setShowHistory(true);
     setChatError("");
     try {
-      const data = await listConversations();
-      setHistoryLogs(Array.isArray(data) ? data : []);
+      let logs = [];
+      if (currentConversationId) {
+        const data = await getConversation(currentConversationId);
+        if (data?.messages) {
+          const seen = new Set();
+          for (const msg of data.messages) {
+            const sender = msg.sender ?? msg.role;
+            if ((sender === "assistant" || sender === "bot") && msg.payload?.logs) {
+              const time = new Date(msg.created_at).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              for (const log of msg.payload.logs) {
+                if (!seen.has(log) && !log.startsWith("Skipping")) {
+                  seen.add(log);
+                  logs.push({ message: log, time });
+                }
+              }
+            }
+          }
+        }
+      }
+      setHistoryLogs(logs);
     } catch (err) {
       console.error("Failed to fetch history logs:", err);
       setChatError("Could not load history");
@@ -521,8 +554,11 @@ export default function MainPage() {
 
   // ─── Auto clean ───────────────────────────────────────────────────────────────
   const handleAutoClean = async () => {
-    if (!fullTableData.length && !tableData.length) {
-      setChatError("No data to clean");
+    if (!uploaded) {
+      setChatError("Upload a dataset first");
+      return;
+    }
+    if (isLoadingChat || pendingFeedback) {
       return;
     }
 
@@ -598,7 +634,8 @@ export default function MainPage() {
         ));
     } catch (error) {
       console.error(error);
-      setChatError(error.message);
+      const friendlyMsg = cleanError(error.message);
+      setChatError(friendlyMsg);
       const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setChats((prev) =>
         prev.map((chat) =>
@@ -607,7 +644,7 @@ export default function MainPage() {
                 ...chat,
                 messages: [
                   ...chat.messages,
-                  { sender: "bot", text: `❌ Auto-clean failed: ${error.message}`, time: botTime },
+                  { sender: "bot", text: `❌ ${friendlyMsg}`, time: botTime },
                 ],
               }
             : chat
@@ -713,7 +750,7 @@ export default function MainPage() {
       setSelectedActions([]);
     } catch (error) {
       console.error("Chat error:", error);
-      setChatError(error.message);
+      setChatError(cleanError(error.message));
       const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setChats((prev) =>
         prev.map((chat) =>
@@ -782,7 +819,7 @@ export default function MainPage() {
       }
     } catch (error) {
       console.error("Feedback error:", error);
-      setChatError(error.message);
+      setChatError(cleanError(error.message));
     } finally {
       setSubmittingFeedback(false);
     }
@@ -795,13 +832,12 @@ export default function MainPage() {
   };
 
   const getFileIcon = (name) => {
-    if (name.endsWith(".json")) return FileJson;
     if (name.endsWith(".csv") || name.endsWith(".xlsx") || name.endsWith(".xls")) return FileSpreadsheet;
     return FileIcon;
   };
 
   const DatasetIcon = getFileIcon(datasetName);
-  const canSend = inputValue.trim() !== "" || selectedActions.length > 0;
+  const canSend = uploaded && (inputValue.trim() !== "" || selectedActions.length > 0);
 
   return (
     <div className="container">
@@ -831,6 +867,7 @@ export default function MainPage() {
         handleShowHistory={handleShowHistory}
         handleReset={handleReset}
         handleAutoClean={handleAutoClean}
+        autoCleanDisabled={!uploaded || isLoadingChat || pendingFeedback}
       />
 
       <div className="main">
@@ -853,19 +890,13 @@ export default function MainPage() {
           isLoading={isLoadingChat || pendingFeedback}
         />
         {chatError && (
-          <div
-            className="chat-error"
-            style={{ color: "red", padding: "4px 12px", fontSize: "13px" }}
-          >
-            ⚠️ {chatError}
+          <div className="chat-error">
+            {chatError}
           </div>
         )}
         {isLoadingChat && (
-          <div
-            className="chat-loading"
-            style={{ padding: "4px 12px", fontSize: "13px", color: "#888" }}
-          >
-            ⏳ Processing...
+          <div className="chat-loading">
+            Processing...
           </div>
         )}
         <ChatInput

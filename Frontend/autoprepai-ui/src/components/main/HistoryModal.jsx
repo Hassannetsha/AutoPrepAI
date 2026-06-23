@@ -1,5 +1,17 @@
 import { X } from "lucide-react";
 
+function getLogClass(message) {
+  if (message.startsWith("[System] User ACCEPTED")) return "history-item history-accept";
+  if (message.startsWith("[System] User REJECTED")) return "history-item history-reject";
+  if (message.startsWith("[System]")) return "history-item history-system";
+  if (message.startsWith("Executing agent")) return "history-item history-agent";
+  return "history-item";
+}
+
+function formatMessage(message) {
+  return message.replace(/^\[System\] /, "");
+}
+
 export default function HistoryModal({ onClose, logs }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -16,8 +28,8 @@ export default function HistoryModal({ onClose, logs }) {
             <p className="empty-history">No operations yet.</p>
           ) : (
             logs.map((log, index) => (
-              <div key={index} className="history-item">
-                <p className="history-text">{log.message}</p>
+              <div key={index} className={getLogClass(log.message)}>
+                <p className="history-text">{formatMessage(log.message)}</p>
                 <span className="history-time">{log.time}</span>
               </div>
             ))
