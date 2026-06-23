@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { File as FileIcon, FileJson, FileSpreadsheet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import "../../styles/style.css";
@@ -188,7 +188,6 @@ export default function MainPage() {
   // ─── Auth check + load conversations on mount ─────────────────────────────────
   useEffect(() => {
     if (!getAuthToken()) {
-      // navigate("/login");
       return;
     }
     loadConversations();
@@ -645,8 +644,6 @@ export default function MainPage() {
       time,
     };
 
-    // const userMessage = { sender: "user", text: inputValue, time };
-
     setChats((prev) =>
       prev.map((chat) =>
         chat.id === thisChatId
@@ -655,7 +652,6 @@ export default function MainPage() {
       )
     );
 
-    // const messageText = inputValue;
     setInputValue("");
     setChatError("");
     setIsLoadingChat(true);
@@ -737,11 +733,6 @@ export default function MainPage() {
     }
   };
 
-
-  // ─── Action button click (selection only, no API call) ────────────────────────
-  const handleActionClick = (action) => {
-    toggleAction(action); // just toggle, nothing else
-  };
 
   // ─── Handle feedback (accept/reject) ──────────────────────────────────────────
   const handleFeedback = async (accept) => {
@@ -843,7 +834,7 @@ export default function MainPage() {
       />
 
       <div className="main">
-        <AppHeader onLoginClick={() => navigate("/login")} />
+        <AppHeader />
         <ChatWindow
           activeChat={activeChat}
           chatEndRef={chatEndRef}
@@ -858,9 +849,8 @@ export default function MainPage() {
           uploaded={uploaded}
           selectedActions={selectedActions}
           toggleAction={toggleAction}
-          onActionClick={handleActionClick}
-          // onApplySelected={handleApplySelected}   // new
-          isLoading={isLoadingChat || pendingFeedback}               // new
+          onActionClick={toggleAction}
+          isLoading={isLoadingChat || pendingFeedback}
         />
         {chatError && (
           <div

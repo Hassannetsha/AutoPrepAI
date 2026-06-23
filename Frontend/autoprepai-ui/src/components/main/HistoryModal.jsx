@@ -1,3 +1,5 @@
+import { X } from "lucide-react";
+
 export default function HistoryModal({ onClose, logs }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -5,7 +7,7 @@ export default function HistoryModal({ onClose, logs }) {
         <div className="modal-header">
           <h3>Operations History</h3>
           <span className="close-btn" onClick={onClose}>
-            âœ•
+            <X size={16} />
           </span>
         </div>
 

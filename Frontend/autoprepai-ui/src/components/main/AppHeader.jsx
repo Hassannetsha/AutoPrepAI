@@ -12,7 +12,7 @@ export function emitLogout() {
   logoutUser().catch(() => {});
 }
 
-export default function AppHeader({ onLoginClick }) {
+export default function AppHeader() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!getAuthToken());
   const navigate = useNavigate();
 
@@ -24,7 +24,7 @@ export default function AppHeader({ onLoginClick }) {
     return () => {
       window.removeEventListener(LOGOUT_EVENT, handleLogoutEvent);
     };
-  }, [navigate]);
+  }, []);
 
   function handleLogout() {
     emitLogout();
