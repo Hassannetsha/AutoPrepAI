@@ -108,7 +108,21 @@ async def chat(
     file_bytes = await dataset.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Uploaded dataset is empty")
+    try:
+        dataset_df = MLPipelineService.dataframe_from_upload(file_bytes, dataset.filename)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Failed to parse dataset: {exc}") from exc
 
+    # ── SIZE LIMITS (before B2 upload to avoid wasting bandwidth) ──────────
+    # Allowed: 50000 rows x 100 columns, or 100 rows x 50000 columns, or smaller
+    n_rows, n_cols = dataset_df.shape
+    if not ((n_rows <= 50000 and n_cols <= 100) or (n_rows <= 100 and n_cols <= 50000)):
+        raise HTTPException(
+            status_code=413,
+            detail=f"Dataset too large: {n_rows} rows x {n_cols} columns. "
+                   f"Maximum allowed is 50000 rows x 100 columns "
+                   f"(or 100 rows x 50000 columns in the reverse case)."
+        )
     # Upload input dataset to B2
     input_key = f"inputs/{conversation.id}/{int(time.time())}_{dataset.filename}"
     try:
@@ -119,11 +133,6 @@ async def chat(
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to upload dataset to storage: {exc}") from exc
-
-    try:
-        dataset_df = MLPipelineService.dataframe_from_upload(file_bytes, dataset.filename)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Failed to parse dataset: {exc}") from exc
 
     # ── UPLOAD-ONLY GUARD ──────────────────────────────────────────────────────
     # When the frontend uploads a file it sends a descriptive sentence like
