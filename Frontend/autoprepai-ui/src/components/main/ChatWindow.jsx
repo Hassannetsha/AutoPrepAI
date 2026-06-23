@@ -9,6 +9,7 @@ export default function ChatWindow({
   onAcceptFeedback,
   onRejectFeedback,
   feedbackDisabled,
+  stepTitle,
 }) {
   return (
     <div className="chat">
@@ -74,6 +75,7 @@ export default function ChatWindow({
               onAccept={onAcceptFeedback}
               onReject={onRejectFeedback}
               disabled={feedbackDisabled}
+              title={stepTitle}
             />
           </div>
         </div>

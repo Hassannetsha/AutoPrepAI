@@ -913,7 +913,18 @@ tr:hover td {
   font-weight: 700;
   color: #00897b;
   letter-spacing: 0.08em;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
+}
+
+.feedback-step-title {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #00695c;
+  background: rgba(43, 179, 163, 0.1);
+  padding: 6px 12px;
+  border-radius: 8px;
+  margin-bottom: 14px;
 }
 
 /* ── Buttons ─────────────────────────────── */

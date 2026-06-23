@@ -236,6 +236,7 @@ async def chat(
         assistant_message=assistant_message,
         result=result,
         finished=finished,
+        step_title=session.get("last_executed_step", ""),
     )
     # else:
     #     raise HTTPException(status_code=400, detail=f"Unsupported mode: {mode}")
@@ -322,7 +323,8 @@ async def chat_feedback(
         conversation_id=conversation_uuid,
         assistant_message=assistant_message,
         result=result,
-        finished=finished
+        finished=finished,
+        step_title=session.get("last_executed_step", ""),
     )
         
 

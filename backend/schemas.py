@@ -21,6 +21,7 @@ class ChatResponse(BaseModel):
     assistant_message: str
     result: ChatResponsePayload
     finished: bool = False
+    step_title: str = ""
 
 
 class ConversationMessageOut(BaseModel):

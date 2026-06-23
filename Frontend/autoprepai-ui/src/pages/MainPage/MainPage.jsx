@@ -67,6 +67,7 @@ export default function MainPage() {
   const [chatError, setChatError] = useState("");
   const [pendingFeedback, setPendingFeedback] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [stepTitle, setStepTitle] = useState("");
 
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
@@ -685,6 +686,7 @@ export default function MainPage() {
 
       const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setPendingFeedback(!response.finished);
+      setStepTitle(response.step_title || "");
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === thisChatId || chat.id === realConvId
@@ -777,6 +779,7 @@ export default function MainPage() {
       );
 
       setPendingFeedback(!response.finished);
+      setStepTitle(response.step_title || "");
 
       if (response.result?.data_preview?.length) {
         const newHeaders = Object.keys(response.result.data_preview[0]);
@@ -848,6 +851,7 @@ export default function MainPage() {
           onAcceptFeedback={() => handleFeedback(true)}
           onRejectFeedback={() => handleFeedback(false)}
           feedbackDisabled={submittingFeedback}
+          stepTitle={stepTitle}
         />
         <ActionList
           actions={actions}
