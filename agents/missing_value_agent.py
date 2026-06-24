@@ -248,6 +248,11 @@ class MissingValueAgent(PipelineAgent):
                 )
             ]
 
+        # Filter out numeric columns where ALL values are NaN (SimpleImputer cannot handle them)
+        numeric_cols = [
+            col for col in numeric_cols
+            if not context.data[col].isna().all()
+        ]
 
         if (
             not numeric_cols
@@ -450,12 +455,35 @@ class MissingValueAgent(PipelineAgent):
                                 mode_value[0]
                             )
                         )
+                    else:
+                        context.data[col] = (
+                            context.data[col]
+                            .fillna("unknown")
+                        )
+                        context.log(
+                            f"Column '{col}' has all NaN — "
+                            f"filled with 'unknown'"
+                        )
 
         remaining_missing = (
-            context.data
-            .isnull()
-            .sum()
-            .sum()
+            context.data.isnull().sum().sum()
+        )
+
+        # Fallback: fill any remaining NaN with 0 for numeric, 'unknown' for non-numeric
+        if remaining_missing > 0:
+            for col in context.data.columns:
+                if context.data[col].isna().any():
+                    if pd.api.types.is_numeric_dtype(context.data[col]):
+                        context.data[col] = context.data[col].fillna(0)
+                    else:
+                        context.data[col] = context.data[col].fillna("unknown")
+            context.log(
+                f"Fallback fill completed "
+                f"for remaining NaN values"
+            )
+
+        remaining_missing = (
+            context.data.isnull().sum().sum()
         )
 
         context.log(

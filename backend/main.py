@@ -323,7 +323,7 @@ async def chat_feedback(
     assistant_message = result.pop("assistant_message", "Processing completed successfully.")
     if session["dataset_before"].equals(session["dataset_after"]):
         assistant_message += "\n[System] No changes were made to the dataset in this step."
-        if MLPipelineService.check_no_agents_left_to_run(session["pipeline"]):
+        if MLPipelineService.check_no_agents_left_to_run(session["dataset_before"], session, session["pipeline"]):
             finished = True
             utilities.sessions.pop(str(conversation_uuid), None)
         print(f"[DEBUG] In line 320")
