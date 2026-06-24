@@ -9,6 +9,7 @@ class ChatResponsePayload(BaseModel):
     logs: list[str] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
     data_preview: list[dict] = Field(default_factory=list)
+    dataset: list[dict] = Field(default_factory=list)
     output_file: str | None = None
     download_url: str | None = None
 
