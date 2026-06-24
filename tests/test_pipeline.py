@@ -74,13 +74,14 @@ class TestPipeline:
         assert result_ctx is ctx
 
     def test_run_single_agent_consumes_agents(self, mock_init_pipeline, mock_init_lm):
-        ctx = DataContext(data=pd.DataFrame({"a": [1]}))
-        node1 = self.make_mock_node("Agent1", returned_ctx=ctx)
-        node2 = self.make_mock_node("Agent2", should_run=False, returned_ctx=ctx)
+        ctx_before = DataContext(data=pd.DataFrame({"a": [1]}))
+        ctx_after = DataContext(data=pd.DataFrame({"a": [2]}))  # different data = agent did work
+        node1 = self.make_mock_node("Agent1", returned_ctx=ctx_after)
+        node2 = self.make_mock_node("Agent2", should_run=False, returned_ctx=ctx_after)
         pipeline = Pipeline(agents=[node1, node2])
         pipeline.nlp_service = MagicMock(spec=NLPService)
 
-        result_ctx, done = pipeline.run_single_agent(ctx, {})
+        result_ctx, done = pipeline.run_single_agent(ctx_before, {})
         node1.execute.assert_called_once()
         node2.execute.assert_not_called()
         assert len(pipeline.agents) == 1

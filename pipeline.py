@@ -152,14 +152,14 @@ class Pipeline:
             Updated DataContext and a boolean indicating if the node is done
         """
         agent_name = node.get_agent_name()
-        # print(f"[DEBUG] Evaluating node: {agent_name} with context metadata: {context.metadata},context logs: {context.logs}")
         # Check if node should run
         if not node.should_run(context):
             context.log(f"Skipping agent: {agent_name}")
             self.logger.info(f"Skipping agent: {agent_name}")
             return context,False
         
-        # Snapshot metadata before execution
+        # Snapshot data + metadata before execution
+        data_before = context.data.copy()
         metadata_before = copy.deepcopy(context.metadata)
         
         # Execute the agent
@@ -187,6 +187,17 @@ class Pipeline:
                 "explanation": explanation
             })
             context.log(f"Explanation for '{agent_name}': {explanation}")
+        
+        # # NLP should always stop to show detected intents to the user
+        # if agent_name == "NLP":
+        #     return context, True
+        
+        # If data is unchanged, auto-advance without waiting for feedback
+        if context.data.equals(data_before):
+            context.log(f"No data changes detected — continuing to next step.")
+            self.logger.info(f"No data changes for {agent_name}, auto-advancing")
+            print(f"[DEBUG] No data changes for {agent_name}, auto-advancing")
+            return context, False
         
         return context,True
 

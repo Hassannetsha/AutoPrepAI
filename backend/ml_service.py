@@ -242,6 +242,13 @@ class MLPipelineService:
             "last_executed_step": None,
         }
     @staticmethod
+    def check_no_agents_left_to_run(dataset_df: pd.DataFrame, session: dict, pipeline: "Pipeline") -> bool:
+        context = DataContext(
+            data=dataset_df.copy(),
+            metadata=dict(session.get("context_metadata", {})),
+        )
+        return pipeline.check_no_agents_left_to_run(context)
+    @staticmethod
     def process_message(
         user_message: str,
         dataset_df: pd.DataFrame | None = None,
@@ -332,7 +339,7 @@ class MLPipelineService:
             )
             # print("[DEBUG] Starting chat-mode execution with command:", effective_command)
             final_context, finished = pipeline.run_single_agent(context=context, session=session, user_command=effective_command)
-            
+
             # Check if NLP returned unknown_intent → skip pipeline, return sorry message
             detected_intents = final_context.metadata.get("intents", [])
             if any(
@@ -351,9 +358,6 @@ class MLPipelineService:
                 jsonable["assistant_message"] = "sorry your request can't be identified but I can:\n- Fix missing values\n- Detect and handle outliers\n- Detect and handle duplicates\n- Resolve feature inconsistency\n- Scale and encode data\n- Feature selection\n- Feature engineering"
                 utilities.sessions.pop(conversation_id, None)
                 return jsonable, True
-            
-            final_context, finished = pipeline.run_single_agent(context=final_context, session=session, user_command=effective_command)
-            print(f"[DEBUG]In line 334")
             # if not finished:
             #     result = {
             #         "shape": final_context.data.shape,

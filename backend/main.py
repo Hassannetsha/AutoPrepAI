@@ -220,7 +220,13 @@ async def chat(
     assistant_message = result.pop("assistant_message", "Processing completed successfully.")
     # print(f"[DEBUG] Session after processing in line 211")
     finished = True
-    if mode=="manual" or mode == "chat" and "sorry your request" not in assistant_message.lower():
+    if session["dataset_before"].equals(session["dataset_after"]):
+        assistant_message += "\n[System] No changes were made to the dataset in this step."
+        if MLPipelineService.check_no_agents_left_to_run(session["dataset_before"], session, session["pipeline"]):
+            finished = True
+            utilities.sessions.pop(conversation_id, None)
+        print(f"[DEBUG] In line 320")
+    elif mode=="manual" or mode == "chat" and "sorry your request" not in assistant_message.lower():
         assistant_message += "\n[System] Waiting for your feedback to proceed to the next step."
         finished = False
     stored_message = clean_message or f"[{mode}]"
@@ -313,10 +319,17 @@ async def chat_feedback(
             result["download_url"] = generate_download_url(output_key)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {exc}") from exc
-
+    print(f"[DEBUG] In line 316")
     assistant_message = result.pop("assistant_message", "Processing completed successfully.")
+    if session["dataset_before"].equals(session["dataset_after"]):
+        assistant_message += "\n[System] No changes were made to the dataset in this step."
+        if MLPipelineService.check_no_agents_left_to_run(session["pipeline"]):
+            finished = True
+            utilities.sessions.pop(str(conversation_uuid), None)
+        print(f"[DEBUG] In line 320")
     if not finished:
         assistant_message += "\n[System] Waiting for your feedback to proceed to the next step."
+        print(f"[DEBUG] In line 324")
     db.add(ConversationMessage(
         conversation_id=conversation_uuid,
         role="assistant",
