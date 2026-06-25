@@ -10,6 +10,8 @@ class ChatResponsePayload(BaseModel):
     metadata: dict = Field(default_factory=dict)
     data_preview: list[dict] = Field(default_factory=list)
     dataset: list[dict] = Field(default_factory=list)
+    dataset_before: list[dict] = Field(default_factory=list)
+    dataset_after: list[dict] = Field(default_factory=list)
     output_file: str | None = None
     download_url: str | None = None
 
