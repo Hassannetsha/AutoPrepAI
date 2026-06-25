@@ -97,7 +97,7 @@ class MLPipelineService:
     @staticmethod
     def dataframe_from_upload(file_bytes: bytes, filename: str | None = None) -> pd.DataFrame:
         if filename and filename.lower().endswith((".xlsx", ".xls")):
-            return read_excel_clean(io.BytesIO(file_bytes))
+            return read_excel_clean(io.BytesIO(file_bytes), engine="calamine")
         if filename and filename.lower().endswith(".csv"):
             return pd.read_csv(io.BytesIO(file_bytes))
        # If filename is not provided or doesn't have a recognizable extension

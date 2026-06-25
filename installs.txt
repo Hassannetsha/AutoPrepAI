@@ -54,6 +54,8 @@ npm install xlsx
 
 pip install openpyxl
 
+pip install python-calamine
+
 //run backend tests
 pytest tests\
 

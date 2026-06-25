@@ -65,8 +65,8 @@ export default function MainPage() {
 
   const cleanError = (msg) => {
     if (!msg) return "Something went wrong. Please try again.";
-    if (msg.includes("does not support image") || msg.includes("Cannot read")) return "Image files are not supported. Please upload a CSV, Excel, or JSON file.";
-    if (msg.includes("Failed to parse dataset")) return "Could not read the file. Make sure it's a valid CSV, Excel, or JSON file.";
+    if (msg.includes("does not support image") || msg.includes("Cannot read")) return "Image files are not supported. Please upload a CSV, or Excel file.";
+    if (msg.includes("Failed to parse dataset")) return "Could not read the file. Make sure it's a valid CSV, or Excel file.";
     if (msg.includes("Dataset is required")) return "No dataset found. Please upload a file first.";
     if (msg === "SESSION_EXPIRED" || msg.includes("token") || msg.includes("unauthorized") || msg.includes("expired")) return "Your session has expired. Please log out and log in again.";
     return msg;
@@ -111,7 +111,7 @@ export default function MainPage() {
       const newHeaders = Object.keys(payload.data_preview[0]);
       setHeaders(newHeaders);
       setTableData(payload.data_preview);
-      setFullTableData(payload.data_preview);
+      setFullTableData(payload.dataset ?? payload.data_preview);
       setRows(payload.shape?.[0] ?? payload.data_preview.length);
       setColumns(payload.shape?.[1] ?? newHeaders.length);
       setUploaded(true);
@@ -349,14 +349,44 @@ export default function MainPage() {
   };
 
   // ─── CSV / Excel parsers ───────────────────────────────────────────────────────
+  const parseCSVLine = (line) => {
+    const values = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (i + 1 < line.length && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          current += ch;
+        }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        values.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    values.push(current);
+    return values;
+  };
+
   const parseCSV = (text) => {
     const lines = text.replace(/\r\n/g, "\n").trim().split("\n").filter(Boolean);
     if (lines.length === 0) return { rows: 0, columns: 0, data: [], headers: [] };
-    const hdrs = lines[0].split(",");
+    const hdrs = parseCSVLine(lines[0]);
     const data = lines.slice(1).map((line) => {
-      const values = line.split(",");
+      const values = parseCSVLine(line);
       const obj = {};
-      hdrs.forEach((h, i) => { obj[h] = values[i] || ""; });
+      hdrs.forEach((h, i) => { obj[h] = values[i] ?? ""; });
       return obj;
     });
     return { rows: data.length, columns: hdrs.length, data, headers: hdrs };
@@ -373,20 +403,54 @@ export default function MainPage() {
 
     const worksheet = workbook.Sheets[sheetName];
 
-    const data = XLSX.utils.sheet_to_json(worksheet, {
+    const allRows = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
       defval: "",
+      raw: false,
     });
 
-    if (data.length === 0) {
-      return {
-        rows: 0,
-        columns: 0,
-        data: [],
-        headers: [],
-      };
+    if (allRows.length === 0) {
+      return { rows: 0, columns: 0, data: [], headers: [] };
     }
 
-    const headers = Object.keys(data[0]);
+    let headerIdx = 0;
+    while (
+      headerIdx < allRows.length &&
+      allRows[headerIdx].every(
+        (cell) => cell === "" || cell === null || cell === undefined
+      )
+    ) {
+      headerIdx++;
+    }
+
+    if (headerIdx >= allRows.length) {
+      return { rows: 0, columns: 0, data: [], headers: [] };
+    }
+
+    const raw = allRows[headerIdx];
+    const colMap = [];
+    const headers = [];
+    raw.forEach((h, i) => {
+      if (h !== "" && h !== null && h !== undefined) {
+        headers.push(String(h).trim());
+        colMap.push(i);
+      }
+    });
+
+    const data = [];
+    for (let r = headerIdx + 1; r < allRows.length; r++) {
+      const row = allRows[r];
+      if (
+        row.every((cell) => cell === "" || cell === null || cell === undefined)
+      ) {
+        continue;
+      }
+      const obj = {};
+      colMap.forEach((srcIdx, destIdx) => {
+        obj[headers[destIdx]] = row[srcIdx] ?? "";
+      });
+      data.push(obj);
+    }
 
     return {
       rows: data.length,
@@ -552,6 +616,13 @@ export default function MainPage() {
     }
   };
 
+  const csvFileName = datasetName
+    ? datasetName.replace(/\.\w+$/, ".csv")
+    : "data.csv";
+
+  const escapeCSV = (value) =>
+    `"${String(value ?? "").replace(/"/g, '""')}"`;
+
   // ─── Auto clean ───────────────────────────────────────────────────────────────
   const handleAutoClean = async () => {
     if (!uploaded) {
@@ -585,12 +656,18 @@ export default function MainPage() {
     );
 
     try {
-      const sourceData = fullTableData.length ? fullTableData : tableData;
-      const csvContent = [
-        headers.join(","),
-        ...sourceData.map((row) => headers.map((h) => row[h]).join(",")),
-      ].join("\n");
-      const file = new File([csvContent], datasetName || "data.csv", { type: "text/csv" });
+      const file = new File(
+        [
+          [
+            headers.map(escapeCSV).join(","),
+            ...(fullTableData.length ? fullTableData : tableData).map((row) =>
+              headers.map((h) => escapeCSV(row[h])).join(",")
+            ),
+          ].join("\n"),
+        ],
+        csvFileName,
+        { type: "text/csv" }
+      );
 
       const response = await sendChatMessage({
         message: "🤖 Auto-clean my dataset",
@@ -608,7 +685,7 @@ export default function MainPage() {
         const newHeaders = Object.keys(response.result.data_preview[0]);
         setHeaders(newHeaders);
         setTableData(response.result.data_preview);
-        setFullTableData(response.result.data_preview);
+        setFullTableData(response.result.dataset ?? response.result.data_preview);
         setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
@@ -695,13 +772,19 @@ export default function MainPage() {
 
     try {
       let datasetFile = null;
-      const sourceData = fullTableData.length ? fullTableData : tableData;
+
+      const sourceData =
+        fullTableData.length > 0 ? fullTableData : tableData;
+
       if (sourceData.length > 0 && headers.length > 0) {
         const csvContent = [
-          headers.join(","),
-          ...sourceData.map((row) => headers.map((h) => row[h]).join(",")),
+          headers.map(escapeCSV).join(","),
+          ...sourceData.map((row) =>
+            headers.map((h) => escapeCSV(row[h])).join(",")
+          ),
         ].join("\n");
-        datasetFile = new File([csvContent], datasetName || "data.csv", { type: "text/csv" });
+
+        datasetFile = new File([csvContent], csvFileName, { type: "text/csv" });
       }
 
       const backendMessage =`${messageText}\n\nPlease apply these actions: ${selectedActions.join(", ")}`
@@ -743,7 +826,7 @@ export default function MainPage() {
         const newHeaders = Object.keys(response.result.data_preview[0]);
         setHeaders(newHeaders);
         setTableData(response.result.data_preview);
-        setFullTableData(response.result.data_preview);
+        setFullTableData(response.result.dataset ?? response.result.data_preview);
         setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
@@ -813,7 +896,7 @@ export default function MainPage() {
         const newHeaders = Object.keys(response.result.data_preview[0]);
         setHeaders(newHeaders);
         setTableData(response.result.data_preview);
-        setFullTableData(response.result.data_preview);
+        setFullTableData(response.result.dataset ?? response.result.data_preview);
         setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }

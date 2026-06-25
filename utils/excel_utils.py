@@ -6,7 +6,7 @@ import datetime as _datetime
 import pandas as pd
 
 
-def read_excel_clean(file_source: str | Path | bytes | io.BytesIO) -> pd.DataFrame:
+def read_excel_clean(file_source: str | Path | bytes | io.BytesIO, engine: str | None = None) -> pd.DataFrame:
     """Read an Excel file, auto-detect and remove unnecessary top rows and empty
     left columns, and return a clean DataFrame.
 
@@ -33,7 +33,10 @@ def read_excel_clean(file_source: str | Path | bytes | io.BytesIO) -> pd.DataFra
     if isinstance(file_source, bytes):
         file_source = io.BytesIO(file_source)
 
-    raw: pd.DataFrame = pd.read_excel(file_source, header=None)
+    read_kwargs = {"header": None}
+    if engine:
+        read_kwargs["engine"] = engine
+    raw: pd.DataFrame = pd.read_excel(file_source, **read_kwargs)
     raw = raw.dropna(axis=1, how="all").dropna(axis=0, how="all").reset_index(drop=True)
 
     if raw.empty:
