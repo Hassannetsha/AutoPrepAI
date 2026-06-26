@@ -441,6 +441,37 @@
   color: #e53e3e;
 }
 
+/* ─── Preview Tabs ──────────────────────────────────── */
+.preview-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.preview-tab {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.preview-tab:hover {
+  background: #e0f5f3;
+  color: #249e90;
+}
+
+.preview-tab.active {
+  background: linear-gradient(135deg, #2bb3a3, #34c5a8);
+  color: white;
+  border-color: #2bb3a3;
+}
+
 /* ─── Table ─────────────────────────────────────────── */
 .table-container {
   max-height: 420px;
