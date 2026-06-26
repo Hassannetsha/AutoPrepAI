@@ -350,9 +350,9 @@ class MLPipelineService:
                     "shape": final_context.data.shape,
                     "logs": final_context.logs,
                     "metadata": final_context.metadata,
-                    "data_preview": final_context.data.head(50).to_dict(orient="records"),
+                    # "data_preview": final_context.data.head(50).to_dict(orient="records"),
                     "dataset": final_context.data.to_dict(orient="records"),
-                    "data_preview_before": final_context.data.head(50).to_dict(orient="records"),
+                    "data_preview_before": final_context.data.to_dict(orient="records"),
                     "output_file": None,
                     "download_url": None,
                 }
@@ -405,9 +405,9 @@ class MLPipelineService:
             "shape": final_context.data.shape,
             "logs": session["previous_logs"] + final_context.logs,
             "metadata": final_context.metadata,
-            "data_preview": final_context.data.to_dict(orient="records"),
+            # "data_preview": final_context.data.to_dict(orient="records"),
             "dataset": final_context.data.to_dict(orient="records"),
-            "data_preview_before": session["dataset_before"].head(50).to_dict(orient="records"),
+            "data_preview_before": session["dataset_before"].to_dict(orient="records"),
             "output_file": output_file,
             "download_url": None,
         }

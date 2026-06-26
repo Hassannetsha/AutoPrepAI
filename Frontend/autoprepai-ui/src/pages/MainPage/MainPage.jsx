@@ -108,13 +108,13 @@ export default function MainPage() {
     if (payload.dataset_name) {
       setDatasetName(payload.dataset_name);
     }
-    if (payload.data_preview?.length) {
-      const newHeaders = Object.keys(payload.data_preview[0]);
+    if (payload.dataset?.length) {
+      const newHeaders = Object.keys(payload.dataset[0]);
       setHeaders(newHeaders);
-      setTableData(payload.data_preview);
-      setTableDataBefore(payload.data_preview_before ?? []);
-      setFullTableData(payload.dataset ?? payload.data_preview);
-      setRows(payload.shape?.[0] ?? payload.data_preview.length);
+      setTableData(payload.dataset);
+      setTableDataBefore(payload.dataset_before ?? []);
+      setFullTableData(payload.dataset ?? payload.dataset);
+      setRows(payload.shape?.[0] ?? payload.dataset.length);
       setColumns(payload.shape?.[1] ?? newHeaders.length);
       setUploaded(true);
     }
@@ -687,13 +687,13 @@ export default function MainPage() {
       const realConvId = response.conversation_id ?? thisConvId;
       syncConversationId(response.conversation_id, thisChatId);
 
-      if (response.result?.data_preview?.length) {
-        const newHeaders = Object.keys(response.result.data_preview[0]);
+      if (response.result?.dataset?.length) {
+        const newHeaders = Object.keys(response.result.dataset[0]);
         setHeaders(newHeaders);
-        setTableData(response.result.data_preview);
+        setTableData(response.result.dataset);
         setTableDataBefore(response.result.data_preview_before ?? []);
-        setFullTableData(response.result.dataset ?? response.result.data_preview);
-        setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
+        setFullTableData(response.result.dataset);
+        setRows(response.result.shape?.[0] ?? response.result.dataset.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
 
@@ -829,13 +829,13 @@ export default function MainPage() {
         )
       );
 
-      if (response.result?.data_preview?.length) {
-        const newHeaders = Object.keys(response.result.data_preview[0]);
+      if (response.result?.dataset?.length) {
+        const newHeaders = Object.keys(response.result.dataset[0]);
         setHeaders(newHeaders);
-        setTableData(response.result.data_preview);
+        setTableData(response.result.dataset);
         setTableDataBefore(response.result.data_preview_before ?? []);
-        setFullTableData(response.result.dataset ?? response.result.data_preview);
-        setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
+        setFullTableData(response.result.dataset);
+        setRows(response.result.shape?.[0] ?? response.result.dataset.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
       setSelectedActions([]);
@@ -900,13 +900,13 @@ export default function MainPage() {
       setPendingFeedback(!response.finished);
       setStepTitle(response.step_title || "");
 
-      if (response.result?.data_preview?.length) {
-        const newHeaders = Object.keys(response.result.data_preview[0]);
+      if (response.result?.dataset?.length) {
+        const newHeaders = Object.keys(response.result.dataset[0]);
         setHeaders(newHeaders);
-        setTableData(response.result.data_preview);
+        setTableData(response.result.dataset);
         setTableDataBefore(response.result.data_preview_before ?? []);
-        setFullTableData(response.result.dataset ?? response.result.data_preview);
-        setRows(response.result.shape?.[0] ?? response.result.data_preview.length);
+        setFullTableData(response.result.dataset);
+        setRows(response.result.shape?.[0] ?? response.result.dataset.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
     } catch (error) {
@@ -1003,7 +1003,7 @@ export default function MainPage() {
       {showPreview && (
         <DataPreviewModal
           onClose={() => setShowPreview(false)}
-          data={tableData}
+          data={fullTableData}
           dataBefore={tableDataBefore}
           headers={headers}
           datasetName={datasetName}
