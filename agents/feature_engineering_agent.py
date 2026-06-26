@@ -1,16 +1,15 @@
 
 import os
-import re
-import time
+import json
 
 from agents.pipeline_agent import PipelineAgent
 from data_context import DataContext
 from agent_params import AgentParams
 from api_key_manager import get_key_manager
 from services.feature_engineering_service import FeatureEngineeringService, SuggestFeatures
+from utils.retry_handler import GroqRetryHandler
 
-import dspy 
-import json
+import dspy
 
 _key_manager = get_key_manager()
 
@@ -49,45 +48,22 @@ class FeatureEngineeringAgent(PipelineAgent):
             sample_rows = context.data.head(5).to_json(orient='records')
             top_n = params.get_option('top_n', '5')
 
-            max_retries = _key_manager.get_total_keys_count()
-            retry_count = 0
+            handler = GroqRetryHandler(_key_manager, log_fn=context.log)
             suggested_str = None
-
-            while retry_count < max_retries:
-                try:
-                    result = suggest_predictor(
+            try:
+                result = handler.execute(
+                    task=lambda: suggest_predictor(
                         dataset_columns=dataset_columns,
                         sample_rows=sample_rows,
                         top_n=top_n
-                    )
-                    suggested_str = result.suggested_features
-                    break
-                except Exception as e:
-                    error_msg = str(e).lower()
-                    if "rate" in error_msg or "quota" in error_msg or "limit" in error_msg or "429" in error_msg:
-                        available = _key_manager.get_available_keys_count()
-                        context.log(f"Rate limit hit. Rotating key... ({available} keys available)")
-                        _key_manager.mark_key_failed()
-
-                        if available <= 1:
-                            retry_seconds = "unknown"
-                            if "please try again in" in error_msg:
-                                match = re.search(r'please try again in ([^s]+s)', error_msg)
-                                if match:
-                                    retry_seconds = match.group(1)
-                            context.log(f"All API keys exhausted (TPD limit reached). Retry in {retry_seconds}.")
-                            return context
-
-                        try:
-                            self._rotate_and_reconfigure()
-                            retry_count += 1
-                            time.sleep(1)
-                            continue
-                        except RuntimeError:
-                            context.log("All API keys exhausted.")
-                            return context
-                    else:
-                        raise
+                    ),
+                    after_rotate=lambda new_key: self._rotate_and_reconfigure(),
+                    task_name="feature_engineering"
+                )
+                suggested_str = result.suggested_features
+            except RuntimeError as e:
+                context.log(str(e))
+                return context
             if not suggested_str or not suggested_str.strip():
                 context.log("No feature suggestions generated; skipping")
                 return context
