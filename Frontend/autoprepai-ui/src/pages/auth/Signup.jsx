@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Database } from "lucide-react";
 import { signupUser } from "../../api/auth";
+import CountryPhoneInput from "../../components/auth/CountryPhoneInput";
 import "../../styles/Auth.css";
 
 function Signup() {
@@ -18,9 +19,17 @@ function Signup() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const PHONE_REGEX = /^\+\d{7,15}$/;
+
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((currentForm) => ({ ...currentForm, [name]: value }));
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handlePhoneChange = (value) => {
+    setForm((currentForm) => ({ ...currentForm, phoneNumber: value }));
     setError("");
     setSuccessMessage("");
   };
@@ -35,6 +44,11 @@ function Signup() {
 
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match.");
+      return;
+    }
+
+    if (form.phoneNumber && !PHONE_REGEX.test(form.phoneNumber)) {
+      setError("Please enter a valid phone number with country code.");
       return;
     }
 
@@ -116,12 +130,9 @@ function Signup() {
 
         <div className="input-group">
           <label>Phone number</label>
-          <input
-            name="phoneNumber"
+          <CountryPhoneInput
             value={form.phoneNumber}
-            onChange={handleChange}
-            placeholder="Optional, e.g. 01012345678"
-            autoComplete="tel"
+            onChange={handlePhoneChange}
           />
         </div>
 
