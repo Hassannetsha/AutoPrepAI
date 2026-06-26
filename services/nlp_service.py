@@ -96,53 +96,39 @@ class NLPService:
 
     def setup_dspy(_self) -> dspy.LM:
         """Initialize and cache DSPy LM resource with key rotation support."""
-        api_key = None
-        max_retries = _key_manager.get_total_keys_count()
-        retry_count = 0
-        
-        while retry_count < max_retries:
-            try:
-                # Get current API key
-                api_key = _key_manager.get_current_key()
-                if not api_key:
-                    st.warning("⚠️ No API keys available!")
-                    st.stop()
-                
-                # Configure LM with current key
-                lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-                dspy.settings.configure(lm=lm)
-                _self.lm = lm
-                
-                # Show key status
-                st.sidebar.info(
-                    f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}\n"
-                    f"Available keys: {_key_manager.get_available_keys_count()}"
-                )
-                
-                return lm
-                
-            except Exception as e:
-                error_msg = str(e).lower()
-                
-                # Check if it's a rate limit error
-                if "rate" in error_msg or "quota" in error_msg or "limit" in error_msg or "429" in error_msg:
-                    st.warning(f"⚠️ API Key #{_key_manager.current_index + 1} rate limited. Rotating...")
-                    _key_manager.mark_key_failed()
-                    
-                    # Try next key
-                    try:
-                        api_key = _key_manager.rotate_key()
-                        os.environ["GROQ_API_KEY"] = api_key
-                        retry_count += 1
-                        time.sleep(1)  # Brief delay before retry
-                        continue
-                    except RuntimeError as rotate_err:
-                        st.error(f"❌ {rotate_err}")
-                        st.stop()
-                else:
-                    # Other error
-                    st.error(f"❌ Setup Error: {e}")
-                    st.stop()
+        from utils.retry_handler import GroqRetryHandler
+
+        handler = GroqRetryHandler(_key_manager, log_fn=lambda msg: None)
+
+        def _task():
+            api_key = _key_manager.get_current_key()
+            if not api_key:
+                st.warning("⚠️ No API keys available!")
+                st.stop()
+            lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+            dspy.settings.configure(lm=lm)
+            _self.lm = lm
+            st.sidebar.info(
+                f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}\n"
+                f"Available keys: {_key_manager.get_available_keys_count()}"
+            )
+            return lm
+
+        def after_rotate(new_key):
+            os.environ["GROQ_API_KEY"] = new_key
+            lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=new_key, max_tokens=1000)
+            dspy.settings.configure(lm=lm)
+            _self.lm = lm
+
+        try:
+            return handler.execute(
+                task=_task,
+                after_rotate=after_rotate,
+                task_name="setup_dspy",
+            )
+        except RuntimeError as e:
+            st.error(f"❌ {e}")
+            st.stop()
 
     def load_training_data(_self) -> Optional[pd.DataFrame]:
         """Load training CSV if present; cache result."""
@@ -544,99 +530,62 @@ class NLPService:
         the given preprocessing step executed. Includes automatic key rotation on rate limits.
         Returns the LLM's explanation string.
         """
-        max_retries = _key_manager.get_total_keys_count()
-        retry_count = 0
-        last_error = None
-        
-        while retry_count < max_retries:
-            try:
-                # Use the class-level LM (updated by run() on key rotation)
-                lm = NLPService._lm
-                if lm is None:
-                    api_key = _key_manager.get_current_key()
-                    if not api_key:
-                        return "Explanation failed: No API key available."
-                    lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-                    NLPService._lm = lm
-                    self.lm = lm
+        from utils.retry_handler import GroqRetryHandler
 
-                # ── Debug diagnostics ──────────────────────────────────────
-                lm_key = lm.kwargs.get("api_key", "NOT_FOUND")
-                env_key = os.environ.get("GROQ_API_KEY", "NOT_SET")
-                mgr_key = _key_manager.get_current_key()
-                print(f"[DIAG] explain_step_llm using lm.kwargs api_key={lm_key[:20]}...")
-                print(f"[DIAG] GROQ_API_KEY env={env_key[:20]}...")
-                print(f"[DIAG] key_manager current={mgr_key[:20]}...")
+        def _task():
+            lm = NLPService._lm
+            if lm is None:
+                api_key = _key_manager.get_current_key()
+                if not api_key:
+                    return "Explanation failed: No API key available."
+                lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+                NLPService._lm = lm
+                self.lm = lm
 
-                # Prepare JSON strings for metadata fields (shorten if very large)
-                mb = json.dumps(metadata_before or {}, indent=2, default=str)
-                ma = json.dumps(metadata_after or {}, indent=2, default=str)
-                # Optionally truncate long metadata for the prompt
-                def _truncate(s, n=2000):
-                    return s if len(s) <= n else (s[:n] + "\n... (truncated)")
+            lm_key = lm.kwargs.get("api_key", "NOT_FOUND")
+            env_key = os.environ.get("GROQ_API_KEY", "NOT_SET")
+            mgr_key = _key_manager.get_current_key()
+            print(f"[DIAG] explain_step_llm using lm.kwargs api_key={lm_key[:20]}...")
+            print(f"[DIAG] GROQ_API_KEY env={env_key[:20]}...")
+            print(f"[DIAG] key_manager current={mgr_key[:20]}...")
 
-                mb = _truncate(mb)
-                ma = _truncate(ma)
+            mb = json.dumps(metadata_before or {}, indent=2, default=str)
+            ma = json.dumps(metadata_after or {}, indent=2, default=str)
+            def _truncate(s, n=2000):
+                return s if len(s) <= n else (s[:n] + "\n... (truncated)")
+            mb = _truncate(mb)
+            ma = _truncate(ma)
 
-                # ── Build a prompt manually and call litellm directly ─────
-                prompt = (
-                    f"Explain why the following data preprocessing step was applied and its impact.\n\n"
-                    f"Step: {step_name}\n"
-                    f"User request: {task or 'N/A'}\n\n"
-                    f"Metadata before step:\n{mb}\n\n"
-                    f"Metadata after step:\n{ma}\n\n"
-                    f"Provide a concise explanation (2-4 sentences) in natural language."
-                )
+            prompt = (
+                f"Explain why the following data preprocessing step was applied and its impact.\n\n"
+                f"Step: {step_name}\n"
+                f"User request: {task or 'N/A'}\n\n"
+                f"Metadata before step:\n{mb}\n\n"
+                f"Metadata after step:\n{ma}\n\n"
+                f"Provide a concise explanation (2-4 sentences) in natural language."
+            )
 
-                import litellm
-                response = litellm.completion(
-                    model="groq/llama-3.3-70b-versatile",
-                    messages=[{"role": "user", "content": prompt}],
-                    api_key=lm_key,
-                    max_tokens=max_tokens,
-                    temperature=0.3,
-                )
-                explanation = response["choices"][0]["message"]["content"]
-                return explanation.strip()
-                
-            except Exception as e:
-                error_msg = str(e).lower()
-                last_error = e
-                
-                # Check if it's a rate limit error
-                if "rate" in error_msg or "quota" in error_msg or "limit" in error_msg or "429" in error_msg:
-                    available = _key_manager.get_available_keys_count()
-                    print(f"[WARN] Rate limit hit during explanation. Rotating key... ({available} keys available)")
-                    _key_manager.mark_key_failed()
-                    
-                    # If no keys available, we need to wait or fail gracefully
-                    if available <= 1:
-                        # Extract retry time from error if possible
-                        retry_seconds = "unknown"
-                        if "please try again in" in error_msg:
-                            import re
-                            match = re.search(r'please try again in ([^s]+s)', error_msg)
-                            if match:
-                                retry_seconds = match.group(1)
-                        return f"Explanation failed: All API keys exhausted (TPD limit reached). Retry in {retry_seconds}. Step still executed successfully."
-                    
-                    try:
-                        api_key = _key_manager.rotate_key()
-                        os.environ["GROQ_API_KEY"] = api_key
-                        lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-                        NLPService._lm = lm
-                        self.lm = lm
-                        retry_count += 1
-                        time.sleep(1)  # Brief delay before retry
-                        continue
-                    except RuntimeError:
-                        return f"Explanation failed: All API keys exhausted. {error_msg}"
-                else:
-                    # Not a rate limit error - return gracefully
-                    return f"Explanation failed: {e}"
-        
-        # All retries exhausted
-        return f"Explanation failed after {max_retries} retries: {last_error}"
+            import litellm
+            response = litellm.completion(
+                model="groq/llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=lm_key,
+                max_tokens=max_tokens,
+                temperature=0.3,
+            )
+            return response["choices"][0]["message"]["content"].strip()
+
+        def after_rotate(new_key):
+            os.environ["GROQ_API_KEY"] = new_key
+            lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=new_key, max_tokens=1000)
+            NLPService._lm = lm
+            self.lm = lm
+
+        handler = GroqRetryHandler(_key_manager, log_fn=print)
+        try:
+            return handler.execute(task=_task, after_rotate=after_rotate, task_name="explain_operation")
+        except RuntimeError as e:
+            return f"Explanation failed: {e}"
     # @st.cache_resource
     # def build_pipeline(self, training_data: Optional[pd.DataFrame]):
     #     """Create and cache the pipeline module."""
