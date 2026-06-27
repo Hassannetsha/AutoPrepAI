@@ -1,0 +1,57 @@
+.chat-error {
+  padding: 10px 14px;
+  margin: 0 12px 6px;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #ef4444;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.chat-error::before {
+  content: "!";
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.chat-loading {
+  padding: 8px 14px;
+  margin: 0 12px 4px;
+  background: #f7fffd;
+  border: 1px solid #cfeeea;
+  border-radius: 8px;
+  color: #00897b;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-loading::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid #b2e4de;
+  border-top-color: #2bb3a3;
+  border-radius: 50%;
+  animation: chat-spin 0.6s linear infinite;
+}
+
+@keyframes chat-spin {
+  to { transform: rotate(360deg); }
+}

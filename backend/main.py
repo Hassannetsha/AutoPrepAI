@@ -263,7 +263,7 @@ async def chat(
         conversation_id=conversation.id,
         role="assistant",
         content=assistant_message,
-        payload={**json.loads(json.dumps(MLPipelineService._to_jsonable(result))),"finished": finished},
+        payload={**json.loads(json.dumps(MLPipelineService._to_jsonable(result))),"finished": finished, "step_title": session.get("last_executed_step") or ""},
     ))
     db.commit()
 
@@ -365,7 +365,8 @@ async def chat_feedback(
         content=assistant_message,
         payload={
             **json.loads(json.dumps(MLPipelineService._to_jsonable(result))),
-            "finished": finished
+            "finished": finished,
+            "step_title": session.get("last_executed_step") or "",
         },
     ))
     db.commit()

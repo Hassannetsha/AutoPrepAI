@@ -1,0 +1,181 @@
+.sidebar {
+  width: 270px;
+  background: #ffffff;
+  padding: 24px 16px;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.uploadBox {
+  border: 2px dashed #2bb3a3;
+  padding: 40px 20px;
+  text-align: center;
+  border-radius: 14px;
+  background: #f0faf9;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.uploadBox:hover {
+  background: #e0f5f3;
+  border-color: #249e90;
+}
+
+.uploadBox p {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.uploadBox button {
+  margin-top: 10px;
+  padding: 9px 16px;
+  background: linear-gradient(135deg, #2bb3a3, #34c5a8);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition:
+    background 0.2s,
+    transform 0.15s;
+  box-shadow: 0 3px 10px rgba(43, 179, 163, 0.3);
+}
+
+.uploadBox button:hover {
+  background: linear-gradient(135deg, #249e90, #2bb3a3);
+  transform: translateY(-1px);
+}
+
+.uploadError {
+  margin-top: 8px;
+  color: #e53e3e;
+  font-size: 12px;
+  background: #fff5f5;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 3px solid #e53e3e;
+}
+
+.datasetCard {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+  transition: box-shadow 0.2s;
+}
+
+.datasetCard:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+.datasetCard h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.datasetCard p {
+  font-size: 13px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.datasetInfo button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: #f3f4f6;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    background 0.2s,
+    color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #374151;
+}
+
+.datasetInfo button:hover {
+  background: #dff5f2;
+  color: #2bb3a3;
+}
+
+.datasetInfo .reset {
+  background: #fff0f0;
+  color: #e53e3e;
+}
+
+.datasetInfo .reset:hover {
+  background: #ffe0e0;
+  color: #c53030;
+}
+
+.datasetInfo .reset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #e2e8f0;
+  color: #a0aec0;
+}
+
+.autoSection {
+  margin-top: 160px;
+  padding-top: 14px;
+}
+
+.autoCleanBtn {
+  width: 100%;
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 10px;
+  border-color: #34c5a8;
+  background: linear-gradient(135deg, #2bb3a3, #34c5a8);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition:
+    transform 0.12s,
+    box-shadow 0.12s,
+    background 0.12s;
+  font-size: 14px;
+  box-shadow: 0 3px 10px rgba(43, 179, 163, 0.18);
+}
+
+.autoCleanBtn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #249e90, #2bb3a3);
+  border-color: #2bb3a3;
+}
+
+.autoCleanBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  background: #b0bec5;
+  border-color: #90a4ae;
+  box-shadow: none;
+}
