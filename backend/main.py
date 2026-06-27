@@ -169,9 +169,9 @@ async def chat(
             "shape": list(dataset_df.shape),
             "logs": ["Dataset received and ready for processing."],
             "metadata": {},
-            "data_preview": dataset_df.head(10).to_dict(orient="records"),
+            # "data_preview": dataset_df.head(10).to_dict(orient="records"),
             "dataset": dataset_df.to_dict(orient="records"),
-            "data_preview_before": dataset_df.head(50).to_dict(orient="records"),
+            "data_preview_before": dataset_df.to_dict(orient="records"),
             "output_file": None,
             "download_url": None,
         }
@@ -322,14 +322,14 @@ async def chat_feedback(
         
         result = session["result"]
         if not body.accept:
-            result["data_preview"] = json.loads(
-                dataset_df.head(50).to_json(orient="records")
-            )
+            # result["data_preview"] = json.loads(
+            #     dataset_df.head(50).to_json(orient="records")
+            # )
             result["dataset"] = json.loads(
                 dataset_df.to_json(orient="records")
             )
             result["data_preview_before"] = json.loads(
-                dataset_df.head(50).to_json(orient="records")
+                dataset_df.to_json(orient="records")
             )
             result["shape"] = (int(dataset_df.shape[0]), int(dataset_df.shape[1]))
         result["logs"] = session["previous_logs"].copy()

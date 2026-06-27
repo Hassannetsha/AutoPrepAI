@@ -8,7 +8,6 @@ class ChatResponsePayload(BaseModel):
     shape: tuple[int, int] | None = None
     logs: list[str] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
-    data_preview: list[dict] = Field(default_factory=list)
     dataset: list[dict] = Field(default_factory=list)
     data_preview_before: list[dict] = Field(default_factory=list)
     output_file: str | None = None

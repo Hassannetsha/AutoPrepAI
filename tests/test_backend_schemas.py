@@ -21,7 +21,6 @@ class TestChatResponsePayload:
         assert payload.shape is None
         assert payload.logs == []
         assert payload.metadata == {}
-        assert payload.data_preview == []
         assert payload.output_file is None
         assert payload.download_url is None
 
@@ -30,7 +29,7 @@ class TestChatResponsePayload:
             shape=(100, 5),
             logs=["step 1 done", "step 2 done"],
             metadata={"intents": ["missing_values"]},
-            data_preview=[{"col1": 1, "col2": "a"}],
+            data_preview_before=[{"col1": 1, "col2": "a"}],
             output_file="processed/abc.csv",
             download_url="https://example.com/download",
         )
