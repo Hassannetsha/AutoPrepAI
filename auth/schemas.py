@@ -13,7 +13,7 @@ class UserSignup(BaseModel):
 
     phone_number: str | None = Field(
         default=None,
-        pattern=r"^\+[1-9]\d{1,14}$"
+        pattern=r"^\+20(1[0-9]{9}|[2-9][0-9]{7,8})$"
     )
 
 class DeleteUserRequest(BaseModel):

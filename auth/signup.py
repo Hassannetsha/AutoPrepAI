@@ -10,7 +10,7 @@ import re
 
 router = APIRouter()
 PASSWORD_REGEX = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#_-])[A-Za-z\d@$!%*?&.#_-]{8,}$"
-PHONE_REGEX = r"^\+?[1-9]\d{1,14}$"  # E.164 format
+PHONE_REGEX = r"^\+20(1[0-9]{9}|[2-9][0-9]{7,8})$"
 @router.post("/signup")
 def signup(user_data: UserSignup, db: Session = Depends(get_db)):
     email = user_data.email
@@ -41,7 +41,7 @@ def signup(user_data: UserSignup, db: Session = Depends(get_db)):
     if phone_number and not re.match(PHONE_REGEX, phone_number):
         raise HTTPException(
             status_code=400,
-            detail="Phone number must be in E.164 format (e.g., +1234567890)."
+            detail="Phone number must be a valid Egyptian number starting with +20 (e.g., +2010XXXXXXXX)."
         )
     if password != confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")

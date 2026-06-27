@@ -19,7 +19,7 @@ function Signup() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const PHONE_REGEX = /^\+\d{7,15}$/;
+  const PHONE_REGEX = /^\+20(1[0-9]{9}|[2-9][0-9]{7,8})$/;
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -48,7 +48,7 @@ function Signup() {
     }
 
     if (form.phoneNumber && !PHONE_REGEX.test(form.phoneNumber)) {
-      setError("Please enter a valid phone number with country code.");
+      setError("Phone number must be a valid Egyptian number starting with +20 (e.g., +2010XXXXXXXX).");
       return;
     }
 
