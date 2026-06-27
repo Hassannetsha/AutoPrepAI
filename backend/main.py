@@ -107,6 +107,7 @@ async def chat(
             "- Detect and handle outliers\n"
             "- Detect and handle duplicates\n"
             "- Resolve feature inconsistency\n"
+            "- Correct Spelling\n"
             "- Scale and encode data\n"
             "- Feature selection with a focus on the target variable\n"
             "- Features engineering"
