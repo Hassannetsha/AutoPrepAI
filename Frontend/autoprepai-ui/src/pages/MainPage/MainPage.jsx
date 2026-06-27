@@ -35,17 +35,8 @@ const ACTION_TO_INTENT = {
 
 const INITIAL_BOT_MESSAGE = {
   sender: "bot",
-  text: "Hello! I'm your AutoPrepAI assistant. Upload a dataset to get started.",
+  text: "Hello! I'm your AutoPrepAI assistant. Upload a dataset to get started.\n\n- Fix missing values\n- Detect and handle outliers\n- Detect and handle duplicates\n- Resolve feature inconsistency\n- Scale and encode data\n- Feature selection with a focus on the target variable\n- Features engineering",
   time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-  list: [
-    "Fix missing values",
-    "Detect and handle outliers",
-    "Detect and handle duplicates",
-    "Resolve feature inconsistency",
-    "Scale and encode data",
-    "Feature selection with a focus on the target variable", 
-    "Features engineering",
-  ],
 };
 
 export default function MainPage() {
@@ -127,18 +118,23 @@ export default function MainPage() {
         const data = await getConversation(conversationId);
         if (!data?.messages) return;
 
-        const mapped = data.messages.map((msg) => {
-          const sender = msg.sender ?? msg.role;
-          return {
-            sender: sender === "user" ? "user" : "bot",
-            text: msg.content,
-            time: new Date(msg.created_at).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            downloadUrl: msg.payload?.download_url ?? null,
-          };
-        });
+        const mapped = data.messages.length === 0
+          ? [{
+              ...INITIAL_BOT_MESSAGE,
+              time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            }]
+          : data.messages.map((msg) => {
+              const sender = msg.sender ?? msg.role;
+              return {
+                sender: sender === "user" ? "user" : "bot",
+                text: msg.content,
+                time: new Date(msg.created_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+                downloadUrl: msg.payload?.download_url ?? null,
+              };
+            });
 
         setChats((prev) =>
           prev.map((chat) =>
@@ -526,6 +522,7 @@ export default function MainPage() {
       syncConversationId(response.conversation_id, thisChatId);
 
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const userUploadText = `I've uploaded a dataset: ${selectedFile.name}. It has ${parsed.rows} rows and ${parsed.columns} columns.`;
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === thisChatId || chat.id === realConvId
@@ -533,6 +530,7 @@ export default function MainPage() {
                 ...chat,
                 messages: [
                   ...chat.messages,
+                  { sender: "user", text: userUploadText, time },
                   {
                     sender: "bot",
                     text: response.assistant_message || `✓ Dataset loaded: ${selectedFile.name}`,
@@ -756,7 +754,7 @@ export default function MainPage() {
     if (selectedActions.length > 0) {
       displayedMessage +=
         (displayedMessage ? "\n\n" : "") +
-        `Selected actions: ${selectedActions.join(", ")}`;
+        `Please apply these actions: ${selectedActions.join(", ")}`;
     }
 
     const userMessage = {
