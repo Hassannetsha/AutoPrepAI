@@ -61,18 +61,18 @@ class PipelineBuilder:
         nodes.append(datatype_node)
         
         # 3. Spelling Corrector
-        spelling_node = PipelineNode(
-            agent=SpellingCorrectorAgent(),
-            condition=IntentBasedCondition(
-                ["correct_spelling", "remove_inconsistencies"],
-                operator="any"
-            ),
-            resolver=IntentColumnResolver(
-                ["correct_spelling", "remove_inconsistencies"],
-                ""
-            )
-        )
-        nodes.append(spelling_node)
+        # spelling_node = PipelineNode(
+        #     agent=SpellingCorrectorAgent(),
+        #     condition=IntentBasedCondition(
+        #         ["correct_spelling", "remove_inconsistencies"],
+        #         operator="any"
+        #     ),
+        #     resolver=IntentColumnResolver(
+        #         ["correct_spelling", "remove_inconsistencies"],
+        #         ""
+        #     )
+        # )
+        # nodes.append(spelling_node)
         
         # 4. Data Standardizer
         standardizer_node = PipelineNode(
@@ -176,7 +176,7 @@ class PipelineBuilder:
         all_agents = {
             "nlp": (NLPAgent(), ["always"], []),
             "datatype": (DataTypeInconsistencyAgent(), ["fix_data_types", "remove_inconsistencies"], ["fix_data_types", "remove_inconsistencies"]),
-            "spelling": (SpellingCorrectorAgent(), ["correct_spelling", "remove_inconsistencies"], ["correct_spelling", "remove_inconsistencies"]),
+            # "spelling": (SpellingCorrectorAgent(), ["correct_spelling", "remove_inconsistencies"], ["correct_spelling", "remove_inconsistencies"]),
             "standardizer": (DataStandardizerAgent(), ["standardize_data", "remove_inconsistencies"], ["standardize_data", "remove_inconsistencies"]),
             "duplicate": (DuplicateRemoverAgent(), ["remove_duplicates"], ["remove_duplicates"]),
             "outlier": (OutliersAgent(), ["remove_outliers", "detect_outliers"], ["remove_outliers", "detect_outliers"]),

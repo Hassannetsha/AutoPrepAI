@@ -3,6 +3,7 @@ from data_context import DataContext
 from agent_params import AgentParams
 from services.spelling_corrector_service import SpellingCorrectorService
 
+
 class SpellingCorrectorAgent(PipelineAgent):
     def __init__(self):
         super().__init__("Spelling Corrector")
@@ -10,58 +11,79 @@ class SpellingCorrectorAgent(PipelineAgent):
     def execute(self, context: DataContext, params: AgentParams) -> DataContext:
         context.data = context.data.reset_index(drop=True)
         columns = params.columns or []
+
         context.log("Correcting spelling errors in categorical columns")
-        
+
         try:
-            # Identify categorical columns
-            categorical_cols = context.data.select_dtypes(include=['object', 'category']).columns.tolist()
-            
+            # Find categorical columns
+            categorical_cols = context.data.select_dtypes(
+                include=["object", "category"]
+            ).columns.tolist()
+
             if not categorical_cols:
-                context.log("No categorical columns found for spelling correction")
+                context.log("No categorical columns found")
                 return context
-            
-            # If specific columns are provided, use them; otherwise process all categorical columns
+
+            # Use specified columns if provided
             target_cols = columns if columns else categorical_cols
-            target_cols = [col for col in target_cols if col in categorical_cols]
-            
+            target_cols = [c for c in target_cols if c in categorical_cols]
+
             if not target_cols:
-                context.log("No valid categorical columns to process")
+                context.log("No valid categorical columns selected")
                 return context
-            
-            corrector = SpellingCorrectorService(max_edit_distance=2, prefix_length=7)
+
+            # Load SymSpell packaged dictionary
+            corrector = SpellingCorrectorService(
+                max_edit_distance=2,
+                prefix_length=7
+            )
+
             corrected_columns = []
-            
+
             for col in target_cols:
                 try:
-                    # Build dictionary from the column itself
-                    corrector.build_dictionary_from_dataframe(
-                        context.data, 
-                        col, 
-                        show_progress=False
+                    # Skip columns that are mostly unique (IDs, names, emails, etc.)
+                    unique_ratio = (
+                        context.data[col].nunique(dropna=True)
+                        / max(len(context.data), 1)
                     )
-                    
-                    # Correct the column
-                    context.data[col] = corrector.correct_dataframe_column(
+
+                    if unique_ratio > 0.9:
+                        context.log(f"Skipping '{col}' (mostly unique values)")
+                        continue
+
+                    original = context.data[col].copy()
+
+                    corrected = corrector.correct_dataframe_column(
                         context.data,
-                        col,
+                        column_name=col,
                         show_progress=False,
                         inplace=False
                     )
-                    
+
+                    context.data[col] = corrected
+
+                    changed = (original != corrected).sum()
+
                     corrected_columns.append(col)
-                    context.log(f"Corrected spelling in column '{col}'")
-                    
-                except Exception as col_error:
-                    context.log(f"Error correcting column '{col}': {col_error}")
-            
+                    context.log(
+                        f"'{col}': corrected {changed} value(s)"
+                    )
+
+                except Exception as e:
+                    context.log(f"Failed to correct '{col}': {e}")
+
             context.metadata["spelling_corrected"] = True
             context.metadata["spelling_corrected_columns"] = corrected_columns
-            context.log(f"Spelling correction completed for {len(corrected_columns)} columns")
-            
+
+            context.log(
+                f"Spelling correction completed for {len(corrected_columns)} columns."
+            )
+
         except Exception as e:
-            context.log(f"Spelling correction failed.")
-            print(f"Spelling correction error: {e}")
+            context.log("Spelling correction failed.")
+            print(e)
             import traceback
             print(traceback.format_exc())
-        
+
         return context
