@@ -9,7 +9,7 @@ from execution_condition import AlwaysFalseCondition, IntentBasedCondition, Alwa
 from parameter_resolver import IntentColumnResolver
 from agents.nlp_agent import NLPAgent
 from agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
-from agents.spelling_corrector_agent import SpellingCorrectorAgent
+# from agents.spelling_corrector_agent import SpellingCorrectorAgent
 from agents.data_standardizing_agent import DataStandardizerAgent
 from agents.duplicate_remover_agent import DuplicateRemoverAgent
 from agents.outliers_agent import OutliersAgent

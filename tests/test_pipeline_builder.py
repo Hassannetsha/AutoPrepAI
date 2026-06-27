@@ -8,7 +8,7 @@ from pipeline_node import PipelineNode
 
 class TestPipelineBuilder:
     EXPECTED_NAMES = [
-        "NLP", "Data Type Inconsistency Handler", "Spelling Corrector",
+        "NLP", "Data Type Inconsistency Handler",
         "Data Standardizer", "Duplicate Remover", "Outlier Remover",
         "Missing Values", "Feature Engineering",
         "Feature Selection", "Scaler", "Encoder"
@@ -17,14 +17,14 @@ class TestPipelineBuilder:
     def test_build_default_pipeline_chat_mode(self):
         pipeline = PipelineBuilder.build_default_pipeline(normalized_mode="chat")
         assert isinstance(pipeline, Pipeline)
-        assert len(pipeline.agents) == 11
+        assert len(pipeline.agents) == 10
         assert pipeline.agents[0].get_agent_name() == "NLP"
         assert pipeline.agents[1].get_agent_name() == "Data Type Inconsistency Handler"
 
     def test_build_default_pipeline_auto_mode(self):
         pipeline = PipelineBuilder.build_default_pipeline(normalized_mode="auto")
         assert isinstance(pipeline, Pipeline)
-        assert len(pipeline.agents) == 11
+        assert len(pipeline.agents) == 10
         assert pipeline.agents[0].get_agent_name() == "NLP"
 
     def test_build_default_pipeline_nlp_condition_auto_mode(self):
@@ -38,12 +38,12 @@ class TestPipelineBuilder:
         assert pipeline.agents[0].should_run(ctx) is True
 
     def test_build_custom_pipeline_all_agents(self):
-        agent_names = ["nlp", "datatype", "spelling", "standardizer",
+        agent_names = ["nlp", "datatype", "standardizer",
                        "duplicate", "outlier", "missing", "feature_engineering",
                        "feature_selection", "scaler", "encoder"]
         pipeline = PipelineBuilder.build_custom_pipeline(agent_names)
         assert isinstance(pipeline, Pipeline)
-        assert len(pipeline.agents) == 11
+        assert len(pipeline.agents) == 10
 
     def test_build_custom_pipeline_subset(self):
         pipeline = PipelineBuilder.build_custom_pipeline(["missing", "scaler", "encoder"])
