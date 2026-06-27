@@ -151,6 +151,13 @@
   color: #c53030;
 }
 
+.datasetInfo .reset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #e2e8f0;
+  color: #a0aec0;
+}
+
 /* ─── Main Area ─────────────────────────────────────── */
 .main {
   flex: 1;

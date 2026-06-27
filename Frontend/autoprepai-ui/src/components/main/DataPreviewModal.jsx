@@ -1,10 +1,11 @@
 import { useState } from "react";
 
-export default function DataPreviewModal({ onClose, data, dataBefore, headers, datasetName }) {
+export default function DataPreviewModal({ onClose, data, dataBefore, headers, headersBefore, datasetName }) {
   const [tab, setTab] = useState("after");
 
   const hasBefore = dataBefore?.length > 0;
   const currentData = tab === "before" ? dataBefore : data;
+  const activeHeaders = tab === "before" && headersBefore?.length ? headersBefore : headers;
   const visibleRows = currentData.slice(0, 50);
 
   if (!hasBefore) {
@@ -77,14 +78,14 @@ export default function DataPreviewModal({ onClose, data, dataBefore, headers, d
             <thead>
               <tr>
                 <th>#</th>
-                {headers.map((h, i) => <th key={i}>{h}</th>)}
+                {activeHeaders.map((h, i) => <th key={i}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {visibleRows.map((row, index) => (
                 <tr key={index}>
                   <td>{index + 1}</td>
-                  {headers.map((h, i) => (
+                  {activeHeaders.map((h, i) => (
                     <td key={i}>
                       {row[h] === "" || row[h] === null || row[h] === undefined ? (
                         <span className="missing">missing</span>

@@ -45,10 +45,10 @@ export default function MainPage() {
   const [rows, setRows] = useState(0);
   const [columns, setColumns] = useState(0);
   const [uploadError, setUploadError] = useState("");
-  const [tableData, setTableData] = useState([]);       // display/preview data (after changes)
-  const [tableDataBefore, setTableDataBefore] = useState([]); // data before changes
-  const [fullTableData, setFullTableData] = useState([]); // full working dataset
+  const [tableData, setTableData] = useState([]);
+  const [tableDataBefore, setTableDataBefore] = useState([]);
   const [headers, setHeaders] = useState([]);
+  const [headersBefore, setHeadersBefore] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
   const [selectedActions, setSelectedActions] = useState([]);
   const [inputValue, setInputValue] = useState("");
@@ -101,10 +101,13 @@ export default function MainPage() {
     }
     if (payload.dataset?.length) {
       const newHeaders = Object.keys(payload.dataset[0]);
+      console.log("Restoring dataset from payload:", payload);
       setHeaders(newHeaders);
+      const beforeData = payload.data_preview_before ?? [];
+      const beforeHeaders = beforeData.length ? Object.keys(beforeData[0]) : newHeaders;
+      setHeadersBefore(beforeHeaders);
       setTableData(payload.dataset);
-      setTableDataBefore(payload.dataset_before ?? []);
-      setFullTableData(payload.dataset ?? payload.dataset);
+      setTableDataBefore(beforeData);
       setRows(payload.shape?.[0] ?? payload.dataset.length);
       setColumns(payload.shape?.[1] ?? newHeaders.length);
       setUploaded(true);
@@ -218,8 +221,8 @@ export default function MainPage() {
       setColumns(0);
       setTableData([]);
       setTableDataBefore([]);
-      setFullTableData([]);
       setHeaders([]);
+      setHeadersBefore([]);
       setUploadError("");
       setSelectedActions([]);
       setCurrentConversationId(null);
@@ -263,8 +266,8 @@ export default function MainPage() {
       setUploaded(false);
       setTableData([]);
       setTableDataBefore([]);
-      setFullTableData([]);
       setHeaders([]);
+      setHeadersBefore([]);
       setDatasetName("");
       setRows(0);
       setColumns(0);
@@ -293,8 +296,8 @@ export default function MainPage() {
     setUploaded(false);
     setTableData([]);
     setTableDataBefore([]);
-    setFullTableData([]);
     setHeaders([]);
+    setHeadersBefore([]);
     setDatasetName("");
     setRows(0);
     setColumns(0);
@@ -505,8 +508,8 @@ export default function MainPage() {
       setRows(parsed.rows);
       setColumns(parsed.columns);
       setTableData(parsed.data);
-      setFullTableData(parsed.data);
       setHeaders(parsed.headers);
+      setHeadersBefore(parsed.headers);
       setUploadError("");
       setUploaded(true);
 
@@ -562,8 +565,8 @@ export default function MainPage() {
     setColumns(0);
     setTableData([]);
     setTableDataBefore([]);
-    setFullTableData([]);
     setHeaders([]);
+    setHeadersBefore([]);
     setUploadError('');
     setSelectedActions([]);
   };
@@ -664,7 +667,7 @@ export default function MainPage() {
         [
           [
             headers.map(escapeCSV).join(","),
-            ...(fullTableData.length ? fullTableData : tableData).map((row) =>
+            ...tableData.map((row) =>
               headers.map((h) => escapeCSV(row[h])).join(",")
             ),
           ].join("\n"),
@@ -688,9 +691,11 @@ export default function MainPage() {
       if (response.result?.dataset?.length) {
         const newHeaders = Object.keys(response.result.dataset[0]);
         setHeaders(newHeaders);
+        const beforeData = response.result.data_preview_before ?? [];
+        const beforeHeaders = beforeData.length ? Object.keys(beforeData[0]) : newHeaders;
+        setHeadersBefore(beforeHeaders);
         setTableData(response.result.dataset);
-        setTableDataBefore(response.result.data_preview_before ?? []);
-        setFullTableData(response.result.dataset);
+        setTableDataBefore(beforeData);
         setRows(response.result.shape?.[0] ?? response.result.dataset.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
@@ -778,8 +783,7 @@ export default function MainPage() {
     try {
       let datasetFile = null;
 
-      const sourceData =
-        fullTableData.length > 0 ? fullTableData : tableData;
+      const sourceData = tableData;
 
       if (sourceData.length > 0 && headers.length > 0) {
         const csvContent = [
@@ -830,9 +834,11 @@ export default function MainPage() {
       if (response.result?.dataset?.length) {
         const newHeaders = Object.keys(response.result.dataset[0]);
         setHeaders(newHeaders);
+        const beforeData = response.result.data_preview_before ?? [];
+        const beforeHeaders = beforeData.length ? Object.keys(beforeData[0]) : newHeaders;
+        setHeadersBefore(beforeHeaders);
         setTableData(response.result.dataset);
-        setTableDataBefore(response.result.data_preview_before ?? []);
-        setFullTableData(response.result.dataset);
+        setTableDataBefore(beforeData);
         setRows(response.result.shape?.[0] ?? response.result.dataset.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
@@ -901,9 +907,11 @@ export default function MainPage() {
       if (response.result?.dataset?.length) {
         const newHeaders = Object.keys(response.result.dataset[0]);
         setHeaders(newHeaders);
+        const beforeData = response.result.data_preview_before ?? [];
+        const beforeHeaders = beforeData.length ? Object.keys(beforeData[0]) : newHeaders;
+        setHeadersBefore(beforeHeaders);
         setTableData(response.result.dataset);
-        setTableDataBefore(response.result.data_preview_before ?? []);
-        setFullTableData(response.result.dataset);
+        setTableDataBefore(beforeData);
         setRows(response.result.shape?.[0] ?? response.result.dataset.length);
         setColumns(response.result.shape?.[1] ?? newHeaders.length);
       }
@@ -958,6 +966,7 @@ export default function MainPage() {
         handleReset={handleReset}
         handleAutoClean={handleAutoClean}
         autoCleanDisabled={!uploaded || isLoadingChat || pendingFeedback}
+        pendingFeedback={pendingFeedback}
       />
 
       <div className="main">
@@ -1001,9 +1010,10 @@ export default function MainPage() {
       {showPreview && (
         <DataPreviewModal
           onClose={() => setShowPreview(false)}
-          data={fullTableData}
+          data={tableData}
           dataBefore={tableDataBefore}
           headers={headers}
+          headersBefore={headersBefore}
           datasetName={datasetName}
         />
       )}

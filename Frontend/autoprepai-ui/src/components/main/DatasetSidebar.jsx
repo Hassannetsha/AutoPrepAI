@@ -24,6 +24,7 @@ export default function DatasetSidebar({
   handleReset,
   handleAutoClean,
   autoCleanDisabled,
+  pendingFeedback,
 }) {
   return (
     <div className="sidebar">
@@ -69,7 +70,7 @@ export default function DatasetSidebar({
           <button onClick={handleShowHistory}>
             <Rows3 size={16} /> Cleaning History
           </button>
-          <button onClick={handleReset} className="reset">
+          <button onClick={handleReset} className="reset" disabled={pendingFeedback}>
             <X size={16} /> Reset Data
           </button>
 
