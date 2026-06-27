@@ -36,9 +36,9 @@ class DataTypeInconsistencyDetector:
     def _analyze_column_parallel(self, series: pd.Series) -> Dict[str, Any]:
         result = {
             'column_name': series.name,
-            'total_rows': len(series),
-            'null_count': series.isna().sum(),
-            'non_null_count': series.notna().sum(),
+            'total_rows': int(len(series)),
+            'null_count': int(series.isna().sum()),
+            'non_null_count': int(series.notna().sum()),
             'declared_dtype': str(series.dtype),
             'detected_types': {},
             'inconsistencies': [],

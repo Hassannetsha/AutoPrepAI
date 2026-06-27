@@ -101,6 +101,23 @@ async def chat(
         conversation = Conversation(title="New Chat", user_id=current_user.id)
         db.add(conversation)
         db.flush()
+        welcome_text = (
+            "Hello! I'm your AutoPrepAI assistant. Upload a dataset to get started.\n\n"
+            "- Fix missing values\n"
+            "- Detect and handle outliers\n"
+            "- Detect and handle duplicates\n"
+            "- Resolve feature inconsistency\n"
+            "- Scale and encode data\n"
+            "- Feature selection with a focus on the target variable\n"
+            "- Features engineering"
+        )
+        db.add(ConversationMessage(
+            conversation_id=conversation.id,
+            role="assistant",
+            content=welcome_text,
+            payload=None,
+        ))
+        db.flush()
 
     if dataset is None:
         raise HTTPException(status_code=400, detail="Dataset is required")
@@ -248,10 +265,12 @@ async def chat(
     ))
     db.commit()
 
+    safe_result = MLPipelineService._to_jsonable(result)  # ← sanitize NaN → None
+
     return ChatResponse(
         conversation_id=conversation.id,
         assistant_message=assistant_message,
-        result=result,
+        result=safe_result,
         finished=finished,
         step_title=session.get("last_executed_step") or "",
     )
@@ -349,10 +368,12 @@ async def chat_feedback(
     ))
     db.commit()
 
+    safe_result = MLPipelineService._to_jsonable(result) 
+
     return ChatResponse(
         conversation_id=conversation_uuid,
         assistant_message=assistant_message,
-        result=result,
+        result=safe_result,
         finished=finished,
         step_title=session.get("last_executed_step") or "",
     )

@@ -21,6 +21,9 @@ if str(REPO_ROOT) not in sys.path:
 from api_key_manager import get_key_manager
 from data_standardization.data_standardizing_service import DataStandardizingService
 from data_standardization.validation_layer import ValidationLayer
+from data_standardization.rate_limiter import RateLimiter
+from data_standardization.groq_llm_client import GroqLLMClient
+from data_standardization.standardization_evaluator import StandardizationEvaluator
 
 
 # ── 1. Load dataset ───────────────────────────────────────────────────────────
@@ -203,7 +206,8 @@ vl.register(
     max_length=50
 )
 
-vl.register("age", min_value=16, max_value=90)
+# ❌ REMOVED: vl.register("age", min_value=16, max_value=90)
+# Numeric outlier rules are no longer processed by this service.
 
 
 # ── 3. Ground truth ───────────────────────────────────────────────────────────
@@ -220,8 +224,6 @@ if not api_key:
 client = Groq(api_key=api_key)
 
 DELTAS = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-# DELTAS = [0.5]
-DETECTION_COLUMNS = ["age", "sex", "occupation", "income", "native_country"]
 NORMALIZATION_COLUMNS = ["sex", "occupation", "income", "native_country"]
 
 
@@ -230,17 +232,26 @@ def run_evaluation(delta: float) -> dict:
     print(f"RUNNING UCI ADULT EVALUATION WITH delta={delta}")
     print("=" * 80)
 
+    # ❌ REMOVED: Duplicate RateLimiter/GroqLLMClient block
+    
+    rate_limiter = RateLimiter(requests_per_minute=20, tokens_per_minute=30_000)
+    llm_client = GroqLLMClient(
+        groq_client=client,
+        model="openai/gpt-oss-120b",
+        rate_limiter=rate_limiter,
+    )
+
     service = DataStandardizingService(
         df=df.copy(),
-        client=client,
-        model="openai/gpt-oss-120b",
+        llm_client=llm_client,
+        validation=vl,
         confidence_threshold=delta,
-        validation_layer=vl,
     )
 
     print("=== Running Standardization ===")
+    
+    # ❌ FIXED: Removed numeric_columns=["age"]
     service.standardize(
-        numeric_columns=["age"],
         categorical_columns=NORMALIZATION_COLUMNS,
     )
 
@@ -251,10 +262,16 @@ def run_evaluation(delta: float) -> dict:
         .to_string(index=False)
     )
 
-    service.summary()
-
     print("\n=== Evaluation ===")
-    eval_results = service.evaluate(GROUND_TRUTH)
+    
+    # ❌ REMOVED: Duplicate StandardizationEvaluator block
+    
+    evaluator = StandardizationEvaluator(
+        original_df=df.copy(),
+        collector=service._collector,
+    )
+    eval_results = evaluator.evaluate(GROUND_TRUTH).to_dict()
+    evaluator.print_report(evaluator.evaluate(GROUND_TRUTH))
 
     return {
         "delta": delta,
@@ -264,12 +281,10 @@ def run_evaluation(delta: float) -> dict:
             ["sex", "occupation", "income", "native_country", "age"]
         ].head(15).to_dict(orient="records"),
         "detection_results": service.results["standardization"],
-        "numeric_invalid": service.results["numeric_issues"],
-        "llm_normalization": service.results.get("llm_normalization", {}),
+        # ❌ FIXED: Removed "numeric_invalid" key (no longer exists in results)
         "validation_log": service.results["validation_log"],
         "evaluation": eval_results,
     }
-
 
 all_outputs = []
 sensitivity_results = []
@@ -295,7 +310,7 @@ sensitivity_df = pd.DataFrame(sensitivity_results)
 print("\n=== THRESHOLD SENSITIVITY SUMMARY ===")
 print(sensitivity_df.to_string(index=False))
 
-with open("uci_adult_threshold_sensitivity.json", "w", encoding="utf-8") as f:
+with open("data_standardization/results/uci_adult_threshold_sensitivity.json", "w", encoding="utf-8") as f:
     json.dump(
         {
             "dataset": "UCI Adult",

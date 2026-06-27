@@ -8,7 +8,6 @@ import copy
 from data_context import DataContext
 from pipeline_node import PipelineNode
 from services.nlp_service import NLPService
-import utilities
 
 class Pipeline:
     """
@@ -203,7 +202,6 @@ class Pipeline:
 
     def _save_execution(
         self, 
-        context: DataContext, 
         user_command: str, 
         result: DataContext
     ) -> None:

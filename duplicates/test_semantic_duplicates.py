@@ -14,8 +14,9 @@ import os
 import re
 import numpy as np
 import pandas as pd
-from semantic_duplicate_remover_service import SemanticDuplicateRemoverService
+from pathlib import Path
 
+from semantic_duplicate_remover_service import SemanticDuplicateRemoverService
 
 # ------------------------------------------------------------------ #
 #  Load WDC gold standard                                             #
@@ -352,6 +353,19 @@ def evaluate_dataset(
 
     # ── Save ───────────────────────────────────────────────────────
     slug = _dataset_slug(dataset_path)
+
+    output_dir = Path("duplicates/results")
+    output_dir.mkdir(exist_ok=True)
+
+    sensitivity_file = output_dir / f"sensitivity_{slug}.csv"
+    comparison_file = output_dir / f"comparison_{slug}.csv"
+
+    df_results.to_csv(sensitivity_file, index=False)
+    full_comparison.to_csv(comparison_file, index=False)
+
+    print(f"\nSaved: {sensitivity_file}")
+    print(f"Saved: {comparison_file}")
+        
     df_results.to_csv(f"sensitivity_{slug}.csv", index=False)
     full_comparison.to_csv(f"comparison_{slug}.csv", index=False)
     print(f"\nSaved: sensitivity_{slug}.csv")
