@@ -168,6 +168,7 @@ export default function MainPage() {
         }
 
         setPendingFeedback(lastAssistant?.payload?.finished === false);
+        setStepTitle(lastAssistant?.payload?.step_title ?? "");
       } catch (error) {
         console.error("Failed to load messages:", error);
         const friendly = cleanError(error.message);
