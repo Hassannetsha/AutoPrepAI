@@ -265,10 +265,12 @@ async def chat(
     ))
     db.commit()
 
+    safe_result = MLPipelineService._to_jsonable(result)  # ← sanitize NaN → None
+
     return ChatResponse(
         conversation_id=conversation.id,
         assistant_message=assistant_message,
-        result=result,
+        result=safe_result,
         finished=finished,
         step_title=session.get("last_executed_step") or "",
     )
@@ -366,10 +368,12 @@ async def chat_feedback(
     ))
     db.commit()
 
+    safe_result = MLPipelineService._to_jsonable(result) 
+
     return ChatResponse(
         conversation_id=conversation_uuid,
         assistant_message=assistant_message,
-        result=result,
+        result=safe_result,
         finished=finished,
         step_title=session.get("last_executed_step") or "",
     )

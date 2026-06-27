@@ -146,6 +146,12 @@ class MLPipelineService:
         return pd.read_csv(io.BytesIO(raw))
     @staticmethod
     def _to_jsonable(value):
+        try: 
+            if pd.isna(value):
+                return None
+        except Exception:
+            pass
+
         if isinstance(value, dict):
             return {str(k): MLPipelineService._to_jsonable(v) for k, v in value.items()}
 
