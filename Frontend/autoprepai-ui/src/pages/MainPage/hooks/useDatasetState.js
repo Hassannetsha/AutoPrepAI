@@ -12,6 +12,7 @@ export function useDatasetState() {
   const [headers, setHeaders] = useState([]);
   const [headersBefore, setHeadersBefore] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [originalExtension, setOriginalExtension] = useState(".csv");
   const fileInputRef = useRef(null);
 
   const handleUploadClick = () => fileInputRef.current?.click();
@@ -20,6 +21,8 @@ export function useDatasetState() {
     if (!payload) return;
     if (payload.dataset_name) {
       setDatasetName(payload.dataset_name);
+      const ext = payload.dataset_name.match(/\.\w+$/)?.[0]?.toLowerCase() || ".csv";
+      setOriginalExtension(ext);
     }
     if (payload.dataset?.length) {
       const newHeaders = Object.keys(payload.dataset[0]);
@@ -47,6 +50,7 @@ export function useDatasetState() {
     setHeaders([]);
     setHeadersBefore([]);
     setUploadError("");
+    setOriginalExtension(".csv");
   };
 
   const csvFileName = datasetName
@@ -66,6 +70,7 @@ export function useDatasetState() {
     headers, setHeaders,
     headersBefore, setHeadersBefore,
     showPreview, setShowPreview,
+    originalExtension, setOriginalExtension,
     fileInputRef,
     handleUploadClick,
     handleReset,

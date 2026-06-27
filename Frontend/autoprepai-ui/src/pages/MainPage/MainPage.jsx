@@ -21,6 +21,7 @@ import {
 import { getAuthToken } from "../../api/auth";
 import { ACTION_TO_INTENT, ACTIONS, INITIAL_BOT_MESSAGE, ALLOWED_MIME_TYPES } from "./constants";
 import { parseCSV, parseXLSX } from "./utils/fileParsers";
+import * as XLSX from "xlsx";
 import { cleanError, escapeCSV } from "./utils/helpers";
 import { useChatManager } from "./hooks/useChatManager";
 import { useDatasetState } from "./hooks/useDatasetState";
@@ -40,10 +41,22 @@ export default function MainPage() {
     tableData, setTableData, tableDataBefore, setTableDataBefore,
     headers, setHeaders, headersBefore, setHeadersBefore,
     showPreview, setShowPreview,
+    originalExtension, setOriginalExtension,
     fileInputRef, handleUploadClick, handleReset,
     restoreDatasetFromPayload,
-    csvFileName, DatasetIcon,
+    DatasetIcon,
   } = useDatasetState();
+
+  const handleResetWithBackend = async () => {
+    if (currentConversationId && tableDataBefore.length > 0) {
+      try {
+        await sendFeedback({ conversationId: currentConversationId, accept: false });
+      } catch {
+        // backend session may not exist — still reset frontend
+      }
+    }
+    handleReset();
+  };
 
   const [selectedActions, setSelectedActions] = useState([]);
   const [inputValue, setInputValue] = useState("");
@@ -97,6 +110,8 @@ export default function MainPage() {
 
         if (uploadMessage?.payload?.dataset_name) {
           setDatasetName(uploadMessage.payload.dataset_name);
+          const ext = uploadMessage.payload.dataset_name.match(/\.\w+$/)?.[0]?.toLowerCase() || ".csv";
+          setOriginalExtension(ext);
         }
 
         const lastAssistant = [...data.messages]
@@ -120,7 +135,7 @@ export default function MainPage() {
         }
       }
     },
-    [restoreDatasetFromPayload, setChats, setDatasetName]
+    [restoreDatasetFromPayload, setChats, setDatasetName, setOriginalExtension]
   );
 
   // ─── Load all conversations on mount ─────────────────────────────────────────
@@ -196,10 +211,11 @@ export default function MainPage() {
       setDatasetName("");
       setRows(0);
       setColumns(0);
+      setOriginalExtension(".csv");
       setPendingFeedback(false);
       await loadChatMessages(chatId);
     },
-    [loadChatMessages, setActiveChatId, setCurrentConversationId, setUploaded, setTableData, setTableDataBefore, setHeaders, setHeadersBefore, setDatasetName, setRows, setColumns]
+    [loadChatMessages, setActiveChatId, setCurrentConversationId, setUploaded, setTableData, setTableDataBefore, setHeaders, setHeadersBefore, setDatasetName, setRows, setColumns, setOriginalExtension]
   );
 
   // ─── New chat ─────────────────────────────────────────────────────────────────
@@ -226,6 +242,7 @@ export default function MainPage() {
     setDatasetName("");
     setRows(0);
     setColumns(0);
+    setOriginalExtension(".csv");
     setSelectedActions([]);
     setChatError("");
     setPendingFeedback(false);
@@ -281,6 +298,12 @@ export default function MainPage() {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
+    if (!getAuthToken()) {
+      setUploadError("You must be logged in to upload files. Please log in first.");
+      event.target.value = "";
+      return;
+    }
+
     const fileName = selectedFile.name.toLowerCase();
     const isCSV = fileName.endsWith(".csv");
     const isXLSX = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
@@ -294,6 +317,8 @@ export default function MainPage() {
       event.target.value = "";
       return;
     }
+
+    setOriginalExtension(isXLSX ? (fileName.endsWith(".xls") ? ".xls" : ".xlsx") : ".csv");
 
     const thisChatId = activeChatId;
     const thisConvId = currentConversationId;
@@ -359,18 +384,41 @@ export default function MainPage() {
   };
 
   // ─── Download current table as CSV ────────────────────────────────────────────
+  const hasDownloadUrl = activeChat?.messages?.some((m) => m.downloadUrl) ?? false;
+
   const handleDownload = () => {
     const lastWithDownload = activeChat.messages
       .slice()
       .reverse()
       .find((m) => m.downloadUrl);
 
-    if (!lastWithDownload) {
-      console.error("No download URL found");
-      return;
-    }
+    if (!lastWithDownload) return;
 
     window.open(lastWithDownload.downloadUrl, "_blank");
+  };
+
+  // ─── Reconstruct dataset file preserving original format ──────────────────────
+  const reconstructDatasetFile = (hdrs, data, ext) => {
+    const csvContent = [
+      hdrs.map(escapeCSV).join(","),
+      ...data.map((row) => hdrs.map((h) => escapeCSV(row[h])).join(",")),
+    ].join("\n");
+
+    const isExcel = ext === ".xlsx" || ext === ".xls";
+    const baseName = datasetName ? datasetName.replace(/\.\w+$/, "") : "data";
+    const fileName = `${baseName}${isExcel ? ".xlsx" : ".csv"}`;
+
+    if (isExcel) {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+      const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      return new File([wbout], fileName, {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+    }
+
+    return new File([csvContent], fileName, { type: "text/csv" });
   };
 
   // ─── History ──────────────────────────────────────────────────────────────────
@@ -440,18 +488,7 @@ export default function MainPage() {
     );
 
     try {
-      const file = new File(
-        [
-          [
-            headers.map(escapeCSV).join(","),
-            ...tableData.map((row) =>
-              headers.map((h) => escapeCSV(row[h])).join(",")
-            ),
-          ].join("\n"),
-        ],
-        csvFileName,
-        { type: "text/csv" }
-      );
+      const file = reconstructDatasetFile(headers, tableData, originalExtension);
 
       const response = await sendChatMessage({
         message: "🤖 Auto-clean my dataset",
@@ -561,14 +598,7 @@ export default function MainPage() {
       const sourceData = tableData;
 
       if (sourceData.length > 0 && headers.length > 0) {
-        const csvContent = [
-          headers.map(escapeCSV).join(","),
-          ...sourceData.map((row) =>
-            headers.map((h) => escapeCSV(row[h])).join(",")
-          ),
-        ].join("\n");
-
-        datasetFile = new File([csvContent], csvFileName, { type: "text/csv" });
+        datasetFile = reconstructDatasetFile(headers, sourceData, originalExtension);
       }
 
       const backendMessage =`${messageText}\n\nPlease apply these actions: ${selectedActions.join(", ")}`
@@ -730,8 +760,9 @@ export default function MainPage() {
         columns={columns}
         setShowPreview={setShowPreview}
         handleDownload={handleDownload}
+        hasDownloadUrl={hasDownloadUrl}
         handleShowHistory={handleShowHistory}
-        handleReset={handleReset}
+        handleReset={handleResetWithBackend}
         handleAutoClean={handleAutoClean}
         autoCleanDisabled={!uploaded || isLoadingChat || pendingFeedback}
         pendingFeedback={pendingFeedback}
