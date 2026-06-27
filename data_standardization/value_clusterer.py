@@ -45,6 +45,10 @@ def _strip(s: str) -> str:
     s = unicodedata.normalize("NFKC", s).lower().strip()
     return re.sub(r"[^a-z0-9<>=]+", "", s)
 
+def _abbreviation(text):
+    words = re.findall(r"[A-Za-z]+", text)
+    return "".join(word[0] for word in words).lower()
+
 
 # Safe similarity
 
@@ -80,6 +84,11 @@ def safe_similar(a: str, b: str, threshold: float = 0.35) -> bool:
     if longer.startswith(shorter) and shorter[0] == longer[0]:
         if len(shorter) == 1 or len(shorter) / len(longer) >= 0.5:
             return True
+        
+    # Rule 2.5 — multi-word abbreviation
+    if a_s == _abbreviation(b) or b_s == _abbreviation(a):
+        return True
+
 
     # Rule 3 — edit distance
     dist = Levenshtein.distance(a_s, b_s)
@@ -148,6 +157,10 @@ def _is_surface_variant(variant: str, canonical: str) -> bool:
 
     # Short prefix: e.g. 'mal' -> 'male'
     if c_s.startswith(v_s) and v_s[0] == c_s[0] and len(v_s) / max(len(c_s), 1) >= 0.5:
+        return True
+    
+    # Multi-word abbreviation
+    if v_s == _abbreviation(canonical) or c_s == _abbreviation(variant):
         return True
 
     return False
