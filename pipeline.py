@@ -85,7 +85,7 @@ class Pipeline:
         self.logger.info("Pipeline execution completed")
         # Save execution if session manager is available
         if self.check_no_agents_left_to_run(context) and self.session_manager and user_command:
-            self._save_execution(context, user_command, context)
+            self._save_execution(user_command, context)
         
         self.logger.info("Pipeline execution completed")
         done = self.check_no_agents_left_to_run(context)
@@ -124,7 +124,7 @@ class Pipeline:
         
         # Save execution if session manager is available
         if self.session_manager and user_command:
-            self._save_execution(context, user_command, context)
+            self._save_execution(user_command, context)
         
         self.logger.info("Pipeline execution completed")
         return context
