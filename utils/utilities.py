@@ -19,4 +19,5 @@ sessions = {}
 #     "context": None
 #     "last_executed_step":None
 #     "file_extension":".csv"
+#     "original_filename": "data.csv",
 # }

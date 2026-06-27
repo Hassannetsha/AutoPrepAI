@@ -12,15 +12,18 @@ def get_b2_client():
         config=Config(signature_version="s3v4")
     )
 
-def upload_file_to_b2(file_bytes: bytes, key: str, content_type= "text/csv") -> str:
+def upload_file_to_b2(file_bytes: bytes, key: str, content_type= "text/csv", content_disposition: str | None = None) -> str:
     """Upload bytes to B2 and return the object key."""
     client = get_b2_client()
-    client.put_object(
-        Bucket=B2_BUCKET_NAME,
-        Key=key,
-        Body=file_bytes,
-        ContentType=content_type
-    )
+    kwargs = {
+        "Bucket": B2_BUCKET_NAME,
+        "Key": key,
+        "Body": file_bytes,
+        "ContentType": content_type,
+    }
+    if content_disposition:
+        kwargs["ContentDisposition"] = content_disposition
+    client.put_object(**kwargs)
     return key
 
 def generate_download_url(key: str, expires_in: int = 3600) -> str:

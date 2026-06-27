@@ -235,7 +235,7 @@ class MLPipelineService:
         return  effective_command
 
     @staticmethod
-    def session_builder(conversation_id: str, normalized_mode: str, file_extension: str = ".csv") -> dict:
+    def session_builder(conversation_id: str, normalized_mode: str, file_extension: str = ".csv", original_filename: str = "data.csv") -> dict:
         return {
             "pipeline": PipelineBuilder.build_default_pipeline(normalized_mode),
             "dataset_before": None,
@@ -247,6 +247,7 @@ class MLPipelineService:
             "result": None,
             "last_executed_step": None,
             "file_extension": file_extension,
+            "original_filename": original_filename,
         }
     @staticmethod
     def check_no_agents_left_to_run(dataset_df: pd.DataFrame, session: dict, pipeline: "Pipeline") -> bool:
@@ -406,7 +407,8 @@ class MLPipelineService:
         print(f"[DEBUG] In line 371")
         output_file = MLPipelineService.save_processed_dataframe(
             final_context.data, conversation_id,
-            file_extension=session.get("file_extension", ".csv")
+            file_extension=session.get("file_extension", ".csv"),
+            original_filename=session.get("original_filename")
         )
 
         result = {
@@ -443,10 +445,11 @@ class MLPipelineService:
         
         session["output_file"] = MLPipelineService.save_processed_dataframe(
             dataframe, conversation_id,
-            file_extension=session.get("file_extension", ".csv")
+            file_extension=session.get("file_extension", ".csv"),
+            original_filename=session.get("original_filename")
         )
     @classmethod
-    def save_processed_dataframe(cls, dataframe: pd.DataFrame, conversation_id: str, file_extension: str = ".csv") -> str:
+    def save_processed_dataframe(cls, dataframe: pd.DataFrame, conversation_id: str, file_extension: str = ".csv", original_filename: str | None = None) -> str:
         from utils.excel_utils import save_dataframe_to_bytes
 
         stem = uuid.uuid4().hex
@@ -459,7 +462,10 @@ class MLPipelineService:
             data_bytes = dataframe.to_csv(index=False).encode("utf-8")
             content_type = "text/csv"
 
-        upload_file_to_b2(data_bytes, key=key, content_type=content_type)
+        cleaned_name = f"cleaned_{original_filename}" if original_filename else output_filename
+        content_disposition = f'attachment; filename="{cleaned_name}"'
+
+        upload_file_to_b2(data_bytes, key=key, content_type=content_type, content_disposition=content_disposition)
         return key
 
     @staticmethod

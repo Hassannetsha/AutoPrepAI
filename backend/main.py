@@ -207,9 +207,12 @@ async def chat(
     print(f"{conversation.id}: Starting processing with mode={mode}, selected_intents={parsed_selected_intents}")
     # utilities.sessions.setdefault(str(conversation.id), MLPipelineService.session_builder(conversation.id))["dataset_before"] = dataset_df.copy()
     orig_ext = Path(dataset.filename).suffix if dataset.filename else ".csv"
+    orig_name = dataset.filename or f"data{orig_ext}"
     existing_session = utilities.sessions.get(str(conversation.id))
     if existing_session is None or existing_session.get("finished", False):
-        utilities.sessions[str(conversation.id)] = MLPipelineService.session_builder(str(conversation.id), mode, file_extension=orig_ext)
+        utilities.sessions[str(conversation.id)] = MLPipelineService.session_builder(
+            str(conversation.id), mode, file_extension=orig_ext, original_filename=orig_name
+        )
     utilities.sessions[str(conversation.id)]["dataset_before"] = dataset_df.copy()
     #this will route to the new endpoint for manual and chat modes where the frontend will handle the step by step execution and user feedback
     # and take the part of manual in the function process message as there will be no user input
@@ -337,7 +340,8 @@ async def chat_feedback(
         result["logs"] = session["previous_logs"].copy()
         result["output_file"] = MLPipelineService.save_processed_dataframe(
             dataset_df, str(conversation_uuid),
-            file_extension=session.get("file_extension", ".csv")
+            file_extension=session.get("file_extension", ".csv"),
+            original_filename=session.get("original_filename")
         )
         utilities.sessions.pop(str(conversation_uuid), None)
         # session = utilities.sessions.get(str(conversation_uuid))
