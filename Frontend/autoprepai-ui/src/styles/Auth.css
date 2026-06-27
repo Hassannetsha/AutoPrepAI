@@ -278,7 +278,7 @@
   padding: 10px 8px 10px 12px;
   cursor: pointer;
   border-right: 1.5px solid #e5e7eb;
-  user-select: none;
+  /* user-select: none; */
   white-space: nowrap;
   flex-shrink: 0;
 }
