@@ -63,7 +63,7 @@ export default function DatasetSidebar({
             <Eye size={16} /> Preview Data
           </button>
 
-          <button onClick={handleDownload}>
+          <button onClick={handleDownload} className="download" disabled={pendingFeedback}>
             <Download size={16} /> Download Cleaned Data
           </button>
 

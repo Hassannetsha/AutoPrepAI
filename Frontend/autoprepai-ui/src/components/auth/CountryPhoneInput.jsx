@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const EGYPT = { code: "EG", name: "Egypt", dial: "20" };
+// const EGYPT = { code: "EG", name: "Egypt", dial: "20" };
 
 function parsePhone(value) {
   if (!value) return { dial: "20", number: "" };
