@@ -14,7 +14,7 @@ from pipeline_builder import PipelineBuilder
 from pipeline import Pipeline
 
 from backend.b2_service import upload_file_to_b2
-import utilities
+import utils.utilities as utilities
 
 from utils.excel_utils import read_excel_clean
 # _cached_pipeline = None
@@ -235,7 +235,7 @@ class MLPipelineService:
         return  effective_command
 
     @staticmethod
-    def session_builder(conversation_id: str,normalized_mode: str) -> dict:
+    def session_builder(conversation_id: str, normalized_mode: str, file_extension: str = ".csv") -> dict:
         return {
             "pipeline": PipelineBuilder.build_default_pipeline(normalized_mode),
             "dataset_before": None,
@@ -246,6 +246,7 @@ class MLPipelineService:
             "mode": normalized_mode,
             "result": None,
             "last_executed_step": None,
+            "file_extension": file_extension,
         }
     @staticmethod
     def check_no_agents_left_to_run(dataset_df: pd.DataFrame, session: dict, pipeline: "Pipeline") -> bool:
@@ -404,7 +405,8 @@ class MLPipelineService:
                 )
         print(f"[DEBUG] In line 371")
         output_file = MLPipelineService.save_processed_dataframe(
-            final_context.data, conversation_id
+            final_context.data, conversation_id,
+            file_extension=session.get("file_extension", ".csv")
         )
 
         result = {
@@ -440,14 +442,25 @@ class MLPipelineService:
             raise ValueError("Conversation session not found")
         
         session["output_file"] = MLPipelineService.save_processed_dataframe(
-            dataframe, conversation_id
+            dataframe, conversation_id,
+            file_extension=session.get("file_extension", ".csv")
         )
     @classmethod
-    def save_processed_dataframe(cls, dataframe: pd.DataFrame, conversation_id: str) -> str:
-        filename = f"processed/{conversation_id}/{uuid.uuid4().hex}.csv"
-        csv_bytes = dataframe.to_csv(index=False).encode("utf-8")
-        upload_file_to_b2(csv_bytes, key=filename, content_type="text/csv")
-        return filename
+    def save_processed_dataframe(cls, dataframe: pd.DataFrame, conversation_id: str, file_extension: str = ".csv") -> str:
+        from utils.excel_utils import save_dataframe_to_bytes
+
+        stem = uuid.uuid4().hex
+        output_filename = f"{stem}{file_extension}"
+        key = f"processed/{conversation_id}/{output_filename}"
+
+        if file_extension.lower() in (".xlsx", ".xls"):
+            data_bytes, content_type, _ = save_dataframe_to_bytes(dataframe, output_filename)
+        else:
+            data_bytes = dataframe.to_csv(index=False).encode("utf-8")
+            content_type = "text/csv"
+
+        upload_file_to_b2(data_bytes, key=key, content_type=content_type)
+        return key
 
     @staticmethod
     def _build_assistant_message(result: dict) -> str:

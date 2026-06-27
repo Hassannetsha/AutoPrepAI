@@ -6,6 +6,25 @@ import datetime as _datetime
 import pandas as pd
 
 
+def save_dataframe_to_bytes(df: pd.DataFrame, filename: str = "data") -> tuple[bytes, str, str]:
+    """
+    Save a DataFrame to CSV or Excel bytes based on the filename extension.
+    
+    Returns:
+        (bytes, content_type, output_filename)
+    """
+    if filename.lower().endswith((".xlsx", ".xls")):
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Data")
+        return buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename
+    else:
+        csv_bytes = df.to_csv(index=False).encode("utf-8")
+        ext = Path(filename).suffix if Path(filename).suffix else ".csv"
+        name = Path(filename).stem if Path(filename).suffix else filename
+        return csv_bytes, "text/csv", f"{name}{ext}"
+
+
 def read_excel_clean(file_source: str | Path | bytes | io.BytesIO, engine: str | None = None) -> pd.DataFrame:
     """Read an Excel file, auto-detect and remove unnecessary top rows and empty
     left columns, and return a clean DataFrame.

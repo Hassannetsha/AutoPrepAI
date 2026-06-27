@@ -18,4 +18,5 @@ sessions = {}
 #     "agents": []
 #     "context": None
 #     "last_executed_step":None
+#     "file_extension":".csv"
 # }

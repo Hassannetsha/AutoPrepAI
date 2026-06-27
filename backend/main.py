@@ -2,6 +2,7 @@ import copy
 import json
 import uuid
 import time
+from pathlib import Path
 
 from contextlib import asynccontextmanager
 
@@ -22,7 +23,7 @@ from backend.Routes import conversations
 
 from backend.b2_service import upload_file_to_b2, generate_download_url
 from fastapi.responses import FileResponse, RedirectResponse
-import utilities
+import utils.utilities as utilities
 
 
 @asynccontextmanager
@@ -205,9 +206,10 @@ async def chat(
     mode = MLPipelineService._normalize_mode(mode)
     print(f"{conversation.id}: Starting processing with mode={mode}, selected_intents={parsed_selected_intents}")
     # utilities.sessions.setdefault(str(conversation.id), MLPipelineService.session_builder(conversation.id))["dataset_before"] = dataset_df.copy()
+    orig_ext = Path(dataset.filename).suffix if dataset.filename else ".csv"
     existing_session = utilities.sessions.get(str(conversation.id))
     if existing_session is None or existing_session.get("finished", False):
-        utilities.sessions[str(conversation.id)] = MLPipelineService.session_builder(str(conversation.id),mode)
+        utilities.sessions[str(conversation.id)] = MLPipelineService.session_builder(str(conversation.id), mode, file_extension=orig_ext)
     utilities.sessions[str(conversation.id)]["dataset_before"] = dataset_df.copy()
     #this will route to the new endpoint for manual and chat modes where the frontend will handle the step by step execution and user feedback
     # and take the part of manual in the function process message as there will be no user input
@@ -334,9 +336,9 @@ async def chat_feedback(
             result["shape"] = (int(dataset_df.shape[0]), int(dataset_df.shape[1]))
         result["logs"] = session["previous_logs"].copy()
         result["output_file"] = MLPipelineService.save_processed_dataframe(
-            dataset_df, str(conversation_uuid)
+            dataset_df, str(conversation_uuid),
+            file_extension=session.get("file_extension", ".csv")
         )
-        # output_key = 
         utilities.sessions.pop(str(conversation_uuid), None)
         # session = utilities.sessions.get(str(conversation_uuid))
         # print(f"Session after pop: {utilities.sessions.get(str(conversation_uuid))}")

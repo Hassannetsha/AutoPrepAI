@@ -13,7 +13,7 @@ router = APIRouter()
 PASSWORD_REGEX = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#_-])[A-Za-z\d@$!%*?&.#_-]{8,}$"
 @router.post("/logout")
 def logout(current_user=Depends(dependencies.get_current_user)):
-    import utilities
+    import utils.utilities as utilities
     db = SessionLocal()
     try:
         user_conversations = db.query(Conversation).filter(
