@@ -156,29 +156,28 @@ class NLPService:
     class ClassifyIntent(dspy.Signature):
         """Classify the data preprocessing intent from a task description.
 
-        CRITICAL DISAMBIGUATION RULES:
-        - "standardize" or "standardize data" = standardize_data (format categorical/text values like names, dates, categories). NEVER scale_numerical.
-        - "scale" or "scale numerical" = scale_numerical (transform numeric values to a range). NEVER standardize_data.
-        - If the task says "standardize" without mentioning "numerical", "numeric", "scale", it is ALWAYS standardize_data.
+        CRITICAL DISAMBIGUATION:
+        - "standardize the data" / "standardize" / "make data standardized" = standardize_data (unify CATEGORICAL/TEXT values like names, department codes, date formats, city names). This is about TEXT/CATEGORICAL consistency. NEVER scale_numerical.
+        - "scale the data" / "scale numerical" / "normalize numeric" = scale_numerical (transform NUMBERS to a range via StandardScaler, MinMax, z-score). This is about NUMERICAL transformation. NEVER standardize_data.
 
         Available intents:
         - handle_missing_values: Fill, impute, or handle missing/null/NaN values
         - detect_outliers / remove_outliers: Identify and remove outliers, anomalies, or extreme values
         - keep_outliers: Preserve or keep outliers in the data
         - remove_duplicates: Remove duplicate rows or entries
-        - encode_categorical: Convert categorical/text columns to numeric
+        - encode_categorical: Convert categorical/text columns to numeric via one-hot, label, or frequency encoding
         - feature_selection / select_features: Select important features or columns for modeling
         - fix_data_types / remove_inconsistencies: Detect and resolve inconsistent types (dates, numbers, booleans)
         - correct_spelling: Fix spelling errors in categorical/text columns
-        - standardize_data: Unify categorical/text values to consistent formats (naming conventions, date formats, categories, labels).
-        - scale_numerical: Scale/rescale numerical columns to a common range (standard, minmax, robust).
-        - feature_engineering / suggest_features: Suggest and/or apply new derived features
+        - standardize_data: Standardize CATEGORICAL/TEXT values to consistent formats — e.g., 'HR'→'Human Resources', 'NY'→'New York', 'Jan'→'January'. For unifying inconsistent text entries across rows. This is NOT for numerical scaling.
+        - scale_numerical: Scale NUMERICAL columns to a common range (StandardScaler, MinMax, RobustScaler, z-score). For transforming numbers. This is NOT for standardizing text/categorical data.
+        - feature_engineering / suggest_features: Suggest and/or apply new derived features from existing data
         - unknown_intent: Any request that is NOT about data preprocessing — e.g. cooking, cleaning the house, playing games, weather, jokes, general chat, or anything unrelated to cleaning or transforming a dataset.
           WARNING: Just because a request contains the word "clean", "top", "fix", "prepare", or "handle" does NOT make it data preprocessing.
           Words like "clean the top", "clean my room", "clean the table", "wash the dishes", "fix the car", "cook dinner", "play music", "weather today" are NOT data preprocessing — classify them as unknown_intent.
         """
         task = dspy.InputField(desc="A single preprocessing task description")
-        intent = dspy.OutputField(desc="The intent category (must be one of: handle_missing_values, detect_outliers, remove_outliers, keep_outliers, remove_duplicates, encode_categorical, feature_selection, select_features, fix_data_types, remove_inconsistencies, correct_spelling, standardize_data, scale_numerical, feature_engineering, suggest_features, unknown_intent). IMPORTANT: 'standardize' or 'standardize data' = standardize_data (categorical formatting), NOT scale_numerical.")
+        intent = dspy.OutputField(desc="The intent category (must be one of: handle_missing_values, detect_outliers, remove_outliers, keep_outliers, remove_duplicates, encode_categorical, feature_selection, select_features, fix_data_types, remove_inconsistencies, correct_spelling, standardize_data, scale_numerical, feature_engineering, suggest_features, unknown_intent). REMEMBER: 'standardize data' = standardize_data (CATEGORICAL formatting), 'scale data' = scale_numerical (NUMERICAL transformation).")
         confidence = dspy.OutputField(desc="Confidence score between 0.0 and 1.0")
         reasoning = dspy.OutputField(desc="Brief explanation for the classification")
 
@@ -203,6 +202,33 @@ class NLPService:
     class OptimizedIntentPipeline(dspy.Module):
         """Intent understanding pipeline with few-shot learning from training data"""
 
+        # Keyword-based classification — checked BEFORE DSPy for speed & reliability.
+        # Each key has substrings; if ANY match the task (lowered), the intent is returned directly.
+        INTENT_KEYWORDS = {
+            "handle_missing_values": ["missing", "null value", "nan", "imput", "fill na", "fill null", "empty value"],
+            "detect_outliers":       ["detect outlier", "find outlier", "identify outlier", "detect anomaly", "find anomaly", "anomali"],
+            "remove_outliers":       ["remove outlier", "delete outlier", "eliminate outlier", "drop outlier", "remove extreme", "delete extreme"],
+            "keep_outliers":         ["keep outlier", "preserve outlier", "retain outlier", "don't remove outlier", "don't delete outlier", "save outlier"],
+            "remove_duplicates":     ["remove duplicate", "delete duplicate", "drop duplicate", "deduplicat", "remove repeated", "duplicate row"],
+            "encode_categorical":    ["encode categorical", "encode category", "encode column", "dummy variable", "one-hot", "one hot", "label encode", "categorical encode"],
+            "feature_selection":     ["feature select", "select feature", "select important", "choose feature", "select relevant", "most important feature", "top feature"],
+            "fix_data_types":        ["fix data type", "fix type", "data type convers", "type mismatch", "correct type", "type correct", "remove inconsist", "inconsist"],
+            "correct_spelling":      ["spelling", "misspell", "typo", "correct spell", "spell check", "fix spell"],
+            "scale_numerical":       ["scale the ", "scale all ", "scale every ", "scale numeric",
+                                      "scale column", "scale age", "scale income", "scale salary",
+                                      "scale price", "scale rating", "scale year", "scaler agent",
+                                      "use scaler", "use the scaler", "run scaler", "apply scaler",
+                                      "normalize numeric", "normalize numerical", "normalize continuous",
+                                      "z-score", "minmax", "min-max", "standard scaler",
+                                      "rescale", "transform numeric", "transform numerical"],
+            "standardize_data":      ["standardiz", "standariz", "stnadardiz", "stabdariz", "stdize",
+                                      "homogeniz", "harmoniz", "categorical standard", "clean up value",
+                                      "clean up text", "string standard"],
+            "feature_engineering":   ["feature engineer", "engineer feature", "create new feature",
+                                      "generate feature", "suggest feature", "suggest new feature",
+                                      "derive feature", "new column from", "new features"],
+        }
+
         def __init__(self, training_examples=None):
             super().__init__()
             self.split_tasks = dspy.ChainOfThought(NLPService.SplitIntoTasks)
@@ -214,116 +240,64 @@ class NLPService:
             if training_examples is not None and len(training_examples) > 0:
                 self._setup_few_shot_examples(training_examples)
 
+        def _keyword_classify(self, task: str):
+            """Check task against INTENT_KEYWORDS; return intent if matched, else None."""
+            task_lower = task.lower().strip()
+            for intent, keywords in self.INTENT_KEYWORDS.items():
+                for kw in keywords:
+                    if kw in task_lower:
+                        return intent
+            return None
+
         def _setup_few_shot_examples(self, examples: pd.DataFrame):
-            """Setup few-shot examples for better classification and parameter extraction."""
-            # ── ClassifyIntent demos ────────────────────────────────────────
-            classify_demos = []
-            if len(examples) > 0:
-                # Get 3-5 examples per intent for few-shot learning
-                for intent in examples['intent'].unique():
-                    intent_examples = examples[examples['intent'] == intent].sample(
-                        min(5, len(examples[examples['intent'] == intent]))
-                    )
-                    for _, row in intent_examples.iterrows():
-                        classify_demos.append(
-                            dspy.Example(
-                                task=row['prompt'],
-                                intent=row['intent'],
-                                confidence="0.95",
-                                reasoning=f"This clearly describes {row['intent'].replace('_', ' ')}"
-                            ).with_inputs('task')
-                        )
-            if classify_demos:
-                # Keep 2 per intent to ensure all intents (including unknown_intent) are represented
-                per_intent = 2
-                limited = []
-                for intent in examples['intent'].unique():
-                    count = 0
-                    for demo in classify_demos:
-                        if demo.intent == intent and count < per_intent:
-                            limited.append(demo)
-                            count += 1
-                # Add explicit disambiguation examples for standardize vs scale
-                disambiguate_demos = [
-                    dspy.Example(
-                        task="standardize the data",
-                        intent="standardize_data",
-                        confidence="0.98",
-                        reasoning="Standardizing data means unifying categorical/text formats, not numerical scaling"
-                    ).with_inputs('task'),
-                    dspy.Example(
-                        task="standardize",
-                        intent="standardize_data",
-                        confidence="0.98",
-                        reasoning="Standardize refers to formatting categorical/text values consistently across the dataset"
-                    ).with_inputs('task'),
-                ]
-                limited = disambiguate_demos + limited
-                # Prepend hard-coded unknown_intent examples to disambiguate ambiguous words
-                # (most ambiguous ones first so DSPy sees them first)
-                unknown_demos = [
-                    dspy.Example(
-                        task="clean the head",
-                        intent="unknown_intent",
-                        confidence="0.98",
-                        reasoning="This is about washing one's head/hair, not data cleaning. 'head' here is a body part, not a CSV header"
-                    ).with_inputs('task'),
-                    dspy.Example(
-                        task="clean the top for me please",
-                        intent="unknown_intent",
-                        confidence="0.98",
-                        reasoning="This is about cleaning a physical table top, not data cleaning"
-                    ).with_inputs('task'),
-                    dspy.Example(
-                        task="clean the floor",
-                        intent="unknown_intent",
-                        confidence="0.98",
-                        reasoning="This is about sweeping/mopping a physical floor, not data cleaning"
-                    ).with_inputs('task'),
-                    dspy.Example(
-                        task="clean my room",
-                        intent="unknown_intent",
-                        confidence="0.98",
-                        reasoning="This is about tidying a physical room, not a dataset"
-                    ).with_inputs('task'),
-                    dspy.Example(
-                        task="clean the car",
-                        intent="unknown_intent",
-                        confidence="0.98",
-                        reasoning="This is about washing a vehicle, not data cleaning"
-                    ).with_inputs('task'),
-                    dspy.Example(
-                        task="clean the kitchen",
-                        intent="unknown_intent",
-                        confidence="0.98",
-                        reasoning="This is about cleaning a physical kitchen, not data preprocessing"
-                    ).with_inputs('task'),
-                    dspy.Example(
-                        task="organize my room",
-                        intent="unknown_intent",
-                        confidence="0.98",
-                        reasoning="This is about organizing a physical room, not data"
-                    ).with_inputs('task'),
-                    dspy.Example(
-                        task="prepare lunch",
-                        intent="unknown_intent",
-                        confidence="0.98",
-                        reasoning="This is about cooking food, not data preparation"
-                    ).with_inputs('task'),
-                    dspy.Example(
-                        task="fix the car",
-                        intent="unknown_intent",
-                        confidence="0.98",
-                        reasoning="This is about fixing a vehicle, not data fixing/cleaning"
-                    ).with_inputs('task'),
-                    dspy.Example(
-                        task="wash the dishes",
-                        intent="unknown_intent",
-                        confidence="0.98",
-                        reasoning="This is about washing dishes, not data cleaning"
-                    ).with_inputs('task'),
-                ]
-                self.classify.demos = unknown_demos + limited
+            """Setup curated few-shot examples — no random sampling, always representative."""
+            # ── ClassifyIntent demos: curated 2 per intent ───────────────
+            # unknown_intent (hard-coded, shown first so DSPy sees them first)
+            unknown_demos = [
+                dspy.Example(task="clean the head",           intent="unknown_intent", confidence="0.98", reasoning="washing one's head/hair, not data cleaning").with_inputs('task'),
+                dspy.Example(task="clean the top for me please", intent="unknown_intent", confidence="0.98", reasoning="cleaning a physical table top, not data cleaning").with_inputs('task'),
+                dspy.Example(task="clean the floor",          intent="unknown_intent", confidence="0.98", reasoning="sweeping a physical floor, not data cleaning").with_inputs('task'),
+                dspy.Example(task="clean my room",            intent="unknown_intent", confidence="0.98", reasoning="tidying a physical room, not a dataset").with_inputs('task'),
+                dspy.Example(task="organize my room",         intent="unknown_intent", confidence="0.98", reasoning="organizing a physical room, not data").with_inputs('task'),
+                dspy.Example(task="prepare lunch",            intent="unknown_intent", confidence="0.98", reasoning="cooking food, not data preparation").with_inputs('task'),
+                dspy.Example(task="fix the car",              intent="unknown_intent", confidence="0.98", reasoning="fixing a vehicle, not data fixing").with_inputs('task'),
+                dspy.Example(task="wash the dishes",          intent="unknown_intent", confidence="0.98", reasoning="washing dishes, not data cleaning").with_inputs('task'),
+                dspy.Example(task="clean the car",            intent="unknown_intent", confidence="0.98", reasoning="washing a vehicle, not data cleaning").with_inputs('task'),
+                dspy.Example(task="clean the kitchen",        intent="unknown_intent", confidence="0.98", reasoning="cleaning a physical kitchen, not data preprocessing").with_inputs('task'),
+            ]
+            # Disambiguation demos (shown before agent demos so DSPy learns the distinction first)
+            disambiguate_demos = [
+                dspy.Example(task="standardize the data",     intent="standardize_data", confidence="0.98", reasoning="Standardizing data means unifying categorical/text formats, not numerical scaling").with_inputs('task'),
+                dspy.Example(task="scale the data",           intent="scale_numerical",  confidence="0.98", reasoning="Scaling data means transforming numerical values to a range").with_inputs('task'),
+            ]
+            # Curated agent demos — 2 per intent, hand-picked for clarity
+            agent_demos = [
+                dspy.Example(task="handle missing values",    intent="handle_missing_values", confidence="0.95", reasoning="asks to handle/fill null values").with_inputs('task'),
+                dspy.Example(task="fill null values in age column", intent="handle_missing_values", confidence="0.95", reasoning="asks to fill null/NaN in a column").with_inputs('task'),
+                dspy.Example(task="detect outliers in the data", intent="detect_outliers", confidence="0.95", reasoning="asks to find outlier/extreme values").with_inputs('task'),
+                dspy.Example(task="find extreme values",     intent="detect_outliers", confidence="0.95", reasoning="asks to detect anomalous data points").with_inputs('task'),
+                dspy.Example(task="remove outliers",          intent="remove_outliers", confidence="0.95", reasoning="asks to delete outlier rows").with_inputs('task'),
+                dspy.Example(task="delete extreme values from dataset", intent="remove_outliers", confidence="0.95", reasoning="asks to remove extreme values").with_inputs('task'),
+                dspy.Example(task="keep outliers",            intent="keep_outliers", confidence="0.95", reasoning="asks to preserve outlier rows").with_inputs('task'),
+                dspy.Example(task="don't remove outliers",    intent="keep_outliers", confidence="0.95", reasoning="asks to NOT delete outliers").with_inputs('task'),
+                dspy.Example(task="remove duplicate rows",    intent="remove_duplicates", confidence="0.95", reasoning="asks to deduplicate the dataset").with_inputs('task'),
+                dspy.Example(task="deduplicate the dataset",  intent="remove_duplicates", confidence="0.95", reasoning="asks to remove repeated entries").with_inputs('task'),
+                dspy.Example(task="encode categorical columns", intent="encode_categorical", confidence="0.95", reasoning="asks to convert categories to numbers").with_inputs('task'),
+                dspy.Example(task="one-hot encode category column", intent="encode_categorical", confidence="0.95", reasoning="asks to one-hot encode categorical data").with_inputs('task'),
+                dspy.Example(task="select important features", intent="feature_selection", confidence="0.95", reasoning="asks to choose relevant columns for modeling").with_inputs('task'),
+                dspy.Example(task="choose relevant columns for modeling", intent="feature_selection", confidence="0.95", reasoning="asks to select features/columns").with_inputs('task'),
+                dspy.Example(task="fix data types",           intent="fix_data_types", confidence="0.95", reasoning="asks to correct column data types").with_inputs('task'),
+                dspy.Example(task="remove inconsistencies in data", intent="fix_data_types", confidence="0.95", reasoning="asks to resolve inconsistent values").with_inputs('task'),
+                dspy.Example(task="correct spelling mistakes", intent="correct_spelling", confidence="0.95", reasoning="asks to fix spelling errors").with_inputs('task'),
+                dspy.Example(task="fix typos in text columns", intent="correct_spelling", confidence="0.95", reasoning="asks to correct misspellings").with_inputs('task'),
+                dspy.Example(task="standardize categorical values", intent="standardize_data", confidence="0.95", reasoning="asks to unify categorical text formats").with_inputs('task'),
+                dspy.Example(task="standardize string columns", intent="standardize_data", confidence="0.95", reasoning="asks to standardize text/string data").with_inputs('task'),
+                dspy.Example(task="scale numerical columns",  intent="scale_numerical", confidence="0.95", reasoning="asks to scale/transform numeric columns").with_inputs('task'),
+                dspy.Example(task="normalize numeric data with standard scaler", intent="scale_numerical", confidence="0.95", reasoning="asks to normalize numerical variables").with_inputs('task'),
+                dspy.Example(task="create new features from existing data", intent="feature_engineering", confidence="0.95", reasoning="asks to engineer new features").with_inputs('task'),
+                dspy.Example(task="suggest new features for modeling", intent="feature_engineering", confidence="0.95", reasoning="asks to suggest derived features").with_inputs('task'),
+            ]
+            self.classify.demos = unknown_demos + disambiguate_demos + agent_demos
 
             # ── ExtractParameters demos ─────────────────────────────────────
             self.extract_params.demos = [
@@ -462,9 +436,6 @@ class NLPService:
             split_result = self.split_tasks(user_command=user_command, dataset_columns=dataset_columns)
             # Parse tasks
             tasks = [t.strip() for t in split_result.tasks.split('\n') if t.strip()]
-            # Handle case where splitting returns empty or just the original
-            # if not tasks or (len(tasks) == 1 and len(user_command.split()) < 5):
-            #     tasks = [user_command]
             # Smart fallback: if no "and" / multiple verbs detected → single task
             if not tasks or all(user_command.lower().strip() == t.lower().strip() for t in tasks):
                 tasks = [user_command]
@@ -475,36 +446,74 @@ class NLPService:
                 if not task or len(task.strip()) < 3:
                     continue
                 try:
-                    # Classify intent
-                    intent_result = self.classify(task=task)
-                    # Extract parameters
-
-                    param_result = self.extract_params(
-                        task=task,
-                        dataset_columns=dataset_columns,
-                        intent=intent_result.intent
-                    )
-                    # Parse columns from model output
-                    cols = self._parse_list(param_result.columns)
-                    print(f"[DEBUG] Parsed columns: {param_result.columns}")
-                    print(f"[DEBUG] Parsed method: {param_result.method}")
-                    print(f"[DEBUG] Parsed other_params: {param_result.other_params}")
+                    # Layer 1: Keyword classification first (deterministic, no DSPy call)
+                    kw_intent = self._keyword_classify(task)
+                    if kw_intent:
+                        intent = kw_intent
+                        cols = []
+                        method = None
+                        other_params = {}
+                        confidence = 0.98
+                        reasoning = f"keyword match → {kw_intent}"
+                        print(f"[DEBUG] Keyword classified: {task} → {kw_intent}")
+                    else:
+                        # Layer 2: DSPy classification
+                        intent_result = self.classify(task=task)
+                        intent = intent_result.intent
+                        # Extract parameters
+                        param_result = self.extract_params(
+                            task=task,
+                            dataset_columns=dataset_columns,
+                            intent=intent
+                        )
+                        # Parse columns from model output
+                        cols = self._parse_list(param_result.columns)
+                        method = param_result.method if str(param_result.method).lower() != 'none' else None
+                        other_params = self._parse_params(param_result.other_params)
+                        confidence = self._parse_confidence(intent_result.confidence)
+                        reasoning = intent_result.reasoning
+                        print(f"[DEBUG] Parsed columns: {param_result.columns}")
+                        print(f"[DEBUG] Parsed method: {param_result.method}")
+                        print(f"[DEBUG] Parsed other_params: {param_result.other_params}")
+                    # Layer 3: Post-processing corrections (applies to ALL match methods)
+                    if "standardiz" in task.lower() and intent == "scale_numerical":
+                        intent = "standardize_data"
+                        cols = []  # Clear columns — agent scans all categoricals
+                        method = None
+                        print(f"[DEBUG] Corrected scale_numerical → standardize_data for: {task}")
+                    elif "z-score" in task.lower() and intent == "standardize_data":
+                        intent = "scale_numerical"
+                        print(f"[DEBUG] Corrected standardize_data → scale_numerical for: {task} (has z-score)")
                     # If no specific columns mentioned → use all dataset columns
                     if not cols and dataset_columns:
                         cols = [c.strip() for c in dataset_columns.split(",") if c.strip()]
-                    print(f"[DEBUG] intent_result.intent: {intent_result.intent}")
+                    print(f"[DEBUG] intent: {intent}")
                     results.append({
                         'task': task,
-                        'intent': intent_result.intent,
-                        'confidence': self._parse_confidence(intent_result.confidence),
-                        'reasoning': intent_result.reasoning,
+                        'intent': intent,
+                        'confidence': confidence,
+                        'reasoning': reasoning,
                         'columns': cols,
-                        'method': param_result.method if str(param_result.method).lower() != 'none' else None,
-                        'other_params': self._parse_params(param_result.other_params)
+                        'method': method,
+                        'other_params': other_params,
                     })
                 except Exception as e:
                     st.warning(f"⚠️ Error processing task '{task}': {str(e)}")
                     continue
+            # Fallback: if no results produced but original command matches a keyword
+            if not results:
+                fallback_intent = self._keyword_classify(user_command)
+                if fallback_intent:
+                    print(f"[DEBUG] Fallback keyword match on original: {user_command} → {fallback_intent}")
+                    results.append({
+                        'task': user_command,
+                        'intent': fallback_intent,
+                        'confidence': 0.98,
+                        'reasoning': f"fallback keyword match → {fallback_intent}",
+                        'columns': [c.strip() for c in dataset_columns.split(",") if c.strip()] if dataset_columns else [],
+                        'method': None,
+                        'other_params': {},
+                    })
             return results
 
         def _parse_confidence(self, conf_str):
@@ -753,8 +762,12 @@ class NLPService:
             # "standardize" without "scale"/"numeric" → standardize_data
             if intent == "scale_numerical" and "standardize" in user_lower and "scale" not in user_lower:
                 result["intent"] = "standardize_data"
+                result["columns"] = []  # Clear columns — agent scans all categoricals
             # "scale" without "standardize" → scale_numerical
             if intent == "standardize_data" and "scale" in user_lower and "standardize" not in user_lower:
+                result["intent"] = "scale_numerical"
+            # "z-score" → always scale_numerical (z-score is a numerical scaling method)
+            if intent == "standardize_data" and "z-score" in user_lower:
                 result["intent"] = "scale_numerical"
 
         # 8) Produce the same "intents" list as runUI
