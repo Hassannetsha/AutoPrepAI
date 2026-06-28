@@ -461,7 +461,25 @@ class NLPService:
             ]
 
         def forward(self, user_command, dataset_columns=""):
-            # Step 1: Split into tasks
+            # Step 0: Check original command against keywords BEFORE DSPy split_tasks.
+            # For simple (non-compound) commands that match a keyword, skip the LLM call entirely.
+            if "and" not in user_command.lower():
+                orig_intent = self._keyword_classify(user_command)
+                if orig_intent:
+                    cols = self._extract_columns_from_task(user_command, dataset_columns)
+                    if not cols and dataset_columns:
+                        cols = [c.strip() for c in dataset_columns.split(",") if c.strip()]
+                    print(f"[DEBUG] Step 0 keyword match: {user_command} → {orig_intent}")
+                    return [{
+                        'task': user_command,
+                        'intent': orig_intent,
+                        'confidence': 0.98,
+                        'reasoning': f"keyword match → {orig_intent}",
+                        'columns': cols,
+                        'method': None,
+                        'other_params': {},
+                    }]
+            # Step 1: Split into tasks (DSPy, needed for compound commands)
             split_result = self.split_tasks(user_command=user_command, dataset_columns=dataset_columns)
             # Parse tasks
             tasks = [t.strip() for t in split_result.tasks.split('\n') if t.strip()]
@@ -773,7 +791,11 @@ class NLPService:
                         self.lm = lm
                         NLPService._lm = lm
                         # Rebuild pipeline with new key
-                        self.pipeline = self.build_pipeline(self.training_data)
+                        try:
+                            training_data = pd.read_csv(self.training_csv)
+                        except Exception:
+                            training_data = None
+                        self.pipeline = self.build_pipeline(training_data)
                         pipeline_retry += 1
                         time.sleep(1)
                         continue

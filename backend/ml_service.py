@@ -399,6 +399,7 @@ class MLPipelineService:
             print(f"[DEBUG] In line 362")
             detected_intents = final_context.metadata.get("intents") or []
             if not detected_intents:
+                utilities.sessions.pop(conversation_id, None)
                 raise ValueError(
                     "No preprocessing intent was detected from your chat message. "
                     "Please mention a data-cleaning action such as missing values, "

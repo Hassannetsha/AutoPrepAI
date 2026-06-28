@@ -40,9 +40,11 @@ class Pipeline:
     def set_nlp_service(self, nlp_service: NLPService):
         """Set the NLP service for intent extraction and explanations."""
         self.nlp_service = nlp_service
-    def run_single_agent(self, context: DataContext,session, user_command: str = "") -> tuple[DataContext, bool]:
+    def run_single_agent(self, context: DataContext, session, user_command: str = "") -> tuple[DataContext, bool]:
         """
         Run the pipeline on the given context.
+
+        Uses session["agent_index"] to track position so self.agents is never mutated.
         
         Args:
             context: Data context to process
@@ -51,45 +53,34 @@ class Pipeline:
         Returns:
             Updated DataContext after all agents have run
         """
-        self.logger.info(f"Starting pipeline execution with {len(self.agents)} agents")
-
-        # Make chat/manual command available to agents (notably NLPAgent).
-        context.metadata["user_command"] = user_command or ""
-        execute = False
-        
-        # node = self.agents[0]
-        # while not execute:
-        #     try:
-        #         context, execute = self._execute_node(node, context)
-        #         self.agents = self.agents[1:]
-        #         node = self.agents[0]
-        #     except Exception as e:
-        #         error_msg = f"Error executing {node.get_agent_name()}: {e}"
-        #         self.logger.error(error_msg)
-        #         context.log(error_msg)
         if not self.agents:
             logging.getLogger(__name__).info("No agents to run")
             return context, True
 
-        node = self.agents[0]
+        self.logger.info(f"Starting pipeline execution with {len(self.agents)} agents")
+
+        # Make chat/manual command available to agents (notably NLPAgent).
+        context.metadata["user_command"] = user_command or ""
+
+        agent_index = session.get("agent_index", 0)
+        execute = False
+
         while not execute:
+            if agent_index >= len(self.agents):
+                break
+            node = self.agents[agent_index]
             context, execute = self._execute_node(node, context)
             session["last_executed_step"] = node.get_agent_name()
-            self.agents = self.agents[1:]
-            if not self.agents:
-                break
-            node = self.agents[0]
-            # if execute:
-            #     session["no_ran_agents"] = session.get("no_ran_agents") + 1
-        # utilities.session["agents"].append(node)
+            agent_index += 1
+            session["agent_index"] = agent_index
+
         self.logger.info("Pipeline execution completed")
-        # Save execution if session manager is available
-        if self.check_no_agents_left_to_run(context) and self.session_manager and user_command:
-            self._save_execution(user_command, context)
-        
-        self.logger.info("Pipeline execution completed")
-        done = self.check_no_agents_left_to_run(context)
-        print(f"[DEBUG] Agents left: {len(self.agents)}, done: {done}")
+        done = all(
+            not node.should_run(context)
+            for i, node in enumerate(self.agents)
+            if i >= agent_index
+        )
+        print(f"[DEBUG] agent_index={agent_index}, total_agents={len(self.agents)}, done={done}")
         return context, done
 
 

@@ -81,11 +81,14 @@ class TestPipeline:
         pipeline = Pipeline(agents=[node1, node2])
         pipeline.nlp_service = MagicMock(spec=NLPService)
 
-        result_ctx, done = pipeline.run_single_agent(ctx_before, {})
+        session = {}
+        result_ctx, done = pipeline.run_single_agent(ctx_before, session)
         node1.execute.assert_called_once()
         node2.execute.assert_not_called()
-        assert len(pipeline.agents) == 1
-        assert pipeline.agents[0].get_agent_name() == "Agent2"
+        # agents list is no longer mutated — index tracks position in session
+        assert len(pipeline.agents) == 2
+        assert session.get("agent_index") == 1
+        assert done is True
 
     def test_add_agent(self, mock_init_pipeline, mock_init_lm):
         pipeline = Pipeline(agents=[])
