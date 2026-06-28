@@ -249,6 +249,35 @@ class NLPService:
                         return intent
             return None
 
+        def _extract_columns_from_task(self, task: str, dataset_columns: str) -> list:
+            """Extract column names from task text that exist in dataset_columns.
+
+            Uses word-boundary matching so 'age' doesn't match 'page'.
+            Handles common English plurals (e.g. 'departments' ↔ 'Department', 'categories' ↔ 'Category').
+            Returns a list of matched column names (preserving original case from dataset_columns).
+            """
+            if not dataset_columns:
+                return []
+            task_lower = task.lower().strip()
+            found = []
+            for col in [c.strip() for c in dataset_columns.split(",") if c.strip()]:
+                col_lower = col.lower()
+                variants = {col_lower}
+                # +s plural (departments → Department)
+                variants.add(col_lower + "s")
+                # -ies → -y plural (categories → Category)
+                if col_lower.endswith("y"):
+                    variants.add(col_lower[:-1] + "ies")
+                # Strip trailing s (columns → column)
+                if col_lower.endswith("s"):
+                    variants.add(col_lower[:-1])
+                # -y → -ies (Category → categories)
+                if col_lower.endswith("ies"):
+                    variants.add(col_lower[:-3] + "y")
+                if any(re.search(rf'(?<!\w){re.escape(v)}(?!\w)', task_lower) for v in variants):
+                    found.append(col)
+            return found
+
         def _setup_few_shot_examples(self, examples: pd.DataFrame):
             """Setup curated few-shot examples — no random sampling, always representative."""
             # ── ClassifyIntent demos: curated 2 per intent ───────────────
@@ -450,12 +479,14 @@ class NLPService:
                     kw_intent = self._keyword_classify(task)
                     if kw_intent:
                         intent = kw_intent
-                        cols = []
+                        cols = self._extract_columns_from_task(task, dataset_columns)
                         method = None
                         other_params = {}
                         confidence = 0.98
                         reasoning = f"keyword match → {kw_intent}"
                         print(f"[DEBUG] Keyword classified: {task} → {kw_intent}")
+                        if cols:
+                            print(f"[DEBUG] Extracted columns from task: {cols}")
                     else:
                         # Layer 2: DSPy classification
                         intent_result = self.classify(task=task)
