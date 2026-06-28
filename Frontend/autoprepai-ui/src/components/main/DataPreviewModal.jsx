@@ -33,7 +33,7 @@ export default function DataPreviewModal({ onClose, data, dataBefore, headers, h
                         {row[h] === "" || row[h] === null || row[h] === undefined ? (
                           <span className="missing">missing</span>
                         ) : (
-                          row[h]
+                          String(row[h])
                         )}
                       </td>
                     ))}
@@ -90,7 +90,7 @@ export default function DataPreviewModal({ onClose, data, dataBefore, headers, h
                       {row[h] === "" || row[h] === null || row[h] === undefined ? (
                         <span className="missing">missing</span>
                       ) : (
-                        row[h]
+                        String(row[h])
                       )}
                     </td>
                   ))}
