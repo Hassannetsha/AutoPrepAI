@@ -483,10 +483,21 @@ class NLPService:
             split_result = self.split_tasks(user_command=user_command, dataset_columns=dataset_columns)
             # Parse tasks
             tasks = [t.strip() for t in split_result.tasks.split('\n') if t.strip()]
-            # Smart fallback: if no "and" / multiple verbs detected → single task
+            # Smart fallback: if DSPy didn't split, split on "and" ourselves
             if not tasks or all(user_command.lower().strip() == t.lower().strip() for t in tasks):
-                tasks = [user_command]
-            # Step 2: Process each task
+                if " and " in user_command.lower():
+                    tasks = [t.strip() for t in user_command.split(" and ") if t.strip()]
+                else:
+                    tasks = [user_command]
+            # Step 2: Split any tasks that still contain " and " (DSPy missed them)
+            expanded = []
+            for t in tasks:
+                if " and " in t.lower():
+                    expanded.extend([s.strip() for s in t.split(" and ") if s.strip()])
+                else:
+                    expanded.append(t)
+            tasks = expanded
+            # Step 3: Process each task
             results = []
             for task in tasks:
                 # Skip empty tasks
