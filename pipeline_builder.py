@@ -78,11 +78,11 @@ class PipelineBuilder:
         standardizer_node = PipelineNode(
             agent=DataStandardizerAgent(),
             condition=IntentBasedCondition(
-                ["standardize_data", "remove_inconsistencies"],
+                ["standardize_data"],
                 operator="any"
             ),
             resolver=IntentColumnResolver(
-                ["standardize_data", "remove_inconsistencies"],
+                ["standardize_data"],
                 ""
             )
         )
@@ -177,7 +177,7 @@ class PipelineBuilder:
             "nlp": (NLPAgent(), ["always"], []),
             "datatype": (DataTypeInconsistencyAgent(), ["fix_data_types", "remove_inconsistencies"], ["fix_data_types", "remove_inconsistencies"]),
             # "spelling": (SpellingCorrectorAgent(), ["correct_spelling", "remove_inconsistencies"], ["correct_spelling", "remove_inconsistencies"]),
-            "standardizer": (DataStandardizerAgent(), ["standardize_data", "remove_inconsistencies"], ["standardize_data", "remove_inconsistencies"]),
+            "standardizer": (DataStandardizerAgent(), ["standardize_data"], ["standardize_data"]),
             "duplicate": (DuplicateRemoverAgent(), ["remove_duplicates"], ["remove_duplicates"]),
             "outlier": (OutliersAgent(), ["remove_outliers", "detect_outliers"], ["remove_outliers", "detect_outliers"]),
             "missing": (MissingValueAgent(), ["handle_missing_values"], ["handle_missing_values"]),
