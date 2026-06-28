@@ -6,12 +6,43 @@ from sqlalchemy.orm import Session
 
 from backend.b2_service import get_b2_client, delete_file_from_b2
 from backend.database import get_db
-from backend.models import Conversation, User
+from backend.models import Conversation, ConversationMessage, User, WELCOME_TEXT
 from auth.dependencies import get_current_user
 from backend.settings import B2_BUCKET_NAME, B2_KEY_ID
 from backend.schemas import ConversationRenameRequest
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+
+
+@router.post("/new")
+def create_conversation(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conversation = Conversation(title="New Chat", user_id=current_user.id)
+    db.add(conversation)
+    db.flush()
+    msg = ConversationMessage(
+        conversation_id=conversation.id,
+        role="assistant",
+        content=WELCOME_TEXT,
+        payload=None,
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return {
+        "id": str(conversation.id),
+        "title": conversation.title,
+        "messages": [
+            {
+                "id": str(msg.id),
+                "content": msg.content,
+                "sender": msg.role,
+                "created_at": msg.created_at.isoformat(),
+            }
+        ],
+    }
 
 
 @router.get("/")

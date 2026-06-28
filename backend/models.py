@@ -7,6 +7,17 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database import Base
 
+WELCOME_TEXT = (
+    "Hello! I'm your AutoPrepAI assistant. Upload a dataset to get started.\n\n"
+    "- Fix missing values\n"
+    "- Detect and handle outliers\n"
+    "- Detect and handle duplicates\n"
+    "- Resolve feature inconsistency\n"
+    "- Scale and encode data\n"
+    "- Feature selection with a focus on the target variable\n"
+    "- Features engineering"
+)
+
 
 class Conversation(Base):
     __tablename__ = "conversations"

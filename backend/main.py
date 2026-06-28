@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from auth.dependencies import get_current_user
 from backend.database import Base, engine, ensure_auth_columns, ensure_conversation_columns, get_db
 from backend.ml_service import MLPipelineService
-from backend.models import Conversation, ConversationMessage, User
+from backend.models import Conversation, ConversationMessage, User, WELCOME_TEXT
 from backend.schemas import ChatResponse, ConversationOut, FeedbackRequest
 from auth import signup, login
 from auth import admin  # import your admin router
@@ -102,20 +102,10 @@ async def chat(
         conversation = Conversation(title="New Chat", user_id=current_user.id)
         db.add(conversation)
         db.flush()
-        welcome_text = (
-            "Hello! I'm your AutoPrepAI assistant. Upload a dataset to get started.\n\n"
-            "- Fix missing values\n"
-            "- Detect and handle outliers\n"
-            "- Detect and handle duplicates\n"
-            "- Resolve feature inconsistency\n"
-            "- Scale and encode data\n"
-            "- Feature selection with a focus on the target variable\n"
-            "- Features engineering"
-        )
         db.add(ConversationMessage(
             conversation_id=conversation.id,
             role="assistant",
-            content=welcome_text,
+            content=WELCOME_TEXT,
             payload=None,
         ))
         db.flush()

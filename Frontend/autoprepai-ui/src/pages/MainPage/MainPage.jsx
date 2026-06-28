@@ -16,10 +16,11 @@ import {
   renameConversation,
   getConversation,
   listConversations,
+  createConversation,
   sendFeedback,
 } from "../../api/chat";
 import { getAuthToken } from "../../api/auth";
-import { ACTION_TO_INTENT, ACTIONS, INITIAL_BOT_MESSAGE, ALLOWED_MIME_TYPES } from "./constants";
+import { ACTION_TO_INTENT, ACTIONS, ALLOWED_MIME_TYPES } from "./constants";
 import { parseCSV, parseXLSX } from "./utils/fileParsers";
 import * as XLSX from "xlsx";
 import { cleanError, escapeCSV } from "./utils/helpers";
@@ -79,12 +80,7 @@ export default function MainPage() {
         const data = await getConversation(conversationId);
         if (!data?.messages) return;
 
-        const mapped = data.messages.length === 0
-          ? [{
-              ...INITIAL_BOT_MESSAGE,
-              time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            }]
-          : data.messages.map((msg) => {
+        const mapped = data.messages.map((msg) => {
               const sender = msg.sender ?? msg.role;
               return {
                 sender: sender === "user" ? "user" : "bot",
@@ -186,7 +182,7 @@ export default function MainPage() {
       setSelectedActions([]);
       setCurrentConversationId(null);
       setHistoryLogs([]);
-      setChats([{ id: 1, title: "Chat 1", messages: [INITIAL_BOT_MESSAGE] }]);
+      setChats([{ id: 1, title: "Chat 1", messages: [] }]);
       setActiveChatId(1);
     };
     window.addEventListener(LOGOUT_EVENT, handleLogout);
@@ -219,21 +215,37 @@ export default function MainPage() {
   );
 
   // ─── New chat ─────────────────────────────────────────────────────────────────
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     const tempId = Date.now();
+    let messages = [];
+    let backendId = null;
+
+    if (getAuthToken()) {
+      try {
+        const conv = await createConversation();
+        backendId = conv.id;
+        messages = conv.messages.map((msg) => ({
+          sender: msg.sender === "user" ? "user" : "bot",
+          text: msg.content,
+          time: new Date(msg.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        }));
+      } catch {
+        // fall back to empty chat
+      }
+    }
+
     const newChat = {
-      id: tempId,
+      id: backendId || tempId,
       title: "New Chat",
-      messages: [
-        {
-          ...INITIAL_BOT_MESSAGE,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ],
+      messages,
+      ...(backendId ? { backendId } : {}),
     };
     setChats((prev) => [...prev, newChat]);
-    setActiveChatId(tempId);
-    setCurrentConversationId(null);
+    setActiveChatId(backendId || tempId);
+    setCurrentConversationId(backendId);
     setUploaded(false);
     setTableData([]);
     setTableDataBefore([]);

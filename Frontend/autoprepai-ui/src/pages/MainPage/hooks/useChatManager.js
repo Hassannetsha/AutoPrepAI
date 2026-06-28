@@ -1,9 +1,8 @@
 import { useState, useCallback } from "react";
-import { INITIAL_BOT_MESSAGE } from "../constants";
 
 export function useChatManager() {
   const [chats, setChats] = useState([
-    { id: 1, title: "Chat 1", messages: [INITIAL_BOT_MESSAGE] },
+    { id: 1, title: "Chat 1", messages: [] },
   ]);
   const [activeChatId, setActiveChatId] = useState(1);
   const [currentConversationId, setCurrentConversationId] = useState(null);

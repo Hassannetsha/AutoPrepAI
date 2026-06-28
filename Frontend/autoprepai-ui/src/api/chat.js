@@ -141,6 +141,13 @@ export async function renameConversation(conversationId, title) {
 }
 
 /**
+ * Create a new conversation (with welcome message)
+ */
+export async function createConversation() {
+  return chatRequest("/conversations/new", { method: "POST" });
+}
+
+/**
  * List all conversations for the current user
  */
 export async function listConversations() {
