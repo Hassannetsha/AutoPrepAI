@@ -75,23 +75,23 @@ class Pipeline:
             session["agent_index"] = agent_index
 
         self.logger.info("Pipeline execution completed")
-        done = all(
-            not node.should_run(context)
-            for i, node in enumerate(self.agents)
-            if i >= agent_index
-        )
+        done = self.check_no_agents_left_to_run(context, session)
         print(f"[DEBUG] agent_index={agent_index}, total_agents={len(self.agents)}, done={done}")
         return context, done
 
 
     
-    def check_no_agents_left_to_run(self,context: DataContext) -> bool:
-        
-        for node in self.agents:
+    def check_no_agents_left_to_run(self,context: DataContext,session) -> bool:
+        agent_index = session.get("agent_index", 0)
+        while agent_index < len(self.agents):
+            node = self.agents[agent_index]
             
             if node.should_run(context):
                 print(f"[DEBUG] Node {node.get_agent_name()} should run")
                 return False
+            else:
+                print(f"[DEBUG] Node {node.get_agent_name()} should NOT run")
+            agent_index += 1
         return True
     #run automated
     def run(self, context: DataContext, user_command: str = "") -> DataContext:
@@ -130,6 +130,10 @@ class Pipeline:
         self.agents = [n for n in self.agents if n.get_agent_name() != agent_name]
         self.logger.info(f"Removed agent: {agent_name}")
 
+    def print_pipeline(self, context: DataContext) -> None:
+        for node in self.agents:
+            print(f"Agent: {node.get_agent_name()} | Should Run: {node.should_run(context)}")
+    
     def _execute_node(self, node: PipelineNode, context: DataContext) -> tuple[DataContext, bool]:
         """
         Execute a single pipeline node.

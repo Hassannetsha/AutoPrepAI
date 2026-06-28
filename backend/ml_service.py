@@ -255,7 +255,7 @@ class MLPipelineService:
             data=dataset_df.copy(),
             metadata=dict(session.get("context_metadata", {})),
         )
-        return pipeline.check_no_agents_left_to_run(context)
+        return pipeline.check_no_agents_left_to_run(context,session)
     @staticmethod
     def process_message(
         user_message: str,
@@ -308,6 +308,7 @@ class MLPipelineService:
                 data=dataset_df.copy(),
                 metadata=dict(session["context_metadata"]),
             )
+            pipeline.print_pipeline(context)
             final_context, finished = pipeline.run_single_agent(context=context,session=session, user_command="")
             print(f"[DEBUG] After single-agent run, finished={finished}, context metadata={final_context.metadata}")
             # then fall through to the shared-end block below
@@ -315,12 +316,14 @@ class MLPipelineService:
             context, effective_command = MLPipelineService._prepare_full_auto(
                 context, effective_command
             )
+            pipeline.print_pipeline(context)
             final_context = pipeline.run(context=context, user_command=effective_command)
             session["finished"] = True
         elif normalized_mode == "manual":
             context, effective_command = MLPipelineService._prepare_manual(
                 context, effective_command, selected_intents
             )
+            pipeline.print_pipeline(context)
             final_context, finished = pipeline.run_single_agent(context=context,session=session, user_command=effective_command)
             print(f"[DEBUG] After first manual agent run, finished={finished}, context metadata={final_context.metadata}")
             # if not finished:
@@ -346,6 +349,7 @@ class MLPipelineService:
                 effective_command
             )
             # print("[DEBUG] Starting chat-mode execution with command:", effective_command)
+            pipeline.print_pipeline(context)
             final_context, finished = pipeline.run_single_agent(context=context, session=session, user_command=effective_command)
 
             # Check if NLP returned unknown_intent → skip pipeline, return sorry message
