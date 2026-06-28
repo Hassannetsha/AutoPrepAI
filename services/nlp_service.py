@@ -155,7 +155,12 @@ class NLPService:
 
     class ClassifyIntent(dspy.Signature):
         """Classify the data preprocessing intent from a task description.
-    
+
+        CRITICAL DISAMBIGUATION RULES:
+        - "standardize" or "standardize data" = standardize_data (format categorical/text values like names, dates, categories). NEVER scale_numerical.
+        - "scale" or "scale numerical" = scale_numerical (transform numeric values to a range). NEVER standardize_data.
+        - If the task says "standardize" without mentioning "numerical", "numeric", "scale", it is ALWAYS standardize_data.
+
         Available intents:
         - handle_missing_values: Fill, impute, or handle missing/null/NaN values
         - detect_outliers / remove_outliers: Identify and remove outliers, anomalies, or extreme values
@@ -165,15 +170,15 @@ class NLPService:
         - feature_selection / select_features: Select important features or columns for modeling
         - fix_data_types / remove_inconsistencies: Detect and resolve inconsistent types (dates, numbers, booleans)
         - correct_spelling: Fix spelling errors in categorical/text columns
-        - standardize_data: Normalize or standardize categorical values
-        - scale_numerical: Scale numerical columns (standard, minmax, robust)
+        - standardize_data: Unify categorical/text values to consistent formats (naming conventions, date formats, categories, labels).
+        - scale_numerical: Scale/rescale numerical columns to a common range (standard, minmax, robust).
         - feature_engineering / suggest_features: Suggest and/or apply new derived features
         - unknown_intent: Any request that is NOT about data preprocessing — e.g. cooking, cleaning the house, playing games, weather, jokes, general chat, or anything unrelated to cleaning or transforming a dataset.
           WARNING: Just because a request contains the word "clean", "top", "fix", "prepare", or "handle" does NOT make it data preprocessing.
           Words like "clean the top", "clean my room", "clean the table", "wash the dishes", "fix the car", "cook dinner", "play music", "weather today" are NOT data preprocessing — classify them as unknown_intent.
         """
         task = dspy.InputField(desc="A single preprocessing task description")
-        intent = dspy.OutputField(desc="The intent category (must be one of: handle_missing_values, detect_outliers, remove_outliers, keep_outliers, remove_duplicates, encode_categorical, feature_selection, select_features, fix_data_types, remove_inconsistencies, correct_spelling, standardize_data, scale_numerical, feature_engineering, suggest_features, unknown_intent)")
+        intent = dspy.OutputField(desc="The intent category (must be one of: handle_missing_values, detect_outliers, remove_outliers, keep_outliers, remove_duplicates, encode_categorical, feature_selection, select_features, fix_data_types, remove_inconsistencies, correct_spelling, standardize_data, scale_numerical, feature_engineering, suggest_features, unknown_intent). IMPORTANT: 'standardize' or 'standardize data' = standardize_data (categorical formatting), NOT scale_numerical.")
         confidence = dspy.OutputField(desc="Confidence score between 0.0 and 1.0")
         reasoning = dspy.OutputField(desc="Brief explanation for the classification")
 
@@ -238,6 +243,22 @@ class NLPService:
                         if demo.intent == intent and count < per_intent:
                             limited.append(demo)
                             count += 1
+                # Add explicit disambiguation examples for standardize vs scale
+                disambiguate_demos = [
+                    dspy.Example(
+                        task="standardize the data",
+                        intent="standardize_data",
+                        confidence="0.98",
+                        reasoning="Standardizing data means unifying categorical/text formats, not numerical scaling"
+                    ).with_inputs('task'),
+                    dspy.Example(
+                        task="standardize",
+                        intent="standardize_data",
+                        confidence="0.98",
+                        reasoning="Standardize refers to formatting categorical/text values consistently across the dataset"
+                    ).with_inputs('task'),
+                ]
+                limited = disambiguate_demos + limited
                 # Prepend hard-coded unknown_intent examples to disambiguate ambiguous words
                 # (most ambiguous ones first so DSPy sees them first)
                 unknown_demos = [
@@ -414,6 +435,15 @@ class NLPService:
                     intent="scale_numerical",
                     columns="age, income",
                     method="standard",
+                    other_params="none",
+                ).with_inputs("task", "dataset_columns", "intent"),
+                # ── standardize_data ────────────────────────────────────
+                dspy.Example(
+                    task="standardize the category column and date formats",
+                    dataset_columns="name, category, date, salary",
+                    intent="standardize_data",
+                    columns="category, date",
+                    method="none",
                     other_params="none",
                 ).with_inputs("task", "dataset_columns", "intent"),
                 # ── feature_engineering ─────────────────────────────────
@@ -715,7 +745,19 @@ class NLPService:
         if not results:
             return []
 
-        # 7) Produce the same "intents" list as runUI
+        # 7.5) Post-process: disambiguate common LLM misclassifications
+        # The LLM often maps "standardize" to scale_numerical instead of standardize_data
+        user_lower = user_input.lower().strip()
+        for result in results:
+            intent = result.get("intent", "")
+            # "standardize" without "scale"/"numeric" → standardize_data
+            if intent == "scale_numerical" and "standardize" in user_lower and "scale" not in user_lower:
+                result["intent"] = "standardize_data"
+            # "scale" without "standardize" → scale_numerical
+            if intent == "standardize_data" and "scale" in user_lower and "standardize" not in user_lower:
+                result["intent"] = "scale_numerical"
+
+        # 8) Produce the same "intents" list as runUI
         intents = []
         for result in results:
             temp = []

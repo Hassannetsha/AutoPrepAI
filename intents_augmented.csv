@@ -6499,3 +6499,253 @@ transform numeric features in column date,scale_numerical
 adjust quantitative variables to 0-1 range,scale_numerical
 rescale numerical features in column price,scale_numerical
 detect extreme points in numeric columns,detect_outliers
+standardize the data,standardize_data
+standardize data,standardize_data
+please standardize the data,standardize_data
+can you standardize this data,standardize_data
+standardise data,standardize_data
+standardize all columns,standardize_data
+standardize the dataset,standardize_data
+standardize labels,standardize_data
+standardize the formatting,standardize_data
+standardize my data,standardize_data
+make data standard,standardize_data
+standardise dataset,standardize_data
+standardize the inputs,standardize_data
+apply standardization,standardize_data
+standardize values,standardize_data
+standardize records,standardize_data
+perform data standardization,standardize_data
+run standardize data,standardize_data
+standardize everything,standardize_data
+standardize the fields,standardize_data
+i need to standardize the data,standardize_data
+standardize this file,standardize_data
+standardise all labels,standardize_data
+standardize column names,standardize_data
+standardize data format,standardize_data
+normalize data,standardize_data
+normalize the data,standardize_data
+normalize dataset,standardize_data
+normalise data,standardize_data
+please normalize the data,standardize_data
+normalize labels,standardize_data
+normalize all columns,standardize_data
+normalize formatting,standardize_data
+apply data normalization,standardize_data
+normalize values,standardize_data
+normalize records,standardize_data
+run normalization,standardize_data
+normalize my dataset,standardize_data
+normalise the inputs,standardize_data
+normalize everything,standardize_data
+make data normal,standardize_data
+normalize the fields,standardize_data
+normalize column formats,standardize_data
+normalize text data,standardize_data
+dataset normalization,standardize_data
+normalize this file,standardize_data
+normalise all labels,standardize_data
+normalize table,standardize_data
+normalize inputs,standardize_data
+data normalization,standardize_data
+align data,standardize_data
+align labels,standardize_data
+align all data,standardize_data
+align dataset,standardize_data
+align columns,standardize_data
+please align the labels,standardize_data
+align the formatting,standardize_data
+align values,standardize_data
+align records,standardize_data
+make labels align,standardize_data
+align my data,standardize_data
+align the inputs,standardize_data
+align text formatting,standardize_data
+align column formats,standardize_data
+align everything,standardize_data
+align the fields,standardize_data
+align table data,standardize_data
+align the dataset,standardize_data
+align this file,standardize_data
+align data formats,standardize_data
+data alignment,standardize_data
+apply alignment,standardize_data
+run data alignment,standardize_data
+align values consistently,standardize_data
+align all fields,standardize_data
+format data,standardize_data
+reformat data,standardize_data
+format dataset,standardize_data
+format columns,standardize_data
+format labels,standardize_data
+fix data formatting,standardize_data
+correct the formatting,standardize_data
+make format consistent,standardize_data
+format the records,standardize_data
+apply standard formatting,standardize_data
+format the inputs,standardize_data
+reformat dataset,standardize_data
+format table,standardize_data
+format all columns,standardize_data
+reformat the fields,standardize_data
+format values,standardize_data
+correct data formats,standardize_data
+fix formatting issues,standardize_data
+standardize format,standardize_data
+format the text,standardize_data
+reformat all data,standardize_data
+apply formatting rules,standardize_data
+format the file,standardize_data
+fix formatting,standardize_data
+format my data,standardize_data
+make data consistent,standardize_data
+ensure consistent formatting,standardize_data
+make dataset uniform,standardize_data
+make labels uniform,standardize_data
+uniform data,standardize_data
+unify data formats,standardize_data
+ensure uniformity,standardize_data
+make formats consistent,standardize_data
+consistent data,standardize_data
+unify the columns,standardize_data
+make columns consistent,standardize_data
+make values uniform,standardize_data
+ensure data is consistent,standardize_data
+unify formatting,standardize_data
+make everything uniform,standardize_data
+make the fields consistent,standardize_data
+unify labels,standardize_data
+make records uniform,standardize_data
+consistent dataset,standardize_data
+uniform labels,standardize_data
+enforce consistency,standardize_data
+enforce uniform formatting,standardize_data
+make text consistent,standardize_data
+unify the dataset,standardize_data
+make it all uniform,standardize_data
+clean the formatting,standardize_data
+clean data formats,standardize_data
+fix the data formats,standardize_data
+fix inconsistent data,standardize_data
+clean up the labels,standardize_data
+fix column formats,standardize_data
+clean the labels,standardize_data
+fix inconsistent labels,standardize_data
+clean up data formatting,standardize_data
+repair data formatting,standardize_data
+fix the dataset formatting,standardize_data
+resolve formatting issues,standardize_data
+clean the dataset,standardize_data
+fix data structure,standardize_data
+clean column names,standardize_data
+fix all formats,standardize_data
+clean format inconsistencies,standardize_data
+correct inconsistent data,standardize_data
+clean up the fields,standardize_data
+fix label inconsistencies,standardize_data
+repair labels,standardize_data
+clean the input formats,standardize_data
+fix unstandardized data,standardize_data
+clean unstandardized labels,standardize_data
+fix all inconsistent formatting,standardize_data
+standardize dates,standardize_data
+standardize text case,standardize_data
+make text lowercase,standardize_data
+convert to uppercase,standardize_data
+standardize capitalization,standardize_data
+format dates consistently,standardize_data
+fix date formats,standardize_data
+align date formats,standardize_data
+standardize string formatting,standardize_data
+clean up whitespaces,standardize_data
+strip whitespace,standardize_data
+standardize currency formats,standardize_data
+align phone numbers,standardize_data
+standardize categorical variables,standardize_data
+normalize text fields,standardize_data
+standardize numerical formats,standardize_data
+format text fields,standardize_data
+match casing,standardize_data
+uniform date formats,standardize_data
+standardize missing values,standardize_data
+convert to title case,standardize_data
+standardize phone number formats,standardize_data
+align currency fields,standardize_data
+normalize numerical data,standardize_data
+standardize boolean values,standardize_data
+run standardization pipeline,standardize_data
+execute standardizer,standardize_data
+apply standard schema,standardize_data
+trigger data standardization,standardize_data
+run standardization agent,standardize_data
+execute data cleaning pipeline,standardize_data
+apply standardization rules,standardize_data
+process standard formatting,standardize_data
+auto-standardize data,standardize_data
+run normalizer,standardize_data
+execute formatting pipeline,standardize_data
+apply uniform schema,standardize_data
+trigger formatting agent,standardize_data
+auto-format dataset,standardize_data
+run alignment protocol,standardize_data
+apply standardization module,standardize_data
+process uniform labels,standardize_data
+auto-align labels,standardize_data
+execute standardisation,standardize_data
+run label aligner,standardize_data
+apply format rules,standardize_data
+trigger standardizer,standardize_data
+execute schema alignment,standardize_data
+auto-normalize columns,standardize_data
+run data normalizer,standardize_data
+could you please standardize the dataset,standardize_data
+i need you to make the formatting consistent,standardize_data
+please align all the labels in this file,standardize_data
+can you run the standardization pipeline on this data,standardize_data
+i want to normalize the formatting for all columns,standardize_data
+please make sure all data formats are uniform,standardize_data
+could you fix the inconsistent formatting here,standardize_data
+i need all the labels to be standardized,standardize_data
+please format the data so it is consistent,standardize_data
+can we unify the formatting across the dataset,standardize_data
+i need to ensure all fields are standardized,standardize_data
+please run the data through the standardizer,standardize_data
+could you make the column formats uniform,standardize_data
+i would like to standardize all the inputs,standardize_data
+please align the formatting of these records,standardize_data
+can you apply standard formatting to the file,standardize_data
+i need the text fields to be normalized,standardize_data
+please fix any unstandardized data,standardize_data
+could you ensure consistency in the data labels,standardize_data
+i want all records to have uniform formatting,standardize_data
+please run data alignment on this table,standardize_data
+can you make sure the schema is standardized,standardize_data
+i need the dataset to be properly formatted,standardize_data
+please clean and standardize the columns,standardize_data
+could you normalize the labels for me,standardize_data
+std data,standardize_data
+norm data,standardize_data
+format,standardize_data
+standardize,standardize_data
+standardise,standardize_data
+normalize,standardize_data
+align,standardize_data
+std dataset,standardize_data
+norm labels,standardize_data
+fix format,standardize_data
+clean format,standardize_data
+unify,standardize_data
+make consistent,standardize_data
+uniform labels,standardize_data
+std cols,standardize_data
+norm cols,standardize_data
+align cols,standardize_data
+standardze data,standardize_data
+standardiz data,standardize_data
+normalze data,standardize_data
+allign labels,standardize_data
+make std,standardize_data
+apply std,standardize_data
+run std,standardize_data
+standardize df,standardize_data

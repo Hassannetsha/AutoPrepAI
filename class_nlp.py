@@ -116,7 +116,12 @@ class NLPService:
 
     class ClassifyIntent(dspy.Signature):
         """Classify the data preprocessing intent from a task description.
-    
+
+        CRITICAL DISAMBIGUATION RULES:
+        - "standardize" or "standardize data" = standardize_data (format categorical/text values like names, dates, categories). NEVER scale_numerical.
+        - "scale" or "scale numerical" = scale_numerical (transform numeric values to a range). NEVER standardize_data.
+        - If the task says "standardize" without mentioning "numerical", "numeric", "scale", it is ALWAYS standardize_data.
+
         Available intents:
         - handle_missing_values: Fill, impute, or handle missing/null/NaN values
         - detect_outliers / remove_outliers: Identify and remove outliers, anomalies, or extreme values
@@ -126,8 +131,8 @@ class NLPService:
         - feature_selection / select_features: Select important features or columns for modeling
         - fix_data_types / remove_inconsistencies: Detect and resolve inconsistent types (dates, numbers, booleans)
         - correct_spelling: Fix spelling errors in categorical/text columns
-        - standardize_data: Normalize or standardize categorical values
-        - scale_numerical: Scale numerical columns (standard, minmax, robust)
+        - standardize_data: Unify categorical/text values to consistent formats (naming conventions, date formats, categories, labels).
+        - scale_numerical: Scale/rescale numerical columns to a common range (standard, minmax, robust).
         - feature_engineering / suggest_features: Suggest and/or apply new derived features
         """
         task = dspy.InputField(desc="A single preprocessing task description")

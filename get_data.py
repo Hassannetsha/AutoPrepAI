@@ -185,7 +185,7 @@ augmentation_rules = {
     },
     
     'correct_spelling': {
-        'verbs': ['correct', 'fix', 'clean', 'standardize', 'rectify', 'adjust', 'repair', 'amend'],
+        'verbs': ['correct', 'fix', 'clean', 'rectify', 'adjust', 'repair', 'amend'],
         'objects': ['spelling', 'spelling errors', 'typos', 'misspellings', 'text errors',
                    'spelling mistakes', 'typographical errors', 'text mistakes', 'incorrect spellings'],
         'locations': ['in column {col}', 'in the dataset', 'in dataframe', 'in {col} column',
@@ -202,7 +202,7 @@ augmentation_rules = {
     },
     
     'standardize_data': {
-        'verbs': ['standardize', 'normalize', 'unify', 'harmonize', 'regularize', 'make consistent', 
+        'verbs': ['standardize', 'unify', 'harmonize', 'regularize', 'make consistent', 
                  'align', 'format', 'structure'],
         'objects': ['data', 'values', 'entries', 'formats', 'fields', 'columns', 'text',
                    'date formats', 'naming conventions', 'categories', 'labels'],
@@ -222,7 +222,7 @@ augmentation_rules = {
     },
     
     'scale_numerical': {
-        'verbs': ['scale', 'normalize', 'standardize', 'transform', 'rescale', 'adjust', 'convert'],
+        'verbs': ['scale', 'rescale', 'transform', 'adjust'],
         'objects': ['numerical features', 'numeric columns', 'numerical data', 'numeric features',
                    'continuous variables', 'numerical values', 'numeric data', 'continuous features',
                    'quantitative variables', 'numeric variables'],
