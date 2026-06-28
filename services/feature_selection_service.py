@@ -1,5 +1,6 @@
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.feature_selection import SelectFromModel
 from typing import Optional, List, Tuple
 
@@ -9,23 +10,45 @@ class FeatureSelectionService:
 
     Methods are headless and safe to use from the preprocessing pipeline.
     """
-    def __init__(self, estimator: Optional[RandomForestClassifier] = None, random_state: int = 42):
+    def __init__(self, estimator=None, random_state: int = 42):
         self.random_state = random_state
-        self.estimator = estimator or RandomForestClassifier(n_estimators=100, random_state=random_state)
+        self.estimator = estimator
 
     def _filter_useless_columns(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Remove constant and high-cardinality ID columns before feature selection."""
+        """Remove constant and high-cardinality columns before feature selection."""
         before = set(X.columns)
         nunique = X.nunique()
+        n = len(X)
         constant = nunique[nunique <= 1].index.tolist()
         X = X.drop(columns=constant, errors='ignore')
         for col in X.columns:
-            if X[col].dtype in ("int64", "float64") and X[col].nunique() > 0.9 * len(X) and X[col].nunique() >= 100:
+            # Numeric high-cardinality (e.g. ID columns stored as numbers)
+            if X[col].dtype in ("int64", "float64") and X[col].nunique() > 0.9 * n and X[col].nunique() >= 100:
+                X = X.drop(columns=[col])
+                continue
+            # Object/text high-cardinality (e.g. EmployeeID, Email, JoinDate before one-hot)
+            if X[col].dtype == "object" and X[col].nunique() > 0.5 * n:
                 X = X.drop(columns=[col])
         dropped = before - set(X.columns)
         if dropped:
             print(f"[FeatureSelection] Dropped useless columns: {sorted(dropped)}")
         return X
+
+    def _is_classification_target(self, y: pd.Series) -> bool:
+        """Detect if the target is classification (discrete) or regression (continuous)."""
+        if y.dtype in ("int64", "int32", "object", "category", "bool"):
+            return True
+        # Float target: classification if few unique values, regression if many
+        nunique = y.nunique()
+        return nunique <= 0.1 * len(y) or nunique <= 20
+
+    def _get_estimator(self, y: pd.Series):
+        """Return a classifier or regressor depending on the target type."""
+        if self.estimator is not None:
+            return self.estimator
+        if self._is_classification_target(y):
+            return RandomForestClassifier(n_estimators=100, random_state=self.random_state)
+        return RandomForestRegressor(n_estimators=100, random_state=self.random_state)
 
     def select_features(self, df: pd.DataFrame, target_col: str, threshold: str = "mean", n_features: Optional[int] = None, min_importance: float = 0.01) -> Tuple[List[str], pd.DataFrame]:
         """Return (selected_feature_names, pruned_dataframe_with_target).
@@ -44,21 +67,23 @@ class FeatureSelectionService:
 
         X = df.drop(columns=[target_col])
         X = self._filter_useless_columns(X)
-        X_encoded = pd.get_dummies(X)
+        X_encoded = pd.get_dummies(X, drop_first=False)
         y = df[target_col]
 
+        estimator = self._get_estimator(y)
+        print(f"[FeatureSelection] Using {type(estimator).__name__} (target nunique={y.nunique()}, dtype={y.dtype})")
+
         if n_features is not None:
-            rf = RandomForestClassifier(n_estimators=100, random_state=self.random_state)
-            rf.fit(X_encoded, y)
-            importances = pd.Series(rf.feature_importances_, index=X_encoded.columns).sort_values(ascending=False)
+            estimator.fit(X_encoded, y)
+            importances = pd.Series(estimator.feature_importances_, index=X_encoded.columns).sort_values(ascending=False)
             selected = list(importances.index[:n_features])
         else:
-            selector = SelectFromModel(self.estimator, threshold=threshold)
+            selector = SelectFromModel(estimator, threshold=threshold)
             selector.fit(X_encoded, y)
             selected = list(X_encoded.columns[selector.get_support()])
 
-        if min_importance > 0.0:
-            importances = pd.Series(selector.estimator_.feature_importances_, index=X_encoded.columns)
+        if min_importance > 0.0 and selected:
+            importances = pd.Series(estimator.feature_importances_, index=X_encoded.columns) if n_features is not None else pd.Series(selector.estimator_.feature_importances_, index=X_encoded.columns)
             selected = [c for c in selected if importances.get(c, 0) >= min_importance]
 
         selected = [c for c in selected if c in X_encoded.columns]
