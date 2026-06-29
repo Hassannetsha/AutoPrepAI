@@ -329,10 +329,7 @@ async def chat_feedback(
     step_executed = session.get("last_executed_step", "last step")
     for step in session["pipeline"].agents:
         print(f"Previous log: {step.get_agent_name()}")
-    finished = session.get("finished")
-    if finished:
-        raise HTTPException(status_code=400, detail="No active step to provide feedback on. The pipeline has already finished.")
-    elif body.accept:
+    if body.accept:
         dataset_df = session["dataset_after"].copy()
         # print(f"dataset_df before reverting: {dataset_df.head()}")
         session["previous_logs"].append(f"[System] User ACCEPTED changes from: {step_executed}")
@@ -341,6 +338,7 @@ async def chat_feedback(
         # print(f"dataset_df before reverting: {dataset_df.head()}")
         session["previous_logs"].append(f"[System] User REJECTED changes from: {step_executed}. Reverting data.")
     # 3. Check if we are out of steps
+    finished = session.get("finished")
     print(f"[DEBUG] Finished status: {finished}, dataset shape: {dataset_df.shape}, previous logs: {session['previous_logs']}")
     if not finished:
         try:
