@@ -15,6 +15,39 @@ class SuggestFeatures(dspy.Signature):
     top_n = dspy.InputField(desc="Number of suggestions to return", default="5")
     suggested_features = dspy.OutputField(desc="Suggested features, one per line (name: description | code: ...)")
 
+def _fix_nan_in_feature(df: pd.DataFrame, col_name: str, code: str):
+    """Fix NaN in a newly created feature column.
+    For pd.cut-based features, extend bins to cover the data range.
+    Falls back to filling with the most frequent value.
+    """
+    if col_name not in df.columns or not df[col_name].isna().any():
+        return
+    if 'pd.cut' in code:
+        m = re.search(r"bins=\[([^\]]+)\]\s*,\s*labels=\[([^\]]+)\]", code)
+        if m:
+            try:
+                raw_bins = [float(x.strip()) for x in m.group(1).split(',')]
+                raw_labels = [x.strip().strip("'\"") for x in m.group(2).split(',')]
+            except ValueError:
+                raw_bins = raw_labels = None
+            if raw_bins and len(raw_bins) >= 2 and len(raw_labels) == len(raw_bins) - 1:
+                cut_m = re.search(r"pd\.cut\(\s*([^,]+)\s*,", code)
+                if cut_m:
+                    series_code = cut_m.group(1).strip()
+                    try:
+                        series = eval(series_code, {"df": df, "pd": pd, "np": np})
+                        new_bins = list(raw_bins)
+                        new_bins[0] = min(float(series.min()), raw_bins[0])
+                        new_bins[-1] = max(float(series.max()), raw_bins[-1])
+                        df[col_name] = pd.cut(series, bins=new_bins, labels=raw_labels)
+                        return
+                    except Exception:
+                        pass
+    # Fallback: fill NaN with most frequent value
+    mode_val = df[col_name].mode()
+    if not mode_val.empty:
+        df[col_name] = df[col_name].fillna(mode_val.iloc[0])
+
 class FeatureEngineeringService:
     """Feature engineering utilities encapsulated as a class to use from the pipeline.
 
@@ -106,10 +139,13 @@ class FeatureEngineeringService:
                 fixed_code = self.fix_column_references(code, df_columns)
                 print(f"Fixed code: {fixed_code}")
 
-                eval_context = {"df": df, "pd": pd, "np": np, "numpy": np}
+                eval_context = {"df": df, "pd": pd, "np": np, "numpy": np,
+                                "datetime": __import__('datetime'), "math": __import__('math'),
+                                "re": __import__('re')}
                 
                 # Ensure the code is wrapped as an assignment if it isn't already
-                if "=" in fixed_code:
+                is_assignment = bool(re.match(r'^\s*df\[.+\]\s*=', fixed_code))
+                if is_assignment:
                     execution_code = fixed_code
                 else:
                     execution_code = f"df['{name}'] = {fixed_code}"
@@ -121,25 +157,32 @@ class FeatureEngineeringService:
                     if name in eval_context and name not in ["df", "pd", "np", "numpy"]:
                         result = eval_context[name]
                         df[name] = result
+
+                    # Handle NaN in newly created feature
+                    if df[name].isna().any():
+                        _fix_nan_in_feature(df, name, fixed_code)
                     # UPDATE: Add new column to tracking list for future features
                     if name not in df_columns:
                         df_columns.append(name)
                     features_added += 1
-                    print(f"✓ Successfully added feature: {name}")
+                    print(f"[OK] Successfully added feature: {name}")
                 except Exception as exec_error:
                     # If exec fails, try original fixed code as expression and assign
                     try:
                         result = eval(fixed_code, eval_context)
                         df[name] = result
+                        # Handle NaN in newly created feature
+                        if df[name].isna().any():
+                            _fix_nan_in_feature(df, name, fixed_code)
                         # UPDATE: Add new column to tracking list for future features
                         if name not in df_columns:
                             df_columns.append(name)
                         features_added += 1
-                        print(f"✓ Successfully added feature: {name}")
+                        print(f"[OK] Successfully added feature: {name}")
                     except:
                         raise exec_error
             except Exception as e:
-                print(f"✗ Error processing line '{line}'")
+                print(f"[FAIL] Error processing line '{line}'")
                 print(f"  Error: {e}")
                 import traceback
                 print(f"  Traceback: {traceback.format_exc()}")
