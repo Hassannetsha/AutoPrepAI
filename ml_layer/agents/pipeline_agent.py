@@ -1,0 +1,34 @@
+"""
+PipelineAgent: Base interface for all pipeline agents.
+"""
+from abc import ABC, abstractmethod
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
+
+
+class PipelineAgent(ABC):
+    """
+    Interface for all preprocessing agents in the pipeline.
+    """
+    
+    def __init__(self, name: str):
+        self.name = name
+
+    @abstractmethod
+    def execute(self, context: DataContext, params: AgentParams) -> DataContext:
+        """
+        Execute the agent's logic on the given context.
+        
+        Args:
+            context: The data context to process
+            params: Parameters for this agent
+            
+        Returns:
+            Updated DataContext
+        """
+        pass
+    def get_agent_name(self) -> str:
+        """
+        Return the name of the agent.
+        """
+        return self.name

@@ -2,9 +2,9 @@
 
 import pytest
 import pandas as pd
-from data_context import DataContext
-from execution_condition import AlwaysTrueCondition, AlwaysFalseCondition, IntentBasedCondition
-from intent import Intent
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.execution_condition import AlwaysTrueCondition, AlwaysFalseCondition, IntentBasedCondition
+from business_logic.cleaning_coordinator.intent import Intent
 
 
 class TestAlwaysTrueCondition:

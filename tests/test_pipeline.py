@@ -3,10 +3,10 @@
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-from data_context import DataContext
-from pipeline import Pipeline
-from pipeline_node import PipelineNode
-from services.nlp_service import NLPService
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.pipeline import Pipeline
+from business_logic.cleaning_coordinator.pipeline_node import PipelineNode
+from ml_layer.nlp.nlp_service import NLPService
 
 
 @patch("services.nlp_service.NLPService._init_lm")

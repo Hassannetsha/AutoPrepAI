@@ -3,14 +3,14 @@
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-from data_context import DataContext
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestExactDuplicateRemover:
     @patch("agents.exact_duplicates_agent.ExactDuplicateRemoverService")
     def test_removes_duplicates(self, MockService):
-        from agents.exact_duplicates_agent import ExactDuplicateRemover
+        from ml_layer.agents.exact_duplicates_agent import ExactDuplicateRemover
 
         mock_service = MagicMock()
         df_input = pd.DataFrame({"id": [1, 1, 2], "val": [10, 10, 20]})
@@ -30,7 +30,7 @@ class TestExactDuplicateRemover:
 
     @patch("agents.exact_duplicates_agent.ExactDuplicateRemoverService")
     def test_no_duplicates_found(self, MockService):
-        from agents.exact_duplicates_agent import ExactDuplicateRemover
+        from ml_layer.agents.exact_duplicates_agent import ExactDuplicateRemover
 
         mock_service = MagicMock()
         df_input = pd.DataFrame({"id": [1, 2, 3], "val": [10, 20, 30]})
@@ -48,7 +48,7 @@ class TestExactDuplicateRemover:
 
     @patch("agents.exact_duplicates_agent.ExactDuplicateRemoverService")
     def test_handles_target_col_in_subset(self, MockService):
-        from agents.exact_duplicates_agent import ExactDuplicateRemover
+        from ml_layer.agents.exact_duplicates_agent import ExactDuplicateRemover
 
         mock_service = MagicMock()
         df_input = pd.DataFrame(
@@ -79,7 +79,7 @@ class TestExactDuplicateRemover:
 class TestSemanticDuplicateRemover:
     @patch("agents.semantic_duplicate_remover.SemanticDuplicateRemoverService")
     def test_no_text_columns_skips(self, MockService):
-        from agents.semantic_duplicate_remover import SemanticDuplicateRemover
+        from ml_layer.agents.semantic_duplicate_remover import SemanticDuplicateRemover
 
         agent = SemanticDuplicateRemover()
         df = pd.DataFrame({"a": [1, 2]})
@@ -91,7 +91,7 @@ class TestSemanticDuplicateRemover:
 
     @patch("agents.semantic_duplicate_remover.SemanticDuplicateRemoverService")
     def test_short_text_columns_skips(self, MockService):
-        from agents.semantic_duplicate_remover import SemanticDuplicateRemover
+        from ml_layer.agents.semantic_duplicate_remover import SemanticDuplicateRemover
 
         agent = SemanticDuplicateRemover()
         df = pd.DataFrame({"label": ["yes", "no", "maybe"]})
@@ -103,7 +103,7 @@ class TestSemanticDuplicateRemover:
 
     @patch("agents.semantic_duplicate_remover.SemanticDuplicateRemoverService")
     def test_semantic_removal(self, MockService):
-        from agents.semantic_duplicate_remover import SemanticDuplicateRemover
+        from ml_layer.agents.semantic_duplicate_remover import SemanticDuplicateRemover
 
         mock_service = MagicMock()
         df_input = pd.DataFrame({
@@ -140,7 +140,7 @@ class TestDuplicateRemoverAgent:
     @patch("agents.duplicate_remover_agent.ExactDuplicateRemover")
     @patch("agents.duplicate_remover_agent.SemanticDuplicateRemover")
     def test_runs_both_sub_agents(self, MockSemantic, MockExact):
-        from agents.duplicate_remover_agent import DuplicateRemoverAgent
+        from ml_layer.agents.duplicate_remover_agent import DuplicateRemoverAgent
 
         mock_exact = MagicMock()
         mock_semantic = MagicMock()

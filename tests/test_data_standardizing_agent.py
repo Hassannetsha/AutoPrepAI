@@ -3,8 +3,8 @@
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-from data_context import DataContext
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 # Patch targets for dependencies
@@ -45,7 +45,7 @@ class TestDataStandardizerAgent:
     def test_execute_standardize(
         self, MockGroq, MockService, MockKeyManager, MockRateLimiter, MockLLMClient
     ):
-        from agents.data_standardizing_agent import DataStandardizerAgent
+        from ml_layer.agents.data_standardizing_agent import DataStandardizerAgent
 
         MockKeyManager.return_value = _make_mock_key_manager()
         MockService.return_value = _make_mock_service(
@@ -69,7 +69,7 @@ class TestDataStandardizerAgent:
     def test_skips_when_requested_columns_missing(
         self, MockGroq, MockService, MockKeyManager, MockRateLimiter, MockLLMClient
     ):
-        from agents.data_standardizing_agent import DataStandardizerAgent
+        from ml_layer.agents.data_standardizing_agent import DataStandardizerAgent
 
         MockKeyManager.return_value = _make_mock_key_manager()
 
@@ -91,7 +91,7 @@ class TestDataStandardizerAgent:
         self, MockGroq, MockService, MockKeyManager, MockRateLimiter, MockLLMClient
     ):
         """Service should not be constructed if only numeric columns are present."""
-        from agents.data_standardizing_agent import DataStandardizerAgent
+        from ml_layer.agents.data_standardizing_agent import DataStandardizerAgent
 
         MockKeyManager.return_value = _make_mock_key_manager()
 
@@ -113,7 +113,7 @@ class TestDataStandardizerAgent:
     def test_builds_validation_layer_from_params(
         self, MockGroq, MockService, MockKeyManager, MockRateLimiter, MockLLMClient
     ):
-        from agents.data_standardizing_agent import DataStandardizerAgent
+        from ml_layer.agents.data_standardizing_agent import DataStandardizerAgent
 
         MockKeyManager.return_value = _make_mock_key_manager()
         MockService.return_value = _make_mock_service(
@@ -142,7 +142,7 @@ class TestDataStandardizerAgent:
         self, MockGroq, MockService, MockKeyManager, MockRateLimiter, MockLLMClient
     ):
         """RateLimiter and GroqLLMClient receive the right params from AgentParams."""
-        from agents.data_standardizing_agent import DataStandardizerAgent
+        from ml_layer.agents.data_standardizing_agent import DataStandardizerAgent
 
         MockKeyManager.return_value = _make_mock_key_manager()
         MockService.return_value = _make_mock_service(

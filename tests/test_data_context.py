@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from data_context import DataContext
+from business_logic.cleaning_coordinator.data_context import DataContext
 
 
 class TestDataContext:

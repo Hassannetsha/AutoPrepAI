@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from backend.models import User
+from data_access.database.models import User
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:

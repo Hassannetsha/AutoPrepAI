@@ -3,15 +3,15 @@
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-from data_context import DataContext
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestDataTypeInconsistencyAgent:
     @patch("agents.data_type_inconsistency_agent.DataTypeInconsistencyDetector")
     @patch("agents.data_type_inconsistency_agent.DataResolvingService")
     def test_detects_and_resolves(self, MockResolver, MockDetector):
-        from agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
+        from ml_layer.agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
 
         mock_detector = MagicMock()
         mock_detector.analyze_dataframe.return_value = {
@@ -38,7 +38,7 @@ class TestDataTypeInconsistencyAgent:
 
     @patch("agents.data_type_inconsistency_agent.DataTypeInconsistencyDetector")
     def test_no_inconsistencies_returns_early(self, MockDetector):
-        from agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
+        from ml_layer.agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
 
         mock_detector = MagicMock()
         mock_detector.analyze_dataframe.return_value = {
@@ -57,7 +57,7 @@ class TestDataTypeInconsistencyAgent:
 
     @patch("agents.data_type_inconsistency_agent.DataTypeInconsistencyDetector")
     def test_skips_empty_column_recommendation(self, MockDetector):
-        from agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
+        from ml_layer.agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
 
         mock_detector = MagicMock()
         mock_detector.analyze_dataframe.return_value = {

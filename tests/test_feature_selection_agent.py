@@ -3,14 +3,14 @@
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-from data_context import DataContext
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestFeatureSelectionAgent:
     @patch("agents.feature_selection_agent.FeatureSelectionService")
     def test_selects_features(self, MockService):
-        from agents.feature_selection_agent import FeatureSelectionAgent
+        from ml_layer.agents.feature_selection_agent import FeatureSelectionAgent
 
         mock_service = MagicMock()
         df_input = pd.DataFrame({"a": [1, 2], "b": [3, 4], "c": [5, 6]})
@@ -28,7 +28,7 @@ class TestFeatureSelectionAgent:
 
     @patch("agents.feature_selection_agent.FeatureSelectionService")
     def test_handles_value_error(self, MockService):
-        from agents.feature_selection_agent import FeatureSelectionAgent
+        from ml_layer.agents.feature_selection_agent import FeatureSelectionAgent
 
         mock_service = MagicMock()
         mock_service.run.side_effect = ValueError("Insufficient features")
@@ -43,7 +43,7 @@ class TestFeatureSelectionAgent:
 
     @patch("agents.feature_selection_agent.FeatureSelectionService")
     def test_handles_generic_exception(self, MockService):
-        from agents.feature_selection_agent import FeatureSelectionAgent
+        from ml_layer.agents.feature_selection_agent import FeatureSelectionAgent
 
         mock_service = MagicMock()
         mock_service.run.side_effect = Exception("Unexpected error")
@@ -58,7 +58,7 @@ class TestFeatureSelectionAgent:
 
     @patch("agents.feature_selection_agent.FeatureSelectionService")
     def test_passes_threshold_and_n_features(self, MockService):
-        from agents.feature_selection_agent import FeatureSelectionAgent
+        from ml_layer.agents.feature_selection_agent import FeatureSelectionAgent
 
         mock_service = MagicMock()
         mock_service.run.return_value = (["a"], pd.DataFrame({"a": [1, 2]}))

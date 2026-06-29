@@ -5,7 +5,7 @@ Test script to demonstrate API key rotation in action
 
 import time
 import sys
-from api_key_manager import get_key_manager
+from business_logic.services.api_key_manager import get_key_manager
 
 
 def demo_status():

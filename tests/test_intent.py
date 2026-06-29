@@ -1,6 +1,6 @@
 """Tests for Intent class."""
 
-from intent import Intent
+from business_logic.cleaning_coordinator.intent import Intent
 
 
 class TestIntent:

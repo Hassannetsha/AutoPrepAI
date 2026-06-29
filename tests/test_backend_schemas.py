@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 import pytest
 from pydantic import ValidationError
 
-from backend.schemas import (
+from presentation.api.schemas import (
     ChatResponse,
     ChatResponsePayload,
     ConversationMessageOut,

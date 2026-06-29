@@ -1,6 +1,6 @@
 """Tests for AgentParams data class."""
 
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestAgentParams:

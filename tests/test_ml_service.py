@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.ml_service import MLPipelineService
-from data_context import DataContext
+from business_logic.cleaning_coordinator.ml_service import MLPipelineService
+from business_logic.cleaning_coordinator.data_context import DataContext
 
 
 class TestDataframeFromUpload:

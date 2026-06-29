@@ -12,9 +12,9 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
-from agents.missing_value_agent import MissingValueAgent
-from data_context import DataContext
-from agent_params import AgentParams
+from ml_layer.agents.missing_value_agent import MissingValueAgent
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"

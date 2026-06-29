@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.b2_service import (
+from data_access.storage.b2_service import (
     delete_file_from_b2,
     generate_download_url,
     get_b2_client,

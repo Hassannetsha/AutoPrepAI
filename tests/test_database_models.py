@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 
-from backend.models import Conversation, ConversationMessage, User
+from data_access.database.models import Conversation, ConversationMessage, User
 
 
 class TestUserModel:

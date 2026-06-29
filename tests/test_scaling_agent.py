@@ -3,14 +3,14 @@
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-from data_context import DataContext
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestScalingAgent:
     @patch("agents.scaling_agent.DFScaler")
     def test_execute_standard_scale(self, MockDFScaler):
-        from agents.scaling_agent import ScalingAgent
+        from ml_layer.agents.scaling_agent import ScalingAgent
 
         mock_scaler = MagicMock()
         df_scaled = pd.DataFrame({"age": [-1.0, 1.0]})
@@ -29,7 +29,7 @@ class TestScalingAgent:
 
     @patch("agents.scaling_agent.DFScaler")
     def test_execute_minmax_scale(self, MockDFScaler):
-        from agents.scaling_agent import ScalingAgent
+        from ml_layer.agents.scaling_agent import ScalingAgent
 
         mock_scaler = MagicMock()
         df_scaled = pd.DataFrame({"age": [0.0, 1.0]})
@@ -46,7 +46,7 @@ class TestScalingAgent:
 
     @patch("agents.scaling_agent.DFScaler")
     def test_execute_method_from_columns(self, MockDFScaler):
-        from agents.scaling_agent import ScalingAgent
+        from ml_layer.agents.scaling_agent import ScalingAgent
 
         mock_scaler = MagicMock()
         mock_scaler.scale.return_value = pd.DataFrame({"age": [0.0, 1.0]})
@@ -62,7 +62,7 @@ class TestScalingAgent:
 
     @patch("agents.scaling_agent.DFScaler")
     def test_execute_excludes_target_col(self, MockDFScaler):
-        from agents.scaling_agent import ScalingAgent
+        from ml_layer.agents.scaling_agent import ScalingAgent
 
         mock_scaler = MagicMock()
         mock_scaler.scale.return_value = pd.DataFrame({"age": [-1.0, 1.0], "price": [100, 200]})
@@ -79,7 +79,7 @@ class TestScalingAgent:
 
     @patch("agents.scaling_agent.DFScaler")
     def test_execute_with_comma_separated_columns(self, MockDFScaler):
-        from agents.scaling_agent import ScalingAgent
+        from ml_layer.agents.scaling_agent import ScalingAgent
 
         mock_scaler = MagicMock()
         mock_scaler.scale.return_value = pd.DataFrame({"x": [0.0], "y": [0.0]})

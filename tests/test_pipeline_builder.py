@@ -1,9 +1,9 @@
 """Tests for PipelineBuilder."""
 
 import pandas as pd
-from pipeline_builder import PipelineBuilder
-from pipeline import Pipeline
-from pipeline_node import PipelineNode
+from business_logic.cleaning_coordinator.pipeline_builder import PipelineBuilder
+from business_logic.cleaning_coordinator.pipeline import Pipeline
+from business_logic.cleaning_coordinator.pipeline_node import PipelineNode
 
 
 class TestPipelineBuilder:

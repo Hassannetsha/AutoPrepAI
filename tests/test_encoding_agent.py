@@ -3,15 +3,15 @@
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-from data_context import DataContext
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestEncodingAgent:
     @patch("agents.encoding_agent.EncoderFactory")
     @patch("agents.encoding_agent.detect_categorical_columns")
     def test_execute_auto_detect_columns(self, mock_detect, MockEncoderFactory):
-        from agents.encoding_agent import EncodingAgent
+        from ml_layer.agents.encoding_agent import EncodingAgent
 
         mock_encoder = MagicMock()
         mock_encoder.encode.return_value = pd.DataFrame({
@@ -30,7 +30,7 @@ class TestEncodingAgent:
 
     @patch("agents.encoding_agent.EncoderFactory")
     def test_execute_specific_columns(self, MockEncoderFactory):
-        from agents.encoding_agent import EncodingAgent
+        from ml_layer.agents.encoding_agent import EncodingAgent
 
         mock_encoder = MagicMock()
         mock_encoder.encode.return_value = pd.DataFrame({
@@ -48,7 +48,7 @@ class TestEncodingAgent:
 
     @patch("agents.encoding_agent.EncoderFactory")
     def test_execute_method_from_columns(self, MockEncoderFactory):
-        from agents.encoding_agent import EncodingAgent
+        from ml_layer.agents.encoding_agent import EncodingAgent
 
         mock_encoder = MagicMock()
         mock_encoder.encode.return_value = pd.DataFrame({"color": [0, 1]})
@@ -63,7 +63,7 @@ class TestEncodingAgent:
         MockEncoderFactory.get_encoder.assert_called_with("label")
 
     def test_execute_no_categorical_columns(self):
-        from agents.encoding_agent import EncodingAgent
+        from ml_layer.agents.encoding_agent import EncodingAgent
 
         agent = EncodingAgent()
         df = pd.DataFrame({"x": [1, 2, 3]})
@@ -75,7 +75,7 @@ class TestEncodingAgent:
 
     @patch("agents.encoding_agent.EncoderFactory")
     def test_execute_with_target_column(self, MockEncoderFactory):
-        from agents.encoding_agent import EncodingAgent
+        from ml_layer.agents.encoding_agent import EncodingAgent
 
         mock_encoder = MagicMock()
         mock_encoder.encode.return_value = pd.DataFrame({
@@ -96,7 +96,7 @@ class TestEncodingAgent:
 
     @patch("agents.encoding_agent.EncoderFactory")
     def test_execute_error_logged(self, MockEncoderFactory):
-        from agents.encoding_agent import EncodingAgent
+        from ml_layer.agents.encoding_agent import EncodingAgent
 
         mock_encoder = MagicMock()
         mock_encoder.encode.side_effect = Exception("encode failed")

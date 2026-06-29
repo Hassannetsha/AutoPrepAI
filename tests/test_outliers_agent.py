@@ -3,14 +3,14 @@
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-from data_context import DataContext
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestOutliersAgent:
     @patch("agents.outliers_agent.OutliersService")
     def test_execute_processes_data(self, MockOutliersService):
-        from agents.outliers_agent import OutliersAgent
+        from ml_layer.agents.outliers_agent import OutliersAgent
 
         mock_service = MagicMock()
         df_input = pd.DataFrame({"x": [1, 2, 3]})
@@ -29,7 +29,7 @@ class TestOutliersAgent:
 
     @patch("agents.outliers_agent.OutliersService")
     def test_execute_passes_params_ignored(self, MockOutliersService):
-        from agents.outliers_agent import OutliersAgent
+        from ml_layer.agents.outliers_agent import OutliersAgent
 
         mock_service = MagicMock()
         mock_service.process.return_value = pd.DataFrame({"x": [1]})

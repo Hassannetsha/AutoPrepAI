@@ -3,8 +3,8 @@
 import pandas as pd
 from unittest.mock import MagicMock, patch, ANY
 
-from data_context import DataContext
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestFeatureEngineeringAgent:
@@ -14,7 +14,7 @@ class TestFeatureEngineeringAgent:
     def test_execute_generates_features(
         self, MockKeyManager, MockFEService, MockChainOfThought
     ):
-        from agents.feature_engineering_agent import FeatureEngineeringAgent
+        from ml_layer.agents.feature_engineering_agent import FeatureEngineeringAgent
 
         # Mock the key manager
         mock_key_mgr = MagicMock()
@@ -50,7 +50,7 @@ class TestFeatureEngineeringAgent:
     def test_skips_when_no_suggestions(
         self, MockKeyManager, MockFEService, MockChainOfThought
     ):
-        from agents.feature_engineering_agent import FeatureEngineeringAgent
+        from ml_layer.agents.feature_engineering_agent import FeatureEngineeringAgent
 
         mock_key_mgr = MagicMock()
         mock_key_mgr.get_current_key.return_value = "fake_key"

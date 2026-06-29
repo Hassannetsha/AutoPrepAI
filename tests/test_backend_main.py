@@ -10,9 +10,9 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from backend.main import app
-from backend.ml_service import MLPipelineService
-from backend.models import Conversation
+from data_access.main import app
+from business_logic.cleaning_coordinator.ml_service import MLPipelineService
+from data_access.database.models import Conversation
 
 
 @pytest.fixture
@@ -36,8 +36,8 @@ class TestHealth:
 class TestChatEndpoint:
     @pytest.fixture(autouse=True)
     def _auth_override(self, mock_auth_user):
-        from auth.dependencies import get_current_user
-        from backend.database import get_db
+        from business_logic.auth.dependencies import get_current_user
+        from data_access.database.connection import get_db
         self._mock_db = MagicMock()
         app.dependency_overrides[get_current_user] = lambda: mock_auth_user
         app.dependency_overrides[get_db] = lambda: self._mock_db
@@ -132,8 +132,8 @@ class TestChatEndpoint:
 class TestChatFeedback:
     @pytest.fixture(autouse=True)
     def _auth_override(self, mock_auth_user):
-        from auth.dependencies import get_current_user
-        from backend.database import get_db
+        from business_logic.auth.dependencies import get_current_user
+        from data_access.database.connection import get_db
         self._mock_db = MagicMock()
         app.dependency_overrides[get_current_user] = lambda: mock_auth_user
         app.dependency_overrides[get_db] = lambda: self._mock_db
@@ -161,7 +161,7 @@ class TestChatFeedback:
 class TestDownloadEndpoint:
     @pytest.fixture(autouse=True)
     def _auth_override(self, mock_auth_user):
-        from auth.dependencies import get_current_user
+        from business_logic.auth.dependencies import get_current_user
         app.dependency_overrides[get_current_user] = lambda: mock_auth_user
         yield
         app.dependency_overrides.clear()
@@ -182,8 +182,8 @@ class TestDownloadEndpoint:
 class TestConversationsEndpoint:
     @pytest.fixture(autouse=True)
     def _auth_override(self, mock_auth_user):
-        from auth.dependencies import get_current_user
-        from backend.database import get_db
+        from business_logic.auth.dependencies import get_current_user
+        from data_access.database.connection import get_db
         self._mock_db = MagicMock()
         app.dependency_overrides[get_current_user] = lambda: mock_auth_user
         app.dependency_overrides[get_db] = lambda: self._mock_db

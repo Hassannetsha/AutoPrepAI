@@ -3,12 +3,12 @@
 import pandas as pd
 from unittest.mock import MagicMock, create_autospec
 
-from data_context import DataContext
-from pipeline_node import PipelineNode
-from execution_condition import AlwaysTrueCondition, AlwaysFalseCondition
-from parameter_resolver import IntentColumnResolver
-from agent_params import AgentParams
-from agents.pipeline_agent import PipelineAgent
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.pipeline_node import PipelineNode
+from business_logic.cleaning_coordinator.execution_condition import AlwaysTrueCondition, AlwaysFalseCondition
+from business_logic.cleaning_coordinator.parameter_resolver import IntentColumnResolver
+from business_logic.cleaning_coordinator.agent_params import AgentParams
+from ml_layer.agents.pipeline_agent import PipelineAgent
 
 
 class TestPipelineNode:

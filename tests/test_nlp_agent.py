@@ -4,14 +4,14 @@ import pandas as pd
 import pytest
 from unittest.mock import MagicMock, patch
 
-from data_context import DataContext
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestNLPAgent:
     @patch("agents.nlp_agent.NLPService")
     def test_execute_returns_intents(self, MockNLPService):
-        from agents.nlp_agent import NLPAgent
+        from ml_layer.agents.nlp_agent import NLPAgent
 
         mock_service = MagicMock()
         mock_service.run.return_value = (
@@ -31,7 +31,7 @@ class TestNLPAgent:
 
     @patch("agents.nlp_agent.NLPService")
     def test_execute_skips_when_nlp_done(self, MockNLPService):
-        from agents.nlp_agent import NLPAgent
+        from ml_layer.agents.nlp_agent import NLPAgent
 
         mock_service = MagicMock()
         MockNLPService.return_value = mock_service
@@ -49,7 +49,7 @@ class TestNLPAgent:
 
     @patch("agents.nlp_agent.NLPService")
     def test_execute_tuple_with_intents_only(self, MockNLPService):
-        from agents.nlp_agent import NLPAgent
+        from ml_layer.agents.nlp_agent import NLPAgent
 
         mock_service = MagicMock()
         mock_service.run.return_value = (["remove_outliers"],)
@@ -65,7 +65,7 @@ class TestNLPAgent:
 
     @patch("agents.nlp_agent.NLPService")
     def test_execute_list_result(self, MockNLPService):
-        from agents.nlp_agent import NLPAgent
+        from ml_layer.agents.nlp_agent import NLPAgent
 
         mock_service = MagicMock()
         mock_service.run.return_value = [["scale_numerical"]]
@@ -81,7 +81,7 @@ class TestNLPAgent:
 
     @patch("agents.nlp_agent.NLPService")
     def test_execute_handles_error(self, MockNLPService):
-        from agents.nlp_agent import NLPAgent
+        from ml_layer.agents.nlp_agent import NLPAgent
 
         mock_service = MagicMock()
         mock_service.run.side_effect = Exception("test error")
@@ -98,7 +98,7 @@ class TestNLPAgent:
 
     @patch("agents.nlp_agent.NLPService")
     def test_execute_re_raises_runtime_error(self, MockNLPService):
-        from agents.nlp_agent import NLPAgent
+        from ml_layer.agents.nlp_agent import NLPAgent
 
         mock_service = MagicMock()
         mock_service.run.side_effect = RuntimeError("API key exhausted")
@@ -114,7 +114,7 @@ class TestNLPAgent:
 
     @patch("agents.nlp_agent.NLPService")
     def test_user_command_from_context_fallback(self, MockNLPService):
-        from agents.nlp_agent import NLPAgent
+        from ml_layer.agents.nlp_agent import NLPAgent
 
         mock_service = MagicMock()
         mock_service.run.return_value = (pd.DataFrame({"x": [1]}), [])

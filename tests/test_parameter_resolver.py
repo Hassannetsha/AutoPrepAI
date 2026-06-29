@@ -2,10 +2,10 @@
 
 import pandas as pd
 import pytest
-from data_context import DataContext
-from parameter_resolver import IntentColumnResolver
-from agent_params import AgentParams
-from intent import Intent
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.parameter_resolver import IntentColumnResolver
+from business_logic.cleaning_coordinator.agent_params import AgentParams
+from business_logic.cleaning_coordinator.intent import Intent
 
 
 class TestIntentColumnResolver:

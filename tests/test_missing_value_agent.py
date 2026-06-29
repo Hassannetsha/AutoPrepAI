@@ -5,13 +5,13 @@ import pandas as pd
 import pytest
 from unittest.mock import MagicMock, patch
 
-from data_context import DataContext
-from agent_params import AgentParams
+from business_logic.cleaning_coordinator.data_context import DataContext
+from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestMissingValueAgent:
     def test_execute_no_columns_and_no_strategy_auto_selects(self):
-        from agents.missing_value_agent import MissingValueAgent
+        from ml_layer.agents.missing_value_agent import MissingValueAgent
 
         agent = MissingValueAgent()
         df = pd.DataFrame({"numeric_col": [1.0, 2.0, np.nan, 4.0]})
@@ -24,7 +24,7 @@ class TestMissingValueAgent:
         assert result.data.isnull().sum().sum() == 0
 
     def test_execute_with_mean_strategy(self):
-        from agents.missing_value_agent import MissingValueAgent
+        from ml_layer.agents.missing_value_agent import MissingValueAgent
 
         agent = MissingValueAgent()
         df = pd.DataFrame({"age": [25.0, np.nan, 30.0, 35.0, np.nan]})
@@ -37,7 +37,7 @@ class TestMissingValueAgent:
         assert result.data["age"].iloc[1] == pytest.approx(30.0, abs=1)
 
     def test_execute_with_median_strategy(self):
-        from agents.missing_value_agent import MissingValueAgent
+        from ml_layer.agents.missing_value_agent import MissingValueAgent
 
         agent = MissingValueAgent()
         df = pd.DataFrame({"age": [25.0, np.nan, 30.0, 35.0, np.nan]})
@@ -50,7 +50,7 @@ class TestMissingValueAgent:
         assert result.data["age"].iloc[1] == 30.0
 
     def test_execute_categorical_mode_fill(self):
-        from agents.missing_value_agent import MissingValueAgent
+        from ml_layer.agents.missing_value_agent import MissingValueAgent
 
         agent = MissingValueAgent()
         df = pd.DataFrame({"category": ["a", "a", np.nan, "b", np.nan]})
@@ -63,7 +63,7 @@ class TestMissingValueAgent:
         assert result.data["category"].iloc[2] == "a"
 
     def test_execute_no_valid_columns(self):
-        from agents.missing_value_agent import MissingValueAgent
+        from ml_layer.agents.missing_value_agent import MissingValueAgent
 
         agent = MissingValueAgent()
         df = pd.DataFrame()
@@ -74,7 +74,7 @@ class TestMissingValueAgent:
         assert len(result.data.columns) == 0
 
     def test_execute_strategy_from_intent_override(self):
-        from agents.missing_value_agent import MissingValueAgent
+        from ml_layer.agents.missing_value_agent import MissingValueAgent
 
         agent = MissingValueAgent()
         df = pd.DataFrame({"age": [25.0, np.nan, 30.0]})
@@ -90,7 +90,7 @@ class TestMissingValueAgent:
         assert result.data.isnull().sum().sum() == 0
 
     def test_execute_knn_strategy(self):
-        from agents.missing_value_agent import MissingValueAgent
+        from ml_layer.agents.missing_value_agent import MissingValueAgent
 
         agent = MissingValueAgent()
         np.random.seed(42)
@@ -105,7 +105,7 @@ class TestMissingValueAgent:
         assert result.data.isnull().sum().sum() == 0
 
     def test_execute_fallback_to_missing_values_demo(self):
-        from agents.missing_value_agent import MissingValueAgent
+        from ml_layer.agents.missing_value_agent import MissingValueAgent
 
         agent = MissingValueAgent()
         df = pd.DataFrame({"age": [25.0, np.nan, 30.0]})
