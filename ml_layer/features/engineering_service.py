@@ -8,7 +8,11 @@ class SuggestFeatures(dspy.Signature):
     """Suggest meaningful new features for a dataset.
     IMPORTANT: Only suggest features using columns that exist in dataset_columns.
     Never reference columns not listed there.
+    IMPORTANT: Never suggest scalar/dataset-level statistics (like correlations or global means).
+    Only suggest row-level features that produce a unique value per row.
     Outputs one feature per line: name: description | code: pandas expression
+    IMPORTANT: Never use pd.get_dummies() — it returns multiple columns which cannot be assigned as a single feature.
+    Use df['column'].map() or label encoding instead for categorical columns.
     """
     dataset_columns = dspy.InputField(desc="Available column names (comma-separated)", default="")
     sample_rows = dspy.InputField(desc="Sample rows as JSON (first N rows)", default="")
@@ -38,8 +42,8 @@ def _fix_nan_in_feature(df: pd.DataFrame, col_name: str, code: str):
                         series = eval(series_code, {"df": df, "pd": pd, "np": np})
                         new_bins = list(raw_bins)
                         new_bins[0] = min(float(series.min()), raw_bins[0])
-                        new_bins[-1] = max(float(series.max()), raw_bins[-1])
-                        df[col_name] = pd.cut(series, bins=new_bins, labels=raw_labels)
+                        new_bins[-1] = max(float(series.max()) + 1, raw_bins[-1])  # Add 1 to include max
+                        df[col_name] = pd.cut(series, bins=new_bins, labels=raw_labels, include_lowest=True)
                         return
                     except Exception:
                         pass
@@ -130,6 +134,8 @@ class FeatureEngineeringService:
                 name, _ = name_desc.split(":", 1)
                 name = name.strip()
                 name = re.sub(r'^\d+\.\s*', '', name)
+                name = re.sub(r'([A-Z])', r'_\1', name).lstrip('_').lower()  # CamelCase → snake_case
+                name = re.sub(r'\s+', '_', name)  # spaces → underscores
                 code = code_part.strip()
 
                 print(f"\n{'='*50}")
@@ -137,6 +143,14 @@ class FeatureEngineeringService:
                 print(f"Original code: {code}")
 
                 fixed_code = self.fix_column_references(code, df_columns)
+                
+                if re.search(r"groupby\(.+\)\[.+\]\.(mean|sum|std|min|max|median)\(\)", fixed_code):
+                    fixed_code = re.sub(
+                        r"(groupby\(.+?\)\[.+?\])\.(mean|sum|std|min|max|median)\(\)",
+                        r"\1.transform('\2')",
+                        fixed_code
+                    )
+                
                 print(f"Fixed code: {fixed_code}")
 
                 eval_context = {"df": df, "pd": pd, "np": np, "numpy": np,
