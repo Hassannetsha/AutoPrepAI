@@ -26,3 +26,34 @@ export const getFileIcon = (name) => {
     return FileSpreadsheet;
   return FileIcon;
 };
+
+export const formatTime = (date) =>
+  (date ? new Date(date) : new Date()).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+export const updateDatasetFromResponse = (result, setters) => {
+  if (result?.dataset?.length) {
+    const newHeaders = Object.keys(result.dataset[0]);
+    setters.setHeaders(newHeaders);
+    const beforeData = result.data_preview_before ?? [];
+    const beforeHeaders = beforeData.length
+      ? Object.keys(beforeData[0])
+      : newHeaders;
+    setters.setHeadersBefore(beforeHeaders);
+    setters.setTableData(result.dataset);
+    setters.setTableDataBefore(beforeData);
+    setters.setRows(result.shape?.[0] ?? result.dataset.length);
+    setters.setColumns(result.shape?.[1] ?? newHeaders.length);
+  }
+};
+
+export const userMsg = (text, time) => ({ sender: "user", text, time });
+
+export const botMsg = (text, time, downloadUrl) => ({
+  sender: "bot",
+  text,
+  time,
+  ...(downloadUrl ? { downloadUrl } : {}),
+});
