@@ -80,7 +80,7 @@ export function useChatManager({
           )
         );
 
-        const uploadMessage = data.messages.find((m) => {
+        const uploadMessage = [...data.messages].reverse().find((m) => {
           const sender = m.sender ?? m.role;
           return (sender === "assistant" || sender === "bot") && m.payload?.dataset_name;
         });
@@ -362,6 +362,8 @@ export function useChatManager({
 
         const backendMessage = `${messageText}\n\nPlease apply these actions: ${selectedActions.join(", ")}`;
 
+        console.log("Sending message to backend:", backendMessage);
+        console.log("mode:", inputValue.trim() === "" && selectedActions.length > 0 ? "manual" : "chat");
         const response = await sendChatMessage({
           message: backendMessage,
           mode: inputValue.trim() === "" && selectedActions.length > 0 ? "manual" : "chat",
