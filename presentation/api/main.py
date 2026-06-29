@@ -4,6 +4,8 @@ import uuid
 import time
 from pathlib import Path
 
+import pandas as pd
+
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
@@ -256,7 +258,15 @@ async def chat(
         conversation_id=conversation.id,
         role="assistant",
         content=assistant_message,
-        payload={**json.loads(json.dumps(MLPipelineService._to_jsonable(result))),"finished": finished, "step_title": session.get("last_executed_step") or ""},
+        payload={
+            **json.loads(json.dumps(MLPipelineService._to_jsonable(result))),
+            "finished": finished,
+            "step_title": session.get("last_executed_step") or "",
+            "agent_index": session.get("agent_index", 0),
+            "mode": mode,
+            "file_extension": orig_ext,
+            "original_filename": orig_name,
+        },
     ))
     db.commit()
 
@@ -284,7 +294,38 @@ async def chat_feedback(
         raise HTTPException(status_code=400, detail="Invalid conversation_id")
     session = utilities.sessions.get(str(conversation_uuid))
     if session is None:
-        raise HTTPException(status_code=400, detail="No active session for this conversation.")
+        # Rebuild session from the last assistant message payload (survives server restarts)
+        conversation = db.get(Conversation, conversation_uuid)
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        last_msg = None
+        for msg in reversed(conversation.messages or []):
+            if msg.role in ("assistant", "bot") and msg.payload:
+                last_msg = msg
+                break
+        if not last_msg or not last_msg.payload:
+            raise HTTPException(status_code=400, detail="No active session for this conversation. Please send a message to start a new session.")
+        pl = last_msg.payload
+        session = MLPipelineService.session_builder(
+            str(conversation_uuid),
+            pl.get("mode", "chat"),
+            file_extension=pl.get("file_extension", ".csv"),
+            original_filename=pl.get("original_filename", "data.csv"),
+        )
+        session["agent_index"] = pl.get("agent_index", 0)
+        session["last_executed_step"] = pl.get("step_title", "")
+        session["previous_logs"] = pl.get("logs", [])
+        session["finished"] = pl.get("finished", True)
+        session["context_metadata"] = pl.get("metadata", {})
+        # Rebuild datasets from JSON records
+        dataset_records = pl.get("dataset") or []
+        before_records = pl.get("data_preview_before") or dataset_records
+        session["dataset_after"] = pd.DataFrame(dataset_records) if dataset_records else pd.DataFrame()
+        session["dataset_before"] = pd.DataFrame(before_records) if before_records else pd.DataFrame()
+        # Preserve result fields, excluding session-only keys
+        session_keys = {"finished", "step_title", "agent_index", "mode", "file_extension", "original_filename"}
+        session["result"] = {k: v for k, v in pl.items() if k not in session_keys}
+        utilities.sessions[str(conversation_uuid)] = session
     step_executed = session.get("last_executed_step", "last step")
     for step in session["pipeline"].agents:
         print(f"Previous log: {step.get_agent_name()}")
@@ -363,6 +404,10 @@ async def chat_feedback(
             **json.loads(json.dumps(MLPipelineService._to_jsonable(result))),
             "finished": finished,
             "step_title": session.get("last_executed_step") or "",
+            "agent_index": session.get("agent_index", 0),
+            "mode": session.get("mode", "chat"),
+            "file_extension": session.get("file_extension", ".csv"),
+            "original_filename": session.get("original_filename", "data.csv"),
         },
     ))
     db.commit()
