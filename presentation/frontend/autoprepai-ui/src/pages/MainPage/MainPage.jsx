@@ -19,7 +19,7 @@ import {
   createConversation,
   sendFeedback,
 } from "../../api/chat";
-import { getAuthToken } from "../../api/auth";
+import { getAuthToken, removeAuthToken } from "../../api/auth";
 import { ACTION_TO_INTENT, ACTIONS, ALLOWED_MIME_TYPES } from "./constants";
 import { parseCSV, parseXLSX } from "./utils/fileParsers";
 import * as XLSX from "xlsx";
@@ -129,6 +129,10 @@ export default function MainPage() {
         if (friendly.includes("log out")) {
           setChatError(friendly);
         }
+        if (error.message === "SESSION_EXPIRED") {
+          removeAuthToken();
+          window.dispatchEvent(new Event(LOGOUT_EVENT));
+        }
       }
     },
     [restoreDatasetFromPayload, setChats, setDatasetName, setOriginalExtension]
@@ -155,6 +159,11 @@ export default function MainPage() {
       const friendly = cleanError(error.message);
       if (friendly.includes("log out")) {
         setChatError(friendly);
+      }
+      // Expired/invalid token → force logout so UI reflects correct state
+      if (error.message === "SESSION_EXPIRED") {
+        removeAuthToken();
+        window.dispatchEvent(new Event(LOGOUT_EVENT));
       }
     }
   }, [loadChatMessages, setChats, setActiveChatId, setCurrentConversationId]);

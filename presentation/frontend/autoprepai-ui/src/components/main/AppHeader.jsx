@@ -6,10 +6,11 @@ import { getAuthToken, logoutUser, removeAuthToken } from "../../api/auth";
 export const LOGOUT_EVENT = "autoprepai_logout";
 
 export function emitLogout() {
+  // Call backend FIRST while token is still valid (cleans up backend sessions)
+  logoutUser().catch(() => {});
+  // Then clear local state
   removeAuthToken();
   window.dispatchEvent(new Event(LOGOUT_EVENT));
-  // best-effort backend call, don't block the UI
-  logoutUser().catch(() => {});
 }
 
 export default function AppHeader() {
