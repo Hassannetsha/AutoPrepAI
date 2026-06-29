@@ -16,7 +16,7 @@ from business_logic.cleaning_coordinator.pipeline import Pipeline
 from data_access.storage.b2_service import upload_file_to_b2
 from business_logic.services import session_store as utilities
 
-from utils.excel_utils import read_excel_clean
+from business_logic.utils.excel_utils import read_excel_clean
 # _cached_pipeline = None
 
 # def _get_pipeline() -> Pipeline:
@@ -455,7 +455,7 @@ class MLPipelineService:
         )
     @classmethod
     def save_processed_dataframe(cls, dataframe: pd.DataFrame, conversation_id: str, file_extension: str = ".csv", original_filename: str | None = None) -> str:
-        from utils.excel_utils import save_dataframe_to_bytes
+        from business_logic.utils.excel_utils import save_dataframe_to_bytes
 
         stem = uuid.uuid4().hex
         output_filename = f"{stem}{file_extension}"

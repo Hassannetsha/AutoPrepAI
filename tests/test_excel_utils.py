@@ -5,7 +5,7 @@ import openpyxl
 import pandas as pd
 import pytest
 
-from utils.excel_utils import read_excel_clean
+from business_logic.utils.excel_utils import read_excel_clean
 
 
 class TestReadExcelClean:

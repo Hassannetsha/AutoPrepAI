@@ -97,7 +97,7 @@ uploaded_file = st.sidebar.file_uploader("Upload CSV or Excel file", type=["csv"
 
 if uploaded_file:
     if uploaded_file.name.lower().endswith((".xlsx", ".xls")):
-        from utils.excel_utils import read_excel_clean
+        from business_logic.utils.excel_utils import read_excel_clean
         st.session_state.df = read_excel_clean(uploaded_file.read())
     else:
         st.session_state.df = pd.read_csv(uploaded_file)
