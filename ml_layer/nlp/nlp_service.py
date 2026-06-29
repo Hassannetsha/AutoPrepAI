@@ -240,6 +240,30 @@ class NLPService:
             if training_examples is not None and len(training_examples) > 0:
                 self._setup_few_shot_examples(training_examples)
 
+        METHOD_KEYWORDS = {
+            "mean": ["mean", "average"],
+            "median": ["median"],
+            "mode": ["mode", "most frequent"],
+            "constant": ["constant", "fill with", "replace with"],
+            "knn": ["knn", "k-nearest", "nearest neighbor"],
+            "iterative": ["iterative", "mice"],
+            "iqr": ["iqr", "interquartile"],
+            "z-score": ["z-score", "zscore", "standard score"],
+            "minmax": ["minmax", "min-max"],
+            "one-hot": ["one-hot", "one hot", "dummy"],
+            "label": ["label encoding", "label encode", "label"],
+        }
+
+        @staticmethod
+        def _extract_method_from_text(task: str):
+            """Extract method/strategy from task text (e.g. 'using median' → 'median')."""
+            task_lower = task.lower().strip()
+            for method, keywords in NLPService.OptimizedIntentPipeline.METHOD_KEYWORDS.items():
+                for kw in keywords:
+                    if kw in task_lower:
+                        return method
+            return None
+
         def _keyword_classify(self, task: str):
             """Check task against INTENT_KEYWORDS; return intent if matched, else None."""
             task_lower = task.lower().strip()
@@ -476,7 +500,7 @@ class NLPService:
                         'confidence': 0.98,
                         'reasoning': f"keyword match → {orig_intent}",
                         'columns': cols,
-                        'method': None,
+                        'method': self._extract_method_from_text(user_command),
                         'other_params': {},
                     }]
             # Step 1: Split into tasks (DSPy, needed for compound commands)
@@ -509,7 +533,7 @@ class NLPService:
                     if kw_intent:
                         intent = kw_intent
                         cols = self._extract_columns_from_task(task, dataset_columns)
-                        method = None
+                        method = self._extract_method_from_text(task)
                         other_params = {}
                         confidence = 0.98
                         reasoning = f"keyword match → {kw_intent}"
@@ -571,7 +595,7 @@ class NLPService:
                         'confidence': 0.98,
                         'reasoning': f"fallback keyword match → {fallback_intent}",
                         'columns': [c.strip() for c in dataset_columns.split(",") if c.strip()] if dataset_columns else [],
-                        'method': None,
+                        'method': self._extract_method_from_text(user_command),
                         'other_params': {},
                     })
             return results
