@@ -4,7 +4,6 @@ export const ACTION_TO_INTENT = {
   "Remove Duplicates": "remove_duplicates",
   "Detect Feature Inconsistency": "remove_inconsistencies",
   "Scale Data": "scale_numerical",
-  "Encode Data": "encode_categorical",
   "Feature Engineering": "feature_engineering",
   "Data Standardization": "standardize_data",
 };
@@ -15,7 +14,6 @@ export const ACTIONS = [
   "Remove Duplicates",
   "Detect Feature Inconsistency",
   "Scale Data",
-  "Encode Data",
   "Feature Engineering",
   "Data Standardization",
 ];

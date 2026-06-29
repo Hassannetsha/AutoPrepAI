@@ -25,7 +25,7 @@ class EncodingService:
         return out
 
     @staticmethod
-    def one_hot_encode(df: pd.DataFrame, columns: Iterable[str], drop_first: bool = True) -> pd.DataFrame:
+    def one_hot_encode(df: pd.DataFrame, columns: Iterable[str], drop_first: bool = False) -> pd.DataFrame:
         return pd.get_dummies(df, columns=list(columns), drop_first=drop_first)
 
     @staticmethod
