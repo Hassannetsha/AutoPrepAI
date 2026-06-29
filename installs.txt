@@ -30,7 +30,7 @@ pip install streamlit pandas numpy scikit-learn matplotlib category-encoders sym
 
 .venv\Scripts\Activate.ps1 --> Activate the environment
 
-uvicorn backend.main:app --reload --host 127.0.0.1 --port 8022
+uvicorn presentation.api.main:app --reload --host 127.0.0.1 --port 8022
 
 pip install "pydantic[email]"
 
@@ -47,7 +47,7 @@ pip install pytest
 npm install
 
 // to run front 
-cd .\Frontend\autoprepai-ui\
+cd .\presentation\frontend\autoprepai-ui
 npm start 
 
 npm install xlsx

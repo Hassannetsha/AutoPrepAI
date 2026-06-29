@@ -4,7 +4,7 @@ function getLogClass(message) {
   if (message.startsWith("[System] User ACCEPTED")) return "history-item history-accept";
   if (message.startsWith("[System] User REJECTED")) return "history-item history-reject";
   if (message.startsWith("[System]")) return "history-item history-system";
-  if (message.startsWith("Executing agent")) return "history-item history-agent";
+  if (message.includes("Executing agent")) return "history-item history-agent";
   return "history-item";
 }
 

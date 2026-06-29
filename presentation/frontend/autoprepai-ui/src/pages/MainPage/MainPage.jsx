@@ -510,6 +510,8 @@ export default function MainPage() {
         dataset: file,
       });
 
+      setPendingFeedback(false); // auto-clean is always fully done, no feedback needed
+
       const realConvId = response.conversation_id ?? thisConvId;
       syncConversationId(response.conversation_id, thisChatId);
 
@@ -627,7 +629,7 @@ export default function MainPage() {
       syncConversationId(response.conversation_id, thisChatId);
 
       const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      setPendingFeedback(!response.finished);
+      setPendingFeedback(response.finished === false);
       setStepTitle(response.step_title || "");
       setChats((prev) =>
         prev.map((chat) =>
@@ -687,7 +689,6 @@ export default function MainPage() {
     if (!currentConversationId || submittingFeedback) return;
 
     setSubmittingFeedback(true);
-    setPendingFeedback(false);
     setChatError("");
 
     try {
@@ -717,7 +718,7 @@ export default function MainPage() {
         )
       );
 
-      setPendingFeedback(!response.finished);
+      setPendingFeedback(response.finished === false);
       setStepTitle(response.step_title || "");
 
       if (response.result?.dataset?.length) {

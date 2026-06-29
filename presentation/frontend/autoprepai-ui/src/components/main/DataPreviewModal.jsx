@@ -50,6 +50,10 @@ export default function DataPreviewModal({ onClose, data, dataBefore, headers, h
     );
   }
 
+  console.log("DataPreviewModal: dataBefore length:", dataBefore.length, "data length:", data.length);
+  console.log("DataBefore :", dataBefore);
+  console.log("DataAfter :", data);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
