@@ -9,11 +9,20 @@ from data_access.database.connection import Base
 
 WELCOME_TEXT = (
     "Hello! I'm your AutoPrepAI assistant. Upload a dataset to get started.\n\n"
-    "- Fix missing values\n"
+    "- Fix missing values using imputation through various methods:\n"
+    "  - Mean, median, or mode imputation\n"
+    "  - K-Nearest Neighbors imputation\n"
+    "  - Iterative imputation\n"
     "- Detect and handle outliers\n"
     "- Detect and handle duplicates\n"
-    "- Resolve feature inconsistency\n"
-    "- Scale and encode data\n"
+    "- Resolve data type inconsistency\n"
+    "- Scale data through various methods:\n"
+    "  - Min-Max Scaling\n"
+    "  - Z-Score Standardization\n"
+    "  - Robust Scaling\n"
+    "- Encode data through various methods:\n"
+    "  - One-Hot Encoding\n"
+    "  - Label Encoding\n"
     "- Feature selection with a focus on the target variable\n"
     "- Features engineering"
 )
