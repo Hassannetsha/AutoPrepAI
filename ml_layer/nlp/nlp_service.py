@@ -573,13 +573,6 @@ class NLPService:
             except:
                 pass
             return params
-    class ExplainStep(dspy.Signature):
-        """Ask the LM to explain why a preprocessing step ran and explain the step in detail and why this method was chosen and what is the changes that happened in the data, given metadata before/after."""
-        step_name = dspy.InputField(desc="Name of the preprocessing step")
-        task = dspy.InputField(desc="Original user task / intent (optional)", default="")
-        metadata_before = dspy.InputField(desc="Metadata before step (JSON string)", default="")
-        metadata_after = dspy.InputField(desc="Metadata after step (JSON string)", default="")
-        explanation = dspy.OutputField(desc="LLM explanation for why the step was executed and what is the changes that happened in the data")
 
     def explain_step_llm(self,
                          step_name: str,
@@ -648,12 +641,7 @@ class NLPService:
             return handler.execute(task=_task, after_rotate=after_rotate, task_name="explain_operation")
         except RuntimeError as e:
             return f"Explanation failed: {e}"
-    # @st.cache_resource
-    # def build_pipeline(self, training_data: Optional[pd.DataFrame]):
-    #     """Create and cache the pipeline module."""
-    #     if training_data is not None and len(training_data) > 0:
-    #         return AutoPrepApp.OptimizedIntentPipeline(training_examples=training_data)
-    #     return AutoPrepApp.OptimizedIntentPipeline(training_examples=None)
+
     def run(self, user_input: str, dataset_df: Optional[pd.DataFrame] = None, dataset_path: Optional[str] = None) -> Optional[List[str]]:
         """Headless version of runUI: perform same processing without Streamlit and return detected intents.
         Includes automatic key rotation on rate limit errors.
@@ -667,47 +655,18 @@ class NLPService:
             List of detected intent names (same as runUI returns on success), or [] if nothing detected.
         """
         # 1) Ensure LM is configured with key rotation capability
-        max_retries = _key_manager.get_total_keys_count()
-        retry_count = 0
-        
-        while retry_count < max_retries:
-            try:
-                # Configure with current key
-                api_key = _key_manager.get_current_key()
-                os.environ["GROQ_API_KEY"] = api_key
-                lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-                self.lm = lm
-                NLPService._lm = lm
-                
-                print(f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}")
-                break
-                
-            except Exception as e:
-                error_msg = str(e).lower()
-                if "rate" in error_msg or "quota" in error_msg or "limit" in error_msg or "429" in error_msg:
-                    print(f"⚠️ Key #{_key_manager.current_index + 1} rate limited. Rotating...")
-                    _key_manager.mark_key_failed()
-                    try:
-                        _key_manager.rotate_key()
-                        retry_count += 1
-                        time.sleep(1)
-                        continue
-                    except RuntimeError as rotate_err:
-                        raise RuntimeError(str(rotate_err))
-                else:
-                    raise
+        from business_logic.services.retry_handler import GroqRetryHandler
+        handler = GroqRetryHandler(_key_manager, log_fn=lambda msg: print(msg))
 
-        # 2) Load training data (headless: read from disk if not provided)
-        # try:
-        #     training_data = pd.read_csv(self.training_csv)
-        # except Exception:
-        #     training_data = None
-        # self.training_data = training_data
+        def _setup_lm():
+            api_key = _key_manager.get_current_key()
+            os.environ["GROQ_API_KEY"] = api_key
+            lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
+            self.lm = lm
+            NLPService._lm = lm
+            print(f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}")
 
-        # 3) Build pipeline
-        # self.pipeline = self.build_pipeline(self.training_data)
-
-        # Use the class-level cached pipeline instead:
+        handler.execute(task=_setup_lm, task_name="key_setup")
         self.pipeline = NLPService._pipeline 
 
         # 4) Load dataset columns (if a dataset provided)
@@ -733,35 +692,25 @@ class NLPService:
             return df, intents
 
         # 7) Run pipeline with rate limit handling
-        max_pipeline_retries = _key_manager.get_total_keys_count()
-        pipeline_retry = 0
-        
-        while pipeline_retry < max_pipeline_retries:
+        def _run_pipeline():
             try:
                 with dspy.context(lm=self.lm):
-                    results = self.pipeline(user_command=user_input, dataset_columns=columns_str)
-                break
-                
+                    return self.pipeline(user_command=user_input, dataset_columns=columns_str)
             except Exception as e:
                 error_msg = str(e).lower()
-                if "rate" in error_msg or "quota" in error_msg or "limit" in error_msg or "429" in error_msg:
-                    print(f"⚠️ Key #{_key_manager.current_index + 1} rate limited during processing. Rotating...")
-                    _key_manager.mark_key_failed()
-                    try:
-                        api_key = _key_manager.rotate_key()
-                        os.environ["GROQ_API_KEY"] = api_key
-                        lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-                        self.lm = lm
-                        NLPService._lm = lm
-                        # Rebuild pipeline with new key
-                        self.pipeline = self.build_pipeline()
-                        pipeline_retry += 1
-                        time.sleep(1)
-                        continue
-                    except RuntimeError as rotate_err:
-                        raise RuntimeError(str(rotate_err))
-                else:
+                is_rate_limit = any(x in error_msg for x in GroqRetryHandler.RATE_LIMIT_KEYWORDS)
+                if not is_rate_limit:
                     raise RuntimeError(f"Error processing command: {e}")
+                raise
+
+        def _after_rotate(new_key):
+            os.environ["GROQ_API_KEY"] = new_key
+            lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=new_key, max_tokens=1000)
+            self.lm = lm
+            NLPService._lm = lm
+            self.pipeline = self.build_pipeline()
+
+        results = handler.execute(task=_run_pipeline, after_rotate=_after_rotate, task_name="pipeline_run")
 
         if not results:
             return []
@@ -836,7 +785,6 @@ class NLPService:
             'model', 'predict', 'analysis', 'data', 'value', 'values',
         }
 
-        words = set(text.split())
         found_physical_verb = any(v in text for v in physical_verbs)
         found_physical_object = any(v in text for v in physical_objects)
         found_data_keyword = any(v in text for v in data_keywords)
