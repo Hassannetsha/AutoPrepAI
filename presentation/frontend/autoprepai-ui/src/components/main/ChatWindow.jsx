@@ -19,23 +19,23 @@ export default function ChatWindow({
   return (
     <div className="chat">
       {activeChat?.messages.map((msg, index) => {
-        const isAgentLog = msg.sender === "bot" && AGENT_LOG_PATTERN.test(msg.text);
+        const isAgentLog = msg.role === "assistant" && AGENT_LOG_PATTERN.test(msg.text);
 
         return (
           <div
             key={index}
-            className={`message-row ${msg.sender === "user" ? "row-user" : "row-bot"}`}
+            className={`message-row ${msg.role === "user" ? "row-user" : "row-bot"}`}
           >
-            {msg.sender === "bot" && (
+            {msg.role === "assistant" && (
               <div className="avatar avatar-bot">
                 <Bot size={16} />
               </div>
             )}
 
             <div
-              className={`message ${msg.sender === "user" ? "message-user" : "message-bot"}`}
+              className={`message ${msg.role === "user" ? "message-user" : "message-bot"}`}
             >
-              {msg.sender === "bot" ? (
+              {msg.role === "assistant" ? (
                 isAgentLog ? (
                   <AgentMessage text={msg.text} />
                 ) : (
@@ -67,7 +67,7 @@ export default function ChatWindow({
               <span className="msg-time">{msg.time}</span>
             </div>
 
-            {msg.sender === "user" && (
+            {msg.role === "user" && (
               <div className="avatar avatar-user">
                 <User size={16} />
               </div>

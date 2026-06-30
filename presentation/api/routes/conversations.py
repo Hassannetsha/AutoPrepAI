@@ -38,7 +38,7 @@ def create_conversation(
             {
                 "id": str(msg.id),
                 "content": msg.content,
-                "sender": msg.role,
+                "role": msg.role,
                 "created_at": msg.created_at.isoformat(),
             }
         ],
@@ -94,7 +94,7 @@ def get_conversation(
             {
                 "id": str(msg.id),
                 "content": msg.content,
-                "sender": msg.role,
+                "role": msg.role,
                 "created_at": msg.created_at,
                 "payload": msg.payload,
             }

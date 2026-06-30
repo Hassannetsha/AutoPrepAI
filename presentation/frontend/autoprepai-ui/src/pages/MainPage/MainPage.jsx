@@ -146,6 +146,7 @@ export default function MainPage() {
         <HistoryModal
           onClose={() => history.setShowHistory(false)}
           logs={history.historyLogs}
+          loadingHistory={history.loadingHistory}
         />
       )}
     </div>

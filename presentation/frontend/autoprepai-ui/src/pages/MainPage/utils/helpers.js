@@ -49,10 +49,10 @@ export const updateDatasetFromResponse = (result, setters) => {
   }
 };
 
-export const userMsg = (text, time) => ({ sender: "user", text, time });
+export const userMsg = (text, time) => ({ role: "user", text, time });
 
 export const botMsg = (text, time, downloadUrl) => ({
-  sender: "bot",
+  role: "assistant",
   text,
   time,
   ...(downloadUrl ? { downloadUrl } : {}),
