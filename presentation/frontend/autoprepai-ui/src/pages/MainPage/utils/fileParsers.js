@@ -1,6 +1,22 @@
 import * as XLSX from "xlsx";
 
-export const parseCSVLine = (line) => {
+const makeUniqueHeaders = (headers) => {
+  const seen = {};
+  return headers.map((header, index) => {
+    const name = header?.trim() || `Column_${index + 1}`;
+
+    if (!seen[name]) {
+      seen[name] = 1;
+      return name;
+    }
+
+    seen[name]++;
+
+    return `${name}_${seen[name]}`;
+  });
+};
+
+export const parseCSVLine = (line = "") => {
   const values = [];
   let current = "";
   let inQuotes = false;
@@ -17,32 +33,57 @@ export const parseCSVLine = (line) => {
       } else {
         current += ch;
       }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ",") {
-      values.push(current);
-      current = "";
     } else {
-      current += ch;
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        values.push(current);
+
+        current = "";
+      } else {
+        current += ch;
+      }
     }
   }
   values.push(current);
   return values;
 };
 
-export const parseCSV = (text) => {
-  const lines = text.replace(/\r\n/g, "\n").trim().split("\n").filter(Boolean);
-  if (lines.length === 0) return { rows: 0, columns: 0, data: [], headers: [] };
-  const hdrs = parseCSVLine(lines[0]);
+export const parseCSV = (text = "") => {
+  const cleaned = text.replace(/\r\n/g, "\n").trim();
+  if (!cleaned) {
+    return {
+      rows: 0,
+      columns: 0,
+      data: [],
+      headers: [],
+    };
+  }
+  const lines = cleaned.split("\n").filter(Boolean);
+  if (lines.length === 0) {
+    return {
+      rows: 0,
+      columns: 0,
+      data: [],
+      headers: [],
+    };
+  }
+  const headers = makeUniqueHeaders(parseCSVLine(lines[0]));
   const data = lines.slice(1).map((line) => {
     const values = parseCSVLine(line);
     const obj = {};
-    hdrs.forEach((h, i) => {
-      obj[h] = values[i] ?? "";
+    headers.forEach((header, index) => {
+      obj[header] = values[index] ?? "";
     });
     return obj;
   });
-  return { rows: data.length, columns: hdrs.length, data, headers: hdrs };
+
+  return {
+    rows: data.length,
+    columns: headers.length,
+    data,
+    headers,
+  };
 };
 
 export const parseXLSX = async (file) => {
@@ -52,6 +93,15 @@ export const parseXLSX = async (file) => {
     type: "array",
   });
 
+  if (!workbook.SheetNames.length) {
+    return {
+      rows: 0,
+      columns: 0,
+      data: [],
+      headers: [],
+    };
+  }
+
   const sheetName = workbook.SheetNames[0];
 
   const worksheet = workbook.Sheets[sheetName];
@@ -59,18 +109,24 @@ export const parseXLSX = async (file) => {
   const allRows = XLSX.utils.sheet_to_json(worksheet, {
     header: 1,
     defval: "",
-    raw: false,
+    raw: true,
   });
 
   if (allRows.length === 0) {
-    return { rows: 0, columns: 0, data: [], headers: [] };
+    return {
+      rows: 0,
+      columns: 0,
+      data: [],
+      headers: [],
+    };
   }
 
   let headerIdx = 0;
+
   while (
     headerIdx < allRows.length &&
     allRows[headerIdx].every(
-      (cell) => cell === "" || cell === null || cell === undefined
+      (cell) => cell === "" || cell === null || cell === undefined,
     )
   ) {
     headerIdx++;
@@ -80,13 +136,13 @@ export const parseXLSX = async (file) => {
     return { rows: 0, columns: 0, data: [], headers: [] };
   }
 
-  const raw = allRows[headerIdx];
+  const rawHeaders = allRows[headerIdx];
+  const headers = makeUniqueHeaders(rawHeaders.map((h) => String(h ?? "")));
   const colMap = [];
-  const headers = [];
-  raw.forEach((h, i) => {
-    if (h !== "" && h !== null && h !== undefined) {
-      headers.push(String(h).trim());
-      colMap.push(i);
+
+  rawHeaders.forEach((header, index) => {
+    if (header !== "" && header !== null && header !== undefined) {
+      colMap.push(index);
     }
   });
 
@@ -99,8 +155,9 @@ export const parseXLSX = async (file) => {
       continue;
     }
     const obj = {};
-    colMap.forEach((srcIdx, destIdx) => {
-      obj[headers[destIdx]] = row[srcIdx] ?? "";
+
+    colMap.forEach((sourceIndex, headerIndex) => {
+      obj[headers[headerIndex]] = row[sourceIndex] ?? "";
     });
     data.push(obj);
   }
