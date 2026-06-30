@@ -26,10 +26,7 @@ class NLPService:
     
     _lm = None
     _pipeline = None
-    _training_data_loaded = False
-
-    def __init__(self, groq_api_key=None, training_csv="intents_augmented.csv"):
-        self.training_csv = training_csv
+    def __init__(self, groq_api_key=None):
         self.api_key = groq_api_key or os.getenv("GROQ_API_KEY")
         
         # Initialize shared resources once
@@ -81,64 +78,11 @@ class NLPService:
         print(f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}")
 
     def _init_pipeline(self):
-        try:
-            training_data = pd.read_csv(self.training_csv)
-        except Exception:
-            training_data = None
-        NLPService._pipeline = self.build_pipeline(training_data)
+        NLPService._pipeline = self.build_pipeline()
 
-    def build_pipeline(self, training_data):
-        """No longer uses @st.cache_resource - plain method."""
-        if training_data is not None and len(training_data) > 0:
-            return NLPService.OptimizedIntentPipeline(training_examples=training_data)
-        return NLPService.OptimizedIntentPipeline(training_examples=None)
+    def build_pipeline(self):
+        return NLPService.OptimizedIntentPipeline()
 
-
-    def setup_dspy(_self) -> dspy.LM:
-        """Initialize and cache DSPy LM resource with key rotation support."""
-        from business_logic.services.retry_handler import GroqRetryHandler
-
-        handler = GroqRetryHandler(_key_manager, log_fn=lambda msg: None)
-
-        def _task():
-            api_key = _key_manager.get_current_key()
-            if not api_key:
-                st.warning("⚠️ No API keys available!")
-                st.stop()
-            lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=api_key, max_tokens=1000)
-            dspy.settings.configure(lm=lm)
-            _self.lm = lm
-            st.sidebar.info(
-                f"✅ Using API Key #{_key_manager.current_index + 1}/{_key_manager.get_total_keys_count()}\n"
-                f"Available keys: {_key_manager.get_available_keys_count()}"
-            )
-            return lm
-
-        def after_rotate(new_key):
-            os.environ["GROQ_API_KEY"] = new_key
-            lm = dspy.LM(model="groq/llama-3.3-70b-versatile", api_key=new_key, max_tokens=1000)
-            dspy.settings.configure(lm=lm)
-            _self.lm = lm
-
-        try:
-            return handler.execute(
-                task=_task,
-                after_rotate=after_rotate,
-                task_name="setup_dspy",
-            )
-        except RuntimeError as e:
-            st.error(f"❌ {e}")
-            st.stop()
-
-    def load_training_data(_self) -> Optional[pd.DataFrame]:
-        """Load training CSV if present; cache result."""
-        try:
-            df = pd.read_csv(_self.training_csv)
-            return df
-        except FileNotFoundError:
-            st.sidebar.warning(f"⚠️ Training file '{_self.training_csv}' not found. Using basic mode.")
-            return None
-        
     # ---------- DSPy Signatures ----------
     # Keep these as inner classes for encapsulation but accessible by dspy
     class SplitIntoTasks(dspy.Signature):
@@ -229,16 +173,13 @@ class NLPService:
                                       "derive feature", "new column from", "new features"],
         }
 
-        def __init__(self, training_examples=None):
+        def __init__(self):
             super().__init__()
             self.split_tasks = dspy.ChainOfThought(NLPService.SplitIntoTasks)
             self.classify = dspy.ChainOfThought(NLPService.ClassifyIntent)
             self.extract_params = dspy.ChainOfThought(NLPService.ExtractParameters)
             self.suggest_features = dspy.ChainOfThought(SuggestFeatures)
-            
-            # Add few-shot examples if training data available
-            if training_examples is not None and len(training_examples) > 0:
-                self._setup_few_shot_examples(training_examples)
+            self._setup_few_shot_examples()
 
         METHOD_KEYWORDS = {
             "mean": ["mean", "average"],
@@ -247,8 +188,6 @@ class NLPService:
             "constant": ["constant", "fill with", "replace with"],
             "knn": ["knn", "k-nearest", "nearest neighbor"],
             "iterative": ["iterative", "mice"],
-            "iqr": ["iqr", "interquartile"],
-            "z-score": ["z-score", "zscore", "standard score"],
             "minmax": ["minmax", "min-max"],
             "one-hot": ["one-hot", "one hot", "dummy"],
             "label": ["label encoding", "label encode", "label"],
@@ -302,7 +241,7 @@ class NLPService:
                     found.append(col)
             return found
 
-        def _setup_few_shot_examples(self, examples: pd.DataFrame):
+        def _setup_few_shot_examples(self):
             """Setup curated few-shot examples — no random sampling, always representative."""
             # ── ClassifyIntent demos: curated 2 per intent ───────────────
             # unknown_intent (hard-coded, shown first so DSPy sees them first)
@@ -826,11 +765,7 @@ class NLPService:
                         self.lm = lm
                         NLPService._lm = lm
                         # Rebuild pipeline with new key
-                        try:
-                            training_data = pd.read_csv(self.training_csv)
-                        except Exception:
-                            training_data = None
-                        self.pipeline = self.build_pipeline(training_data)
+                        self.pipeline = self.build_pipeline()
                         pipeline_retry += 1
                         time.sleep(1)
                         continue
