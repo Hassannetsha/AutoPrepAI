@@ -1,217 +1,139 @@
-.chat-sidebar {
-  width: 220px;
-  background: linear-gradient(180deg, #ffffff 0%, #f0faf9 100%);
-  border-right: 1px solid #cfeeea;
-  padding: 18px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  position: relative;
-  z-index: 1;
-  box-shadow: 8px 0 24px rgba(31, 41, 55, 0.04);
-  transition:
-    width 0.25s ease,
-    padding 0.25s ease,
-    box-shadow 0.25s ease;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
+import { Check, ChevronLeft, ChevronRight, MessageSquare, Pencil, Trash2, X } from "lucide-react";
+import { useState } from "react";
 
-.chat-sidebar.collapsed {
-  width: 52px;
-  padding: 18px 10px;
-  border-right: 1px solid #cfeeea;
-  box-shadow: none;
-  overflow: hidden;
-}
+export default function ChatSidebar({
+  sidebarCollapsed,
+  setSidebarCollapsed,
+  handleNewChat,
+  chats,
+  activeChatId,
+  setActiveChatId,
+  handleRenameChat,
+  handleDeleteChat,
+}) {
+  const [editingChatId, setEditingChatId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
-.sidebar-toggle {
-  position: absolute;
-  top: 18px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #2bb3a3;
-  border: 1px solid #b2e4de;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-  box-shadow: 0 8px 20px rgba(43, 179, 163, 0.2);
-  transition:
-    background 0.2s,
-    border-color 0.2s,
-    color 0.2s,
-    box-shadow 0.2s,
-    transform 0.2s;
-}
+  const startRename = (event, chat) => {
+    event.stopPropagation();
+    setEditingChatId(chat.id);
+    setEditingTitle(chat.title);
+  };
 
-.sidebar-toggle:hover {
-  background: #2bb3a3;
-  border-color: #2bb3a3;
-  color: #ffffff;
-  box-shadow: 0 10px 24px rgba(43, 179, 163, 0.3);
-  transform: scale(1.04);
-}
+  const cancelRename = (event) => {
+    event.stopPropagation();
+    setEditingChatId(null);
+    setEditingTitle("");
+  };
 
-.sidebar-toggle:active {
-  transform: scale(0.97);
-}
+  const saveRename = (event) => {
+    event.stopPropagation();
+    handleRenameChat(editingChatId, editingTitle);
+    setEditingChatId(null);
+    setEditingTitle("");
+  };
 
-.sidebar-toggle:focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 3px rgba(43, 179, 163, 0.18),
-    0 8px 20px rgba(43, 179, 163, 0.2);
-}
+  const handleRenameKeyDown = (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") {
+      saveRename(event);
+    }
+    if (event.key === "Escape") {
+      cancelRename(event);
+    }
+  };
 
-.new-chat-btn {
-  width: 100%;
-  margin-top: 42px;
-  padding: 11px 14px;
-  background: #ffffff;
-  color: #1f2937;
-  border: 1px solid #cfeeea;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    border-color 0.2s,
-    color 0.2s,
-    box-shadow 0.2s,
-    transform 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 4px 12px rgba(43, 179, 163, 0.08);
-}
+  return (
+    <div className={`chat-sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
+      <button
+        className="sidebar-toggle"
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+      >
+        {sidebarCollapsed ? (
+          <ChevronRight size={16} />
+        ) : (
+          <ChevronLeft size={16} />
+        )}
+      </button>
 
-.new-chat-btn:hover {
-  background: #e8faf8;
-  color: #2bb3a3;
-  border-color: #2bb3a3;
-  box-shadow: 0 8px 18px rgba(43, 179, 163, 0.14);
-  transform: translateY(-1px);
-}
+      {!sidebarCollapsed && (
+        <>
+          <button className="new-chat-btn" onClick={handleNewChat}>
+            <MessageSquare size={16} />
+            New Chat
+          </button>
 
-.new-chat-btn:focus-visible {
-  outline: none;
-  border-color: #2bb3a3;
-  box-shadow: 0 0 0 3px rgba(43, 179, 163, 0.14);
-}
+          <p className="chats-label">CHATS</p>
 
-.chats-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #6b7280;
-  letter-spacing: 0.8px;
-  padding: 8px 6px 0;
-}
+          <div className="chat-list-container">
+            {chats.map((chat) => {
+              const isEditing = editingChatId === chat.id;
 
-.chat-list-container {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  overflow-y: auto;
-}
+              return (
+                <div
+                  key={chat.id}
+                  onClick={() => setActiveChatId(chat.id)}
+                  className={`chat-item ${chat.id === activeChatId ? "chat-item-active" : ""} ${isEditing ? "chat-item-editing" : ""}`}
+                >
+                  <MessageSquare size={14} />
 
-.chat-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 11px;
-  border-radius: 10px;
-  font-size: 13px;
-  color: #374151;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    border-color 0.2s,
-    color 0.2s,
-    transform 0.2s;
-  min-height: 42px;
-}
-
-.chat-item:hover {
-  background: #ffffff;
-  border-color: #cfeeea;
-  color: #249e90;
-
-}
-
-.chat-item-active {
-  background: #dff5f2;
-  color: #2bb3a3;
-  border-color: #9adbd3;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 #2bb3a3;
-}
-
-.chat-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-rename-btn,
-.chat-title-action {
-  width: 24px;
-  height: 24px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  opacity: 0;
-  transition:
-    background 0.2s,
-    border-color 0.2s,
-    color 0.2s,
-    opacity 0.2s;
-}
-
-.chat-item:hover .chat-rename-btn,
-.chat-item-active .chat-rename-btn,
-.chat-item-editing .chat-title-action {
-  opacity: 1;
-}
-
-.chat-rename-btn:hover,
-.chat-title-action:hover {
-  background: #ffffff;
-  border-color: #b2e4de;
-  color: #2bb3a3;
-}
-
-.chat-title-input {
-  flex: 1;
-  min-width: 0;
-  height: 28px;
-  border: 1px solid #9adbd3;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #1f2937;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 0 8px;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(43, 179, 163, 0.12);
-}
-
-.chat-item-editing {
-  background: #ffffff;
-  border-color: #9adbd3;
-  transform: none;
+                  {isEditing ? (
+                    <>
+                      <input
+                        className="chat-title-input"
+                        value={editingTitle}
+                        onChange={(event) => setEditingTitle(event.target.value)}
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={handleRenameKeyDown}
+                        autoFocus
+                      />
+                      <button
+                        className="chat-title-action"
+                        onClick={saveRename}
+                        aria-label="Save chat name"
+                      >
+                        <Check size={14} />
+                      </button>
+                      <button
+                        className="chat-title-action"
+                        onClick={cancelRename}
+                        aria-label="Cancel rename"
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="chat-title">{chat.title}</span>
+                      <button
+                        className="chat-rename-btn"
+                        onClick={(event) => startRename(event, chat)}
+                        aria-label="Rename chat"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      {handleDeleteChat && (
+                        <button
+                          className="chat-delete-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (window.confirm(`Delete "${chat.title}"?`)) {
+                              handleDeleteChat(chat.id);
+                            }
+                          }}
+                          aria-label="Delete chat"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
