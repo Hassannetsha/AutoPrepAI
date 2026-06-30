@@ -23,6 +23,7 @@ export default function DatasetSidebar({
   hasDownloadUrl,
   handleShowHistory,
   handleReset,
+  isResetting,
   handleAutoClean,
   autoCleanDisabled,
   pendingFeedback,
@@ -71,8 +72,8 @@ export default function DatasetSidebar({
           <button onClick={handleShowHistory}>
             <Rows3 size={16} /> Cleaning History
           </button>
-          <button onClick={handleReset} className="reset" disabled={pendingFeedback}>
-            <X size={16} /> Reset Data
+          <button onClick={handleReset} className="reset" disabled={pendingFeedback || isResetting}>
+            <X size={16} /> {isResetting ? "Resetting..." : "Reset Data"}
           </button>
 
           <div className="autoSection">

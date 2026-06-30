@@ -1,11 +1,16 @@
-
+import { ALLOWED_MIME_TYPES } from "../constants.js";
 
 export const cleanError = (msg) => {
-  if (!msg) return "Something went wrong. Please try again.";
+  if (!msg) {
+    return "Something went wrong. Please try again.";
+  }
 
   const error = msg.toLowerCase();
 
-  if ( error.includes("does not support image") ||error.includes("cannot read") ) {
+  if (
+    error.includes("does not support image") ||
+    error.includes("cannot read")
+  ) {
     return "Image files are not supported. Please upload a CSV, or Excel file.";
   }
 
@@ -36,7 +41,7 @@ export const escapeCSV = (value) =>
 export const formatTime = (date) => {
   const d = date ? new Date(date) : new Date();
 
-  if (isNaN(d.getTime())) {
+  if (Number.isNaN(d.getTime())) {
     return "Unknown time";
   }
 
@@ -84,3 +89,59 @@ export const botMsg = (text, time, downloadUrl) => ({
   time,
   ...(downloadUrl ? { downloadUrl } : {}),
 });
+
+export const validateDatasetFile = (file) => {
+  const fileName = file.name.toLowerCase();
+
+  const isCSV = fileName.endsWith(".csv");
+  const isXLSX = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
+
+  if (!isCSV && !isXLSX) {
+    throw new Error(
+      `"${file.name}" is not supported. Please upload a CSV or Excel file.`,
+    );
+  }
+
+  if (file.type && !ALLOWED_MIME_TYPES.includes(file.type)) {
+    throw new Error(
+      `"${file.name}" appears to be an image or unsupported file. Please upload a CSV or Excel file.`,
+    );
+  }
+
+  return {
+    isCSV,
+    extension: isXLSX ? (fileName.endsWith(".xls") ? ".xls" : ".xlsx") : ".csv",
+  };
+};
+
+const appendMessagesToMatchingChats = (setChats, matchFn, newMessages) => {
+  setChats((prev) =>
+    prev.map((chat) =>
+      matchFn(chat)
+        ? { ...chat, messages: [...chat.messages, ...newMessages] }
+        : chat,
+    ),
+  );
+};
+
+export const appendUploadMessages = ({
+  setChats,
+  activeChatId,
+  realConvId,
+  uploadMessage,
+  assistantMessage,
+  downloadUrl,
+}) => {
+  const time = formatTime();
+  const matchFn = (chat) => chat.id === activeChatId || chat.id === realConvId;
+
+  appendMessagesToMatchingChats(setChats, matchFn, [
+    userMsg(uploadMessage, time),
+    botMsg(assistantMessage, time, downloadUrl),
+  ]);
+};
+
+export const appendMessageToChats = (setChats, chatIds, message) => {
+  const matchFn = (chat) => chatIds.includes(chat.id);
+  appendMessagesToMatchingChats(setChats, matchFn, [message]);
+};

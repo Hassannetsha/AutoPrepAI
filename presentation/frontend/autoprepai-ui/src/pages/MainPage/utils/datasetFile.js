@@ -32,11 +32,3 @@ export function reconstructDatasetFile(
 
   return new File([csvContent], fileName, { type: "text/csv" });
 }
-
-export function openLatestDownload(messages = []) {
-  const last = [...messages].reverse().find((m) => m.downloadUrl);
-
-  if (last?.downloadUrl) {
-    window.open(last.downloadUrl, "_blank");
-  }
-}

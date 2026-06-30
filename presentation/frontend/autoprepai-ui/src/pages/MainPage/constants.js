@@ -23,3 +23,16 @@ export const ALLOWED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel",
 ];
+
+export const DEFAULT_DATASET_STATE = {
+  uploaded: false,
+  datasetName: "",
+  rows: 0,
+  columns: 0,
+  tableData: [],
+  tableDataBefore: [],
+  headers: [],
+  headersBefore: [],
+  uploadError: "",
+  originalExtension: ".csv",
+};

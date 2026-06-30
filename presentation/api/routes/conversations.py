@@ -8,6 +8,7 @@ from data_access.storage.b2_service import get_b2_client, delete_file_from_b2
 from data_access.database.connection import get_db
 from data_access.database.models import Conversation, ConversationMessage, User, WELCOME_TEXT
 from business_logic.auth.dependencies import get_current_user
+from business_logic.services import session_store as utilities
 from config.settings import B2_BUCKET_NAME, B2_KEY_ID
 from presentation.api.schemas import ConversationRenameRequest
 
@@ -143,6 +144,34 @@ def delete_conversation(
     db.commit()
 
     return {"message": "Conversation deleted successfully"}
+
+
+@router.post("/{conversation_id}/reset-data")
+def reset_conversation_data(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        conversation_uuid = uuid.UUID(conversation_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid conversation_id")
+
+    conversation = db.get(Conversation, conversation_uuid)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if conversation.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    utilities.sessions.pop(str(conversation_uuid), None)
+
+    for msg in conversation.messages or []:
+        if msg.payload:
+            msg.payload = None
+    db.commit()
+
+    return {"message": "Data reset successfully"}
 
 
 @router.patch("/{conversation_id}/rename")

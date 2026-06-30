@@ -84,7 +84,8 @@ export default function MainPage() {
         handleDownload={() => dataSet.handleDownload(chat.activeChat?.messages)}
         hasDownloadUrl={dataSet.hasDownloadUrl(chat.activeChat?.messages)}
         handleShowHistory={history.handleShowHistory}
-        handleReset={() => dataSet.handleResetWithBackend(chat.currentConversationId)}
+        handleReset={() => dataSet.handleReset(chat.currentConversationId)}
+        isResetting={dataSet.isResetting}
         handleAutoClean={() => dataSet.handleAutoClean(chatHelpers)}
         autoCleanDisabled={!dataSet.uploaded || chat.isLoadingChat || chat.pendingFeedback}
         pendingFeedback={chat.pendingFeedback}

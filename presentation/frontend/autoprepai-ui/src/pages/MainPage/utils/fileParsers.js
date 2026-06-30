@@ -168,3 +168,7 @@ export const parseXLSX = async (file) => {
     headers,
   };
 };
+
+export const parseDatasetFile = async (file, isCSV) => {
+  return isCSV ? parseCSV(await file.text()) : await parseXLSX(file);
+};

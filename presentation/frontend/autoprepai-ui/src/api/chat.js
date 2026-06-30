@@ -154,6 +154,16 @@ export async function listConversations() {
   return chatRequest("/conversations");
 }
 
+/**
+ * Reset data for a conversation (clears session + message payloads)
+ * @param {string} conversationId
+ */
+export async function resetConversationData(conversationId) {
+  return chatRequest(`/conversations/${conversationId}/reset-data`, {
+    method: "POST",
+  });
+}
+
 // feedback
 export async function sendFeedback({ conversationId, accept }) {
   const token = getAuthToken();

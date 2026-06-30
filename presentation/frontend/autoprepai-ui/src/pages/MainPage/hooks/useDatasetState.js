@@ -1,12 +1,22 @@
 import { useState, useRef, useCallback } from "react";
-import { cleanError, formatTime, updateDatasetFromResponse, userMsg, botMsg } from "../utils/helpers";
-import { sendChatMessage, sendFeedback } from "../../../api/chat";
+import {
+  cleanError,
+  formatTime,
+  updateDatasetFromResponse,
+  userMsg,
+  botMsg,
+} from "../utils/helpers";
+import { sendChatMessage, resetConversationData } from "../../../api/chat";
 import { getAuthToken } from "../../../api/auth";
-import { parseCSV, parseXLSX } from "../utils/fileParsers";
-import { ALLOWED_MIME_TYPES } from "../constants";
+import { parseDatasetFile } from "../utils/fileParsers";
+import {
+  validateDatasetFile,
+  appendUploadMessages,
+  appendMessageToChats,
+} from "../utils/helpers";
 import { reconstructDatasetFile } from "../utils/datasetFile";
 import { FileSpreadsheet } from "lucide-react";
-
+import { DEFAULT_DATASET_STATE } from "../constants";
 
 export function useDatasetState() {
   const [uploaded, setUploaded] = useState(false);
@@ -21,272 +31,327 @@ export function useDatasetState() {
   const [showPreview, setShowPreview] = useState(false);
   const [originalExtension, setOriginalExtension] = useState(".csv");
   const fileInputRef = useRef(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleUploadClick = () => fileInputRef.current?.click();
 
-  const restoreDatasetFromPayload = useCallback((payload) => {
-    if (!payload) return;
-    if (payload.dataset_name) {
-      setDatasetName(payload.dataset_name);
-      const ext = payload.dataset_name.match(/\.\w+$/)?.[0]?.toLowerCase() || ".csv";
-      setOriginalExtension(ext);
-    }
-    if (payload.dataset?.length) {
-      const newHeaders = Object.keys(payload.dataset[0]);
-      setHeaders(newHeaders);
-      const beforeData = payload.data_preview_before ?? [];
-      const beforeHeaders = beforeData.length ? Object.keys(beforeData[0]) : newHeaders;
-      setHeadersBefore(beforeHeaders);
-      setTableData(payload.dataset);
-      setTableDataBefore(beforeData);
-      setRows(payload.shape?.[0] ?? payload.dataset.length);
-      setColumns(payload.shape?.[1] ?? newHeaders.length);
-      setUploaded(true);
-    }
+  // Single place that knows how to write dataset state into all the setters
+  const applyDatasetState = useCallback((state) => {
+    setUploaded(state.uploaded);
+    setDatasetName(state.datasetName);
+    setRows(state.rows);
+    setColumns(state.columns);
+    setTableData(state.tableData);
+    setTableDataBefore(state.tableDataBefore);
+    setHeaders(state.headers);
+    setHeadersBefore(state.headersBefore);
+    setUploadError(state.uploadError);
+    setOriginalExtension(state.originalExtension);
   }, []);
 
-  const handleReset = () => {
-    const confirmed = window.confirm("Are you sure you want to reset all uploaded data? This action cannot be undone.");
-    if (!confirmed) return;
-    setUploaded(false);
-    setDatasetName("");
-    setRows(0);
-    setColumns(0);
-    setTableData([]);
-    setTableDataBefore([]);
-    setHeaders([]);
-    setHeadersBefore([]);
-    setUploadError("");
-    setOriginalExtension(".csv");
-  };
-
-  const handleResetWithBackend = async (currentConversationId) => {
-    if (currentConversationId && tableDataBefore.length > 0) {
-      try {
-        await sendFeedback({ conversationId: currentConversationId, accept: false });
-      } catch {
-        // backend session may not exist — still reset frontend
+  const restoreDatasetFromPayload = useCallback(
+    (payload) => {
+      if (!payload?.dataset?.length) {
+        if (payload?.dataset_name) {
+          const ext =
+            payload.dataset_name.match(/\.\w+$/)?.[0]?.toLowerCase() || ".csv";
+          setDatasetName(payload.dataset_name);
+          setOriginalExtension(ext);
+        }
+        return;
       }
+
+      const headers = Object.keys(payload.dataset[0]);
+      const beforeData = payload.data_preview_before ?? [];
+      const beforeHeaders = beforeData.length
+        ? Object.keys(beforeData[0])
+        : headers;
+
+      applyDatasetState({
+        uploaded: true,
+        datasetName: payload.dataset_name,
+        rows: payload.shape?.[0] ?? payload.dataset.length,
+        columns: payload.shape?.[1] ?? headers.length,
+        tableData: payload.dataset,
+        tableDataBefore: beforeData,
+        headers,
+        headersBefore: beforeHeaders,
+        uploadError: "",
+        originalExtension: payload.dataset_name
+          ? payload.dataset_name.match(/\.\w+$/)?.[0]?.toLowerCase()
+          : ".csv",
+      });
+    },
+    [applyDatasetState],
+  );
+
+  const restoreUploadedDataset = useCallback(
+    ({ fileName, rows, columns, data, headers, extension }) => {
+      applyDatasetState({
+        uploaded: true,
+        datasetName: fileName,
+        rows,
+        columns,
+        tableData: data,
+        tableDataBefore: data,
+        headers,
+        headersBefore: headers,
+        uploadError: "",
+        originalExtension: extension,
+      });
+    },
+    [applyDatasetState],
+  );
+
+  const handleReset = async (currentConversationId) => {
+    if (isResetting) return;
+    const confirmed = window.confirm(
+      "Are you sure you want to reset all uploaded data? This action cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    setIsResetting(true);
+    try {
+      if (currentConversationId) {
+        try {
+          await resetConversationData(currentConversationId);
+        } catch (err) {
+          console.warn("Backend reset failed, cleaning frontend only:", err);
+        }
+      }
+
+      applyDatasetState(DEFAULT_DATASET_STATE);
+    } finally {
+      setIsResetting(false);
     }
-    handleReset();
   };
 
-  const handleFileUpload = async (event, chatHelpers = {}) => {
-    const {
-      activeChatId, currentConversationId,
-      syncConversationId, setChats, setIsLoadingChat, setChatError,
-    } = chatHelpers;
-
-    const selectedFile = event.target.files?.[0];
-    if (!selectedFile) return;
-
-    if (!getAuthToken()) {
-      setUploadError("You must be logged in to upload files. Please log in first.");
-      event.target.value = "";
-      return;
-    }
-
-    const fileName = selectedFile.name.toLowerCase();
-    const isCSV = fileName.endsWith(".csv");
-    const isXLSX = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
-
-    if (!isCSV && !isXLSX) {
-      setUploadError(`"${selectedFile.name}" is not supported. Please upload a CSV, or Excel file.`);
-      event.target.value = "";
-      return;
-    }
-
-    if (selectedFile.type && !ALLOWED_MIME_TYPES.includes(selectedFile.type)) {
-      setUploadError(
-        `"${selectedFile.name}" appears to be an image or unsupported file. Please upload a CSV, or Excel file.`
-      );
-      event.target.value = "";
-      return;
-    }
-
-    setOriginalExtension(isXLSX ? (fileName.endsWith(".xls") ? ".xls" : ".xlsx") : ".csv");
-
-    const thisChatId = activeChatId;
-    const thisConvId = currentConversationId;
-
-    setIsLoadingChat?.(true);
-    setChatError?.("");
+  const handleFileUpload = async (
+    event,
+    {
+      activeChatId,
+      currentConversationId,
+      syncConversationId,
+      setChats,
+      setIsLoadingChat = () => {},
+      setChatError = () => {},
+    } = {},
+  ) => {
+    const file = event.target.files?.[0];
 
     try {
-      const parsed = isCSV
-        ? parseCSV(await selectedFile.text())
-        : await parseXLSX(selectedFile);
+      if (!file) return;
 
-      setDatasetName(selectedFile.name);
-      setRows(parsed.rows);
-      setColumns(parsed.columns);
-      setTableData(parsed.data);
-      setHeaders(parsed.headers);
-      setHeadersBefore(parsed.headers);
+      if (!getAuthToken()) {
+        throw new Error(
+          "You must be logged in to upload files. Please log in first.",
+        );
+      }
+
+      setIsLoadingChat(true);
+      setChatError("");
       setUploadError("");
-      setUploaded(true);
 
+      // Validate
+      const { isCSV, extension } = validateDatasetFile(file);
+
+      // Parse locally
+      const parsed = await parseDatasetFile(file, isCSV);
+
+      const uploadMessage =
+        `I've uploaded a dataset: ${file.name}. ` +
+        `It has ${parsed.rows} rows and ` +
+        `${parsed.columns} columns.`;
+
+      // Send to backend
       const response = await sendChatMessage({
-        message: `I've uploaded a dataset: ${selectedFile.name}. It has ${parsed.rows} rows and ${parsed.columns} columns.`,
+        message: uploadMessage,
         mode: "chat",
         selectedIntents: [],
-        conversationId: thisConvId,
-        dataset: selectedFile,
+        conversationId: currentConversationId,
+        dataset: file,
       });
 
-      const realConvId = response.conversation_id ?? thisConvId;
-      syncConversationId?.(response.conversation_id, thisChatId);
+      const realConvId = response.conversation_id ?? currentConversationId;
 
-      const time = formatTime();
-      const userUploadText = `I've uploaded a dataset: ${selectedFile.name}. It has ${parsed.rows} rows and ${parsed.columns} columns.`;
+      syncConversationId?.(response.conversation_id, activeChatId);
 
-      setChats?.((prev) =>
-        prev.map((chat) =>
-          chat.id === thisChatId || chat.id === realConvId
-            ? {
-                ...chat,
-                messages: [
-                  ...chat.messages,
-                  userMsg(userUploadText, time),
-                  botMsg(response.assistant_message || `✓ Dataset loaded: ${selectedFile.name}`, time, response.result?.download_url),
-                ],
-              }
-            : chat
-        )
-      );
+      // Restore frontend dataset
+      restoreUploadedDataset({
+        fileName: file.name,
+        rows: parsed.rows,
+        columns: parsed.columns,
+        data: parsed.data,
+        headers: parsed.headers,
+        extension,
+      });
+
+      // Update chat
+      appendUploadMessages({
+        setChats,
+        activeChatId,
+        realConvId,
+        uploadMessage,
+        assistantMessage:
+          response.assistant_message ?? `Dataset loaded: ${file.name}`,
+        downloadUrl: response.result?.download_url,
+      });
     } catch (error) {
       console.error("File upload error:", error);
-      setChatError?.(cleanError(error.message));
-      setUploadError(cleanError(error.message));
+
+      const message = cleanError(error.message);
+
+      setUploadError(message);
+      setChatError(message);
     } finally {
-      setIsLoadingChat?.(false);
+      setIsLoadingChat(false);
       event.target.value = "";
     }
   };
 
   const handleAutoClean = async (chatHelpers = {}) => {
     const {
-      activeChatId, currentConversationId,
-      syncConversationId, setChats, setIsLoadingChat, setChatError, setPendingFeedback,
+      activeChatId,
+      currentConversationId,
+      syncConversationId,
+      setChats,
+      setIsLoadingChat,
+      setChatError,
+      setPendingFeedback,
     } = chatHelpers;
 
-    if (!uploaded) {
-      setChatError?.("Upload a dataset first");
+    const safeSetChats = setChats ?? (() => {});
+    const safeSetLoading = setIsLoadingChat ?? (() => {});
+    const safeSetChatError = setChatError ?? (() => {});
+    const safeSetPending = setPendingFeedback ?? (() => {});
+
+    const AUTO_CLEAN_MESSAGE = "🤖 Auto-clean my dataset";
+
+    if (!uploaded || !tableData?.length || !headers?.length) {
+      safeSetChatError("Upload a dataset first");
       return;
     }
 
-    setChatError?.("");
-    setIsLoadingChat?.(true);
-
     const thisChatId = activeChatId;
     const thisConvId = currentConversationId;
+
+    safeSetChatError("");
+    safeSetLoading(true);
+
     const time = formatTime();
 
-    setChats?.((prev) =>
-      prev.map((chat) =>
-        chat.id === thisChatId
-          ? {
-              ...chat,
-              messages: [
-                ...chat.messages,
-                userMsg("🤖 Auto-clean my dataset", time),
-              ],
-            }
-          : chat
-      )
+    appendMessageToChats(
+      safeSetChats,
+      [thisChatId],
+      userMsg(AUTO_CLEAN_MESSAGE, time),
     );
 
     try {
-      const file = reconstructDatasetFile(headers, tableData, originalExtension, datasetName);
+      const datasetFile = reconstructDatasetFile(
+        headers,
+        tableData,
+        originalExtension,
+        datasetName,
+      );
+
+      if (!datasetFile) {
+        throw new Error("Could not reconstruct dataset.");
+      }
 
       const response = await sendChatMessage({
-        message: "🤖 Auto-clean my dataset",
+        message: AUTO_CLEAN_MESSAGE,
         mode: "full_auto",
         selectedIntents: [],
         conversationId: thisConvId,
-        dataset: file,
+        dataset: datasetFile,
       });
 
-      setPendingFeedback?.(false);
+      const { conversation_id, assistant_message, result, finished } = response;
 
-      const realConvId = response.conversation_id ?? thisConvId;
-      syncConversationId?.(response.conversation_id, thisChatId);
+      const realConvId = conversation_id ?? thisConvId;
 
-      updateDatasetFromResponse(response.result, { setHeaders, setHeadersBefore, setTableData, setTableDataBefore, setRows, setColumns });
+      syncConversationId?.(conversation_id, thisChatId);
 
-      const botTime = formatTime();
+      safeSetPending(finished === false);
 
-      setChats?.((prev) =>
-        prev.map((chat) =>
-          chat.id === thisChatId || chat.id === realConvId
-            ? {
-                ...chat,
-                messages: [
-                  ...chat.messages,
-                  botMsg(response.assistant_message || "✨ Auto-clean completed successfully.", botTime, response.result?.download_url),
-                ],
-              }
-            : chat
-        )
+      updateDatasetFromResponse(result, {
+        setHeaders,
+        setHeadersBefore,
+        setTableData,
+        setTableDataBefore,
+        setRows,
+        setColumns,
+      });
+
+      appendMessageToChats(
+        safeSetChats,
+        [thisChatId, realConvId],
+        botMsg(
+          assistant_message ?? "✨ Auto-clean completed successfully.",
+          formatTime(),
+          result?.download_url,
+        ),
       );
     } catch (error) {
-      console.error(error);
+      console.error("Auto-clean error:", error);
+
       const friendlyMsg = cleanError(error.message);
-      setChatError?.(friendlyMsg);
-      const botTime = formatTime();
-      setChats?.((prev) =>
-        prev.map((chat) =>
-          chat.id === thisChatId
-            ? {
-                ...chat,
-                messages: [
-                  ...chat.messages,
-                  botMsg(`❌ ${friendlyMsg}`, botTime),
-                ],
-              }
-            : chat
-        )
+
+      safeSetChatError(friendlyMsg);
+
+      appendMessageToChats(
+        safeSetChats,
+        [thisChatId],
+        botMsg(`❌ ${friendlyMsg}`, formatTime()),
       );
     } finally {
-      setIsLoadingChat?.(false);
+      safeSetLoading(false);
     }
   };
 
   const handleDownload = (messages) => {
     const last = [...messages].reverse().find((m) => m.downloadUrl);
-    if (last) window.open(last.downloadUrl, "_blank");
+    if (last?.downloadUrl) window.open(last.downloadUrl, "_blank");
   };
 
-  const hasDownloadUrl = (messages) => messages?.some((m) => m.downloadUrl) ?? false;
-
-  const csvFileName = datasetName
-    ? datasetName.replace(/\.\w+$/, ".csv")
-    : "data.csv";
+  const hasDownloadUrl = (messages) =>
+    messages?.some((m) => m.downloadUrl) ?? false;
 
   const DatasetIcon = FileSpreadsheet;
 
   return {
-    uploaded, setUploaded,
-    datasetName, setDatasetName,
-    rows, setRows,
-    columns, setColumns,
-    uploadError, setUploadError,
-    tableData, setTableData,
-    tableDataBefore, setTableDataBefore,
-    headers, setHeaders,
-    headersBefore, setHeadersBefore,
-    showPreview, setShowPreview,
-    originalExtension, setOriginalExtension,
+    uploaded,
+    setUploaded,
+    datasetName,
+    setDatasetName,
+    rows,
+    setRows,
+    columns,
+    setColumns,
+    uploadError,
+    setUploadError,
+    tableData,
+    setTableData,
+    tableDataBefore,
+    setTableDataBefore,
+    headers,
+    setHeaders,
+    headersBefore,
+    setHeadersBefore,
+    showPreview,
+    setShowPreview,
+    originalExtension,
+    setOriginalExtension,
     fileInputRef,
     handleUploadClick,
     handleReset,
-    handleResetWithBackend,
     restoreDatasetFromPayload,
     handleFileUpload,
     handleAutoClean,
     handleDownload,
     hasDownloadUrl,
-    csvFileName,
     DatasetIcon,
+    isResetting,
+    setIsResetting,
   };
 }
