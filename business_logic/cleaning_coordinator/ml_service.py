@@ -264,12 +264,15 @@ class MLPipelineService:
         selected_intents: list[str] | None = None,
         conversation_id: str = "",
     ) -> tuple[dict, bool]:
-        # ── Shared start ──────────────────────────────────────────────────────────
         if dataset_df is None:
             raise ValueError("Dataset is required for processing")
 
         normalized_mode = mode
         effective_command = (user_message or "").strip()
+
+        session = utilities.sessions.get(conversation_id) or MLPipelineService.session_builder(conversation_id, normalized_mode)
+        session["dataset_before"] = dataset_df.copy()
+        pipeline = session["pipeline"]
 
         context = DataContext(
             data=dataset_df.copy(),
@@ -280,127 +283,49 @@ class MLPipelineService:
                 "user_command": effective_command,
             },
         )
-        session = utilities.sessions.get(conversation_id)
 
-        if session is None:
-            # First call for this conversation — build a fresh pipeline
-            session = MLPipelineService.session_builder(conversation_id, normalized_mode)
-        # if session is None:
-        #     # First call for this conversation — build a fresh pipeline
-        #     session = {
-        #         "pipeline": PipelineBuilder.build_default_pipeline(),
-        #         "dataset_before": None,
-        #         "dataset_after": None,
-        #         "previous_logs": [],
-        #         "context_metadata": {},
-        #         "finished": False,
-        #         "mode": normalized_mode,
-        #     }
-        #     utilities.sessions[conversation_id] = session
-        session["dataset_before"] = dataset_df.copy()
-        pipeline = session["pipeline"]
-        # print(f"[DEBUG] Loaded pipeline for conversation {conversation_id}: {pipeline},{session['context_metadata']}")
-        # ── Mode-specific heart ───────────────────────────────────────────────────
-        # If NLP already ran in a previous call, skip all prepare steps
+        # ── Mode-specific execution ──
         if session["context_metadata"].get("nlp_done") and not session["finished"]:
-            print(f"[DEBUG] In line 290")
-            context = DataContext(
-                data=dataset_df.copy(),
-                metadata=dict(session["context_metadata"]),
-            )
+            context = DataContext(data=dataset_df.copy(), metadata=dict(session["context_metadata"]))
             pipeline.print_pipeline(context)
-            final_context, finished = pipeline.run_single_agent(context=context,session=session, user_command="")
-            print(f"[DEBUG] After single-agent run, finished={finished}, context metadata={final_context.metadata}")
-            # then fall through to the shared-end block below
+            final_context, finished = pipeline.run_single_agent(context=context, session=session, user_command="")
         elif normalized_mode == "full_auto":
-            context, effective_command = MLPipelineService._prepare_full_auto(
-                context, effective_command
-            )
+            context, effective_command = MLPipelineService._prepare_full_auto(context, effective_command)
             pipeline.print_pipeline(context)
             final_context = pipeline.run(context=context, user_command=effective_command)
-            session["finished"] = True
+            finished = True
         elif normalized_mode == "manual":
-            context, effective_command = MLPipelineService._prepare_manual(
-                context, effective_command, selected_intents
-            )
+            context, effective_command = MLPipelineService._prepare_manual(context, effective_command, selected_intents)
             pipeline.print_pipeline(context)
-            final_context, finished = pipeline.run_single_agent(context=context,session=session, user_command=effective_command)
-            print(f"[DEBUG] After first manual agent run, finished={finished}, context metadata={final_context.metadata}")
-            # if not finished:
-            #     result = {
-            #         "shape": final_context.data.shape,
-            #         "logs": session["previous_logs"] + final_context.logs,
-            #         "metadata": final_context.metadata,
-            #         "data_preview": final_context.data.head(10).to_dict(orient="records"),
-            #         "output_file": None,
-            #         "download_url": None,
-            #     }
-            #     jsonable = MLPipelineService._to_jsonable(result)
-            #     jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
-            #     session["dataset_after"] = final_context.data.copy()
-            #     session["context_metadata"] = dict(final_context.metadata)
-            #     session["finished"] = finished
-            #     session["previous_logs"] = final_context.logs.copy()
-            #     session["result"] = result
-            #     return jsonable,False
-            
+            final_context, finished = pipeline.run_single_agent(context=context, session=session, user_command=effective_command)
         else:
-            effective_command = MLPipelineService._prepare_chat(
-                effective_command
-            )
-            # print("[DEBUG] Starting chat-mode execution with command:", effective_command)
+            effective_command = MLPipelineService._prepare_chat(effective_command)
             pipeline.print_pipeline(context)
             final_context, finished = pipeline.run_single_agent(context=context, session=session, user_command=effective_command)
 
-            # Check if NLP returned unknown_intent → skip pipeline, return sorry message
             detected_intents = final_context.metadata.get("intents", [])
-            if any(
-                isinstance(i, list) and len(i) > 0 and i[0] == "unknown_intent"
-                for i in detected_intents
-            ):
+            if any(isinstance(i, list) and i and i[0] == "unknown_intent" for i in detected_intents):
                 result = {
                     "shape": final_context.data.shape,
                     "logs": final_context.logs,
                     "metadata": final_context.metadata,
-                    # "data_preview": final_context.data.head(50).to_dict(orient="records"),
                     "dataset": final_context.data.to_dict(orient="records"),
                     "data_preview_before": final_context.data.to_dict(orient="records"),
                     "output_file": None,
                     "download_url": None,
                 }
                 jsonable = MLPipelineService._to_jsonable(result)
-                jsonable["assistant_message"] = "sorry your request can't be identified but I can:\n- Fix missing values\n- Detect and handle outliers\n- Detect and handle duplicates\n- Resolve feature inconsistency\n- Scale and encode data\n- Feature selection\n- Feature engineering"
+                jsonable["assistant_message"] = (
+                    "sorry your request can't be identified but I can:\n"
+                    "- Fix missing values\n- Detect and handle outliers\n"
+                    "- Detect and handle duplicates\n- Resolve feature inconsistency\n"
+                    "- Scale and encode data\n- Feature selection\n- Feature engineering"
+                )
                 utilities.sessions.pop(conversation_id, None)
                 return jsonable, True
-            # if not finished:
-            #     result = {
-            #         "shape": final_context.data.shape,
-            #         "logs": session["previous_logs"] + final_context.logs,
-            #         "metadata": final_context.metadata,
-            #         "data_preview": final_context.data.head(10).to_dict(orient="records"),
-            #         "output_file": None,
-            #         "download_url": None,
-            #     }
-            #     jsonable = MLPipelineService._to_jsonable(result)
-            #     jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
-            #     session["dataset_after"] = final_context.data.copy()
-            #     session["context_metadata"] = dict(final_context.metadata)
-            #     session["finished"] = finished
-            #     session["previous_logs"] = final_context.logs.copy()
-            #     session["result"] = result
-            #     return jsonable,session["finished"]
-                
-            
 
-        # ── Shared end ────────────────────────────────────────────────────────────
-        # print(f"[DEBUG] effective_command='{effective_command}'")
-        # print(f"[DEBUG] metadata user_command='{context.metadata.get('user_command')}'")
-
-        
-        
-        print(f"[DEBUG]In line 361")
+        # ── Shared end ──
         if normalized_mode == "chat":
-            print(f"[DEBUG] In line 362")
             detected_intents = final_context.metadata.get("intents") or []
             if not detected_intents:
                 utilities.sessions.pop(conversation_id, None)
@@ -409,39 +334,36 @@ class MLPipelineService:
                     "Please mention a data-cleaning action such as missing values, "
                     "outliers, duplicates, scaling, or encoding."
                 )
-        print(f"[DEBUG] In line 371")
+
         output_file = MLPipelineService.save_processed_dataframe(
             final_context.data, conversation_id,
             file_extension=session.get("file_extension", ".csv"),
-            original_filename=session.get("original_filename")
+            original_filename=session.get("original_filename"),
         )
 
         result = {
             "shape": final_context.data.shape,
             "logs": session["previous_logs"] + final_context.logs,
             "metadata": final_context.metadata,
-            # "data_preview": final_context.data.to_dict(orient="records"),
             "dataset": final_context.data.to_dict(orient="records"),
             "data_preview_before": session["dataset_before"].to_dict(orient="records"),
             "output_file": output_file,
             "download_url": None,
         }
-        if normalized_mode !="full_auto":
+
+        if normalized_mode != "full_auto":
             session["dataset_after"] = final_context.data.copy()
             session["context_metadata"] = dict(final_context.metadata)
             session["finished"] = finished
-            # if session["no_ran_agents"] <= 2:
-            #     session["finished"] = False
-            #     print(f"[DEBUG] In line 386, session['no_ran_agents']={session['no_ran_agents']}, setting finished to False")
             session["previous_logs"] = result["logs"].copy()
             session["output_file"] = output_file
             session["result"] = result
         else:
             utilities.sessions.pop(conversation_id, None)
+
         jsonable = MLPipelineService._to_jsonable(result)
         jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
-        print(f"[DEBUG] In line 392")
-        return jsonable,session["finished"]
+        return jsonable, finished
     @staticmethod
     def change_output_file(conversation_id: str, dataframe: pd.DataFrame) -> None:
         session = utilities.sessions.get(conversation_id)
