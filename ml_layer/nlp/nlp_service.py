@@ -140,7 +140,7 @@ class NLPService:
         dataset_columns = dspy.InputField(desc="Available column names (comma-separated)", default="")
         intent = dspy.InputField(desc="The classified intent")
         columns = dspy.OutputField(desc="Column names mentioned (comma-separated), or 'none' if not specified. For feature_selection / select_features intent: extract ONLY column names that appear in the task text itself. NEVER invent column names from dataset_columns that are not explicitly mentioned in the task. If the user says 'target column: X' or 'for target column: X', extract X. If the user says 'features related to X and Y' or 'select features to columns: X, Y', extract only X and Y (not the word 'target'). The word 'target' from dataset_columns should never be added unless the task literally says the word 'target'.")
-        method = dspy.OutputField(desc="Method/algorithm mentioned (e.g., mean, median, IQR), or 'none'")
+        method = dspy.OutputField(desc="Method/algorithm mentioned (e.g., mean, median, mode), or 'none'")
         other_params = dspy.OutputField(desc="Other parameters as key:value pairs (comma-separated), or 'none'")
     
     class OptimizedIntentPipeline(dspy.Module):
@@ -574,12 +574,12 @@ class NLPService:
                 pass
             return params
     class ExplainStep(dspy.Signature):
-        """Ask the LM to explain why a preprocessing step ran and explain the step in detail and why this method was chosen, given metadata before/after."""
+        """Ask the LM to explain why a preprocessing step ran and explain the step in detail and why this method was chosen and what is the changes that happened in the data, given metadata before/after."""
         step_name = dspy.InputField(desc="Name of the preprocessing step")
         task = dspy.InputField(desc="Original user task / intent (optional)", default="")
         metadata_before = dspy.InputField(desc="Metadata before step (JSON string)", default="")
         metadata_after = dspy.InputField(desc="Metadata after step (JSON string)", default="")
-        explanation = dspy.OutputField(desc="LLM explanation for why the step was executed")
+        explanation = dspy.OutputField(desc="LLM explanation for why the step was executed and what is the changes that happened in the data")
 
     def explain_step_llm(self,
                          step_name: str,
@@ -654,17 +654,6 @@ class NLPService:
     #     if training_data is not None and len(training_data) > 0:
     #         return AutoPrepApp.OptimizedIntentPipeline(training_examples=training_data)
     #     return AutoPrepApp.OptimizedIntentPipeline(training_examples=None)
-
-    def _prepare_ui_config(self):
-        st.set_page_config(page_title="🧠 AutoPrepAI — DSPy Optimized", layout="centered")
-        st.title("💬 AutoPrepAI — DSPy-Powered with Training Data")
-        # basic guidance
-        st.markdown("### 🧩 Type what you want AutoPrepAI to do")
-        st.markdown(
-            "- Handle missing values using median and remove duplicates by column ID\n"
-            "- Detect outliers with IQR method and encode categorical variables\n"
-            "- Select top 10 features for modeling and fill NaNs with mean"
-        )
     def run(self, user_input: str, dataset_df: Optional[pd.DataFrame] = None, dataset_path: Optional[str] = None) -> Optional[List[str]]:
         """Headless version of runUI: perform same processing without Streamlit and return detected intents.
         Includes automatic key rotation on rate limit errors.
