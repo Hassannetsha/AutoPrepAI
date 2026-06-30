@@ -16,7 +16,7 @@ const makeUniqueHeaders = (headers) => {
   });
 };
 
-export const parseCSVLine = (line = "") => {
+export const parseCSVLine = (line = "") => { // Parses a single line of CSV, handling quoted values and commas
   const values = [];
   let current = "";
   let inQuotes = false;
@@ -38,7 +38,6 @@ export const parseCSVLine = (line = "") => {
         inQuotes = true;
       } else if (ch === ",") {
         values.push(current);
-
         current = "";
       } else {
         current += ch;
@@ -50,8 +49,8 @@ export const parseCSVLine = (line = "") => {
 };
 
 export const parseCSV = (text = "") => {
-  const cleaned = text.replace(/\r\n/g, "\n").trim();
-  if (!cleaned) {
+  const cleaned = text.replace(/\r\n/g, "\n").trim(); // Normalize line endings and trim whitespace
+  if (!cleaned) { // text is empty or only whitespace
     return {
       rows: 0,
       columns: 0,
@@ -69,7 +68,7 @@ export const parseCSV = (text = "") => {
     };
   }
   const headers = makeUniqueHeaders(parseCSVLine(lines[0]));
-  const data = lines.slice(1).map((line) => {
+  const data = lines.slice(1).map((line) => { // get the data rows, skipping the header
     const values = parseCSVLine(line);
     const obj = {};
     headers.forEach((header, index) => {
