@@ -12,7 +12,7 @@ function formatMessage(message) {
   return message.replace(/^\[System\] /, "");
 }
 
-export default function HistoryModal({ onClose, logs }) {
+export default function HistoryModal({ onClose, logs , loadingHistory }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -24,13 +24,23 @@ export default function HistoryModal({ onClose, logs }) {
         </div>
 
         <div className="history-container">
-          {logs.length === 0 ? (
-            <p className="empty-history">No operations yet.</p>
+          {loadingHistory ? (
+            <div className="history-loading">
+              <div className="history-spinner"></div>
+              <p>Loading history...</p>
+            </div>
+
+          ) : logs.length === 0 ? (
+            <p className="empty-history">
+              No operations yet.
+            </p>
           ) : (
             logs.map((log, index) => (
               <div key={index} className={getLogClass(log.message)}>
-                <p className="history-text">{formatMessage(log.message)}</p>
-                <span className="history-time">{log.time}</span>
+                <p className="history-text">
+                  {formatMessage(log.message)}
+                </p>
+                <span className="history-time"> {log.time} </span>
               </div>
             ))
           )}

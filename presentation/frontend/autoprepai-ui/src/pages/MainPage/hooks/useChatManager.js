@@ -64,15 +64,12 @@ export function useChatManager({
         const data = await getConversation(conversationId);
         if (!data?.messages) return;
 
-        const mapped = data.messages.map((msg) => {
-          const sender = msg.sender ?? msg.role;
-          return {
-            sender: sender === "user" ? "user" : "bot",
-            text: msg.content,
-            time: formatTime(msg.created_at),
-            downloadUrl: msg.payload?.download_url ?? null,
-          };
-        });
+        const mapped = data.messages.map((msg) => ({
+          role: msg.role,
+          text: msg.content,
+          time: formatTime(msg.created_at),
+          downloadUrl: msg.payload?.download_url ?? null,
+        }));
 
         setChats((prev) =>
           prev.map((chat) =>
@@ -80,10 +77,9 @@ export function useChatManager({
           )
         );
 
-        const uploadMessage = [...data.messages].reverse().find((m) => {
-          const sender = m.sender ?? m.role;
-          return (sender === "assistant" || sender === "bot") && m.payload?.dataset_name;
-        });
+        const uploadMessage = [...data.messages].reverse().find((m) =>
+          m.role === "assistant" && m.payload?.dataset_name
+        );
 
         if (uploadMessage?.payload?.dataset_name) {
           safe(setDatasetName)(uploadMessage.payload.dataset_name);
@@ -93,10 +89,7 @@ export function useChatManager({
 
         const lastAssistant = [...data.messages]
           .reverse()
-          .find((m) => {
-            const sender = m.sender ?? m.role;
-            return (sender === "assistant" || sender === "bot") && m.payload;
-          });
+          .find((m) => m.role === "assistant" && m.payload);
 
         if (lastAssistant?.payload) {
           safe(restoreDatasetFromPayload)(lastAssistant.payload);
@@ -205,7 +198,7 @@ export function useChatManager({
         const conv = await createConversation();
         backendId = conv.id;
         messages = conv.messages.map((msg) => ({
-          sender: msg.sender === "user" ? "user" : "bot",
+          role: msg.role,
           text: msg.content,
           time: formatTime(msg.created_at),
         }));
@@ -386,12 +379,7 @@ export function useChatManager({
                   ...chat,
                   messages: [
                     ...chat.messages,
-                    {
-                      sender: "bot",
-                      text: response.assistant_message || "I received your message!",
-                      time: botTime,
-                      downloadUrl: response.result?.download_url ?? null,
-                    },
+                    botMsg(response.assistant_message || "I received your message!", botTime, response.result?.download_url ?? null),
                   ],
                 }
               : chat
