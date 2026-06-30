@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { escapeCSV } from "./helpers";
+import { DEFAULT_DATASET_STATE } from "../constants.js";
 
 export function reconstructDatasetFile(
   headers = [],
@@ -32,3 +33,28 @@ export function reconstructDatasetFile(
 
   return new File([csvContent], fileName, { type: "text/csv" });
 }
+
+export const resetDatasetState = (setters) => {
+  const {
+    setUploaded,
+    setDatasetName,
+    setRows,
+    setColumns,
+    setTableData,
+    setTableDataBefore,
+    setHeaders,
+    setHeadersBefore,
+    setUploadError,
+    setOriginalExtension,
+  } = setters;
+  setUploaded(DEFAULT_DATASET_STATE.uploaded);
+  setDatasetName(DEFAULT_DATASET_STATE.datasetName);
+  setRows(DEFAULT_DATASET_STATE.rows);
+  setColumns(DEFAULT_DATASET_STATE.columns);
+  setTableData(DEFAULT_DATASET_STATE.tableData);
+  setTableDataBefore(DEFAULT_DATASET_STATE.tableDataBefore);
+  setHeaders(DEFAULT_DATASET_STATE.headers);
+  setHeadersBefore(DEFAULT_DATASET_STATE.headersBefore);
+  setUploadError(DEFAULT_DATASET_STATE.uploadError);
+  setOriginalExtension(DEFAULT_DATASET_STATE.originalExtension);
+};

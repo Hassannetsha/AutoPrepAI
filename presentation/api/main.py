@@ -2,6 +2,7 @@ import copy
 import json
 import uuid
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -188,6 +189,7 @@ async def chat(
             content=assistant_message,
             payload=json.loads(json.dumps(safe_result)),  # ← use sanitized version
         ))
+        conversation.updated_at = datetime.now(timezone.utc)
         db.commit()
         return ChatResponse(
             conversation_id=conversation.id,
@@ -268,6 +270,7 @@ async def chat(
             "original_filename": orig_name,
         },
     ))
+    conversation.updated_at = datetime.now(timezone.utc)
     db.commit()
 
     safe_result = MLPipelineService._to_jsonable(result)  # ← sanitize NaN → None

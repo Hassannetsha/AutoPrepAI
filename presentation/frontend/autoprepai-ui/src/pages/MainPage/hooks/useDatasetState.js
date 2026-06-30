@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from "react";
 import {
-  cleanError,
   formatTime,
   updateDatasetFromResponse,
   userMsg,
@@ -9,14 +8,14 @@ import {
 import { sendChatMessage, resetConversationData } from "../../../api/chat";
 import { getAuthToken } from "../../../api/auth";
 import { parseDatasetFile } from "../utils/fileParsers";
+import { validateDatasetFile } from "../utils/helpers";
 import {
-  validateDatasetFile,
-  appendUploadMessages,
-  appendMessageToChats,
-} from "../utils/helpers";
-import { reconstructDatasetFile } from "../utils/datasetFile";
+  reconstructDatasetFile,
+  resetDatasetState,
+} from "../utils/datasetFile";
 import { FileSpreadsheet } from "lucide-react";
-import { DEFAULT_DATASET_STATE } from "../constants";
+import { appendUploadMessages, appendMessageToChats } from "../utils/chatState";
+import { cleanError } from "../utils/handleErrors";
 
 export function useDatasetState() {
   const [uploaded, setUploaded] = useState(false);
@@ -120,7 +119,18 @@ export function useDatasetState() {
         }
       }
 
-      applyDatasetState(DEFAULT_DATASET_STATE);
+      resetDatasetState({
+        setUploaded,
+        setDatasetName,
+        setRows,
+        setColumns,
+        setTableData,
+        setTableDataBefore,
+        setHeaders,
+        setHeadersBefore,
+        setUploadError,
+        setOriginalExtension,
+      });
     } finally {
       setIsResetting(false);
     }
@@ -135,6 +145,7 @@ export function useDatasetState() {
       setChats,
       setIsLoadingChat = () => {},
       setChatError = () => {},
+      bumpChatToTop,
     } = {},
   ) => {
     const file = event.target.files?.[0];
@@ -196,6 +207,7 @@ export function useDatasetState() {
           response.assistant_message ?? `Dataset loaded: ${file.name}`,
         downloadUrl: response.result?.download_url,
       });
+      bumpChatToTop?.(realConvId || activeChatId);
     } catch (error) {
       console.error("File upload error:", error);
 
@@ -218,6 +230,7 @@ export function useDatasetState() {
       setIsLoadingChat,
       setChatError,
       setPendingFeedback,
+      bumpChatToTop,
     } = chatHelpers;
 
     const safeSetChats = setChats ?? (() => {});
@@ -292,6 +305,7 @@ export function useDatasetState() {
           result?.download_url,
         ),
       );
+      bumpChatToTop?.(thisChatId);
     } catch (error) {
       console.error("Auto-clean error:", error);
 

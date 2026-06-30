@@ -1,6 +1,7 @@
 # backend/routes/conversations.py
 
 import uuid
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -198,6 +199,7 @@ def rename_conversation(
 
     # Rename
     conversation.title = body.title.strip()
+    conversation.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(conversation)
 

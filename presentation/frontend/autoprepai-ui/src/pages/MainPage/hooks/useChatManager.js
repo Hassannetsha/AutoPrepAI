@@ -10,15 +10,32 @@ import {
   sendFeedback,
 } from "../../../api/chat";
 import { getAuthToken, removeAuthToken } from "../../../api/auth";
-import { cleanError, formatTime, updateDatasetFromResponse, userMsg, botMsg } from "../utils/helpers";
-import { reconstructDatasetFile } from "../utils/datasetFile";
+import {
+  formatTime,
+  updateDatasetFromResponse,
+  userMsg,
+  botMsg,
+} from "../utils/helpers";
+import { cleanError, handleAuthError } from "../utils/handleErrors";
+import {
+  reconstructDatasetFile,
+  resetDatasetState,
+} from "../utils/datasetFile";
 import { ACTION_TO_INTENT } from "../constants";
 import { LOGOUT_EVENT } from "../../../components/main/AppHeader";
+import { updateChatById, appendMessage, appendMessageToChats } from "../utils/chatState";
 
 export function useChatManager({
-  setUploaded, setTableData, setTableDataBefore,
-  setHeaders, setHeadersBefore, setDatasetName,
-  setRows, setColumns, setOriginalExtension, setUploadError,
+  setUploaded,
+  setTableData,
+  setTableDataBefore,
+  setHeaders,
+  setHeadersBefore,
+  setDatasetName,
+  setRows,
+  setColumns,
+  setOriginalExtension,
+  setUploadError,
   restoreDatasetFromPayload,
   setSelectedActions,
 } = {}) {
@@ -39,27 +56,35 @@ export function useChatManager({
 
   const activeChat = chats.find((c) => c.id === activeChatId);
 
-  const safe = (fn) => (typeof fn === "function" ? fn : () => {});
+  const safe = (fn) => (typeof fn === "function" ? fn : () => {}); // check if setter functions are provided before calling them
+
+  const bumpChatToTop = useCallback((chatId) => {
+    setChats((prev) => {
+      const idx = prev.findIndex((c) => c.id === chatId);
+      if (idx <= 0) return prev;
+      const chat = prev[idx];
+      return [chat, ...prev.slice(0, idx), ...prev.slice(idx + 1)];
+    });
+  }, []);
 
   const syncConversationId = useCallback(
     (responseConvId, thisChatId) => {
       if (!currentConversationId && responseConvId) {
         setCurrentConversationId(responseConvId);
-        setChats((prev) =>
-          prev.map((chat) =>
-            chat.id === thisChatId
-              ? { ...chat, id: responseConvId, backendId: responseConvId }
-              : chat
-          )
-        );
+        updateChatById(setChats, thisChatId, (chat) => ({
+          ...chat,
+          id: responseConvId,
+          backendId: responseConvId,
+        }));
         setActiveChatId(responseConvId);
       }
     },
-    [currentConversationId]
+    [currentConversationId],
   );
-
+  // loads messages for a specific conversation
   const loadChatMessages = useCallback(
     async (conversationId) => {
+      setIsLoadingChat(true);
       try {
         const data = await getConversation(conversationId);
         if (!data?.messages) return;
@@ -70,23 +95,13 @@ export function useChatManager({
           time: formatTime(msg.created_at),
           downloadUrl: msg.payload?.download_url ?? null,
         }));
+        // Update the chat with the loaded messages
+        updateChatById(setChats, conversationId, (chat) => ({
+          ...chat,
+          messages: mapped,
+        }));
 
-        setChats((prev) =>
-          prev.map((chat) =>
-            chat.id === conversationId ? { ...chat, messages: mapped } : chat
-          )
-        );
-
-        const uploadMessage = [...data.messages].reverse().find((m) =>
-          m.role === "assistant" && m.payload?.dataset_name
-        );
-
-        if (uploadMessage?.payload?.dataset_name) {
-          safe(setDatasetName)(uploadMessage.payload.dataset_name);
-          const ext = uploadMessage.payload.dataset_name.match(/\.\w+$/)?.[0]?.toLowerCase() || ".csv";
-          safe(setOriginalExtension)(ext);
-        }
-
+        // restore dataset state from the last assistant payload first
         const lastAssistant = [...data.messages]
           .reverse()
           .find((m) => m.role === "assistant" && m.payload);
@@ -96,35 +111,66 @@ export function useChatManager({
           setPendingFeedback(lastAssistant.payload?.finished === false);
           setStepTitle(lastAssistant.payload?.step_title ?? "");
         }
-      } catch (error) {
-        console.error("Failed to load messages:", error);
-        const friendly = cleanError(error.message);
+
+        // then ensure dataset name is set from the upload message if available
+        const uploadMessage = [...data.messages]
+          .reverse()
+          .find((m) => m.role === "assistant" && m.payload?.dataset_name);
+
+        if (uploadMessage?.payload?.dataset_name) {
+          safe(setDatasetName)(uploadMessage.payload.dataset_name);
+          const ext =
+            uploadMessage.payload.dataset_name
+              .match(/\.\w+$/)?.[0]
+              ?.toLowerCase() || ".csv";
+          safe(setOriginalExtension)(ext);
+        }
+      } catch (err) {
+        console.error("Failed to load messages:", err);
+        const friendly = cleanError(err.message);
         if (friendly.includes("log out")) {
           setChatError(friendly);
         }
-        if (error.message === "SESSION_EXPIRED") {
+        if (err.message === "SESSION_EXPIRED") {
           removeAuthToken();
           window.dispatchEvent(new Event(LOGOUT_EVENT));
         }
+      } finally {
+        setIsLoadingChat(false);
       }
     },
-    [setChats, setDatasetName, setOriginalExtension, restoreDatasetFromPayload, setChatError]
+    [
+      setChats,
+      setDatasetName,
+      setOriginalExtension,
+      restoreDatasetFromPayload,
+      setChatError,
+      setIsLoadingChat,
+    ],
   );
 
+  // loads all conversations
   const loadConversations = useCallback(async () => {
     try {
       const data = await listConversations();
       if (data && data.length > 0) {
-        const loadedChats = data.map((conv) => ({
+        const sorted = [...data].sort((a, b) => {
+          const diff = new Date(b.updated_at) - new Date(a.updated_at);
+          if (diff !== 0) return diff;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+
+        const loadedChats = sorted.map((conv) => ({
           id: conv.id,
           title: conv.title || "Untitled Chat",
           messages: [],
           backendId: conv.id,
         }));
         setChats(loadedChats);
-        setActiveChatId(loadedChats[0].id);
-        setCurrentConversationId(loadedChats[0].id);
-        await loadChatMessages(loadedChats[0].id);
+
+        setActiveChatId(sorted[0].id);
+        setCurrentConversationId(sorted[0].id);
+        await loadChatMessages(sorted[0].id);
       }
     } catch (error) {
       console.error("Failed to load conversations:", error);
@@ -137,7 +183,13 @@ export function useChatManager({
         window.dispatchEvent(new Event(LOGOUT_EVENT));
       }
     }
-  }, [loadChatMessages, setChats, setActiveChatId, setCurrentConversationId, setChatError]);
+  }, [
+    loadChatMessages,
+    setChats,
+    setActiveChatId,
+    setCurrentConversationId,
+    setChatError,
+  ]);
 
   useEffect(() => {
     if (!getAuthToken()) return;
@@ -150,15 +202,18 @@ export function useChatManager({
 
   useEffect(() => {
     const handleLogout = () => {
-      safe(setUploaded)(false);
-      safe(setDatasetName)("");
-      safe(setRows)(0);
-      safe(setColumns)(0);
-      safe(setTableData)([]);
-      safe(setTableDataBefore)([]);
-      safe(setHeaders)([]);
-      safe(setHeadersBefore)([]);
-      safe(setUploadError)("");
+      resetDatasetState({
+        setUploaded,
+        setDatasetName,
+        setRows,
+        setColumns,
+        setTableData,
+        setTableDataBefore,
+        setHeaders,
+        setHeadersBefore,
+        setUploadError,
+        setOriginalExtension,
+      });
       setCurrentConversationId(null);
       setChats([{ id: 1, title: "Chat 1", messages: [] }]);
       setActiveChatId(1);
@@ -167,25 +222,56 @@ export function useChatManager({
     };
     window.addEventListener(LOGOUT_EVENT, handleLogout);
     return () => window.removeEventListener(LOGOUT_EVENT, handleLogout);
-  }, [setUploaded, setDatasetName, setRows, setColumns, setTableData, setTableDataBefore, setHeaders, setHeadersBefore, setUploadError, setCurrentConversationId, setChats, setActiveChatId]);
+  }, [
+    setUploaded,
+    setDatasetName,
+    setRows,
+    setColumns,
+    setTableData,
+    setTableDataBefore,
+    setHeaders,
+    setHeadersBefore,
+    setUploadError,
+    setOriginalExtension,
+    setCurrentConversationId,
+    setChats,
+    setActiveChatId,
+  ]);
 
   const handleSwitchChat = useCallback(
     async (chatId) => {
       setActiveChatId(chatId);
       setCurrentConversationId(chatId);
-      safe(setUploaded)(false);
-      safe(setTableData)([]);
-      safe(setTableDataBefore)([]);
-      safe(setHeaders)([]);
-      safe(setHeadersBefore)([]);
-      safe(setDatasetName)("");
-      safe(setRows)(0);
-      safe(setColumns)(0);
-      safe(setOriginalExtension)(".csv");
+      resetDatasetState({
+        setUploaded,
+        setDatasetName,
+        setRows,
+        setColumns,
+        setTableData,
+        setTableDataBefore,
+        setHeaders,
+        setHeadersBefore,
+        setUploadError,
+        setOriginalExtension,
+      });
       setPendingFeedback(false);
       await loadChatMessages(chatId);
     },
-    [loadChatMessages, setActiveChatId, setCurrentConversationId, setUploaded, setTableData, setTableDataBefore, setHeaders, setHeadersBefore, setDatasetName, setRows, setColumns, setOriginalExtension]
+    [
+      loadChatMessages,
+      setActiveChatId,
+      setCurrentConversationId,
+      setUploaded,
+      setDatasetName,
+      setRows,
+      setColumns,
+      setTableData,
+      setTableDataBefore,
+      setHeaders,
+      setHeadersBefore,
+      setUploadError,
+      setOriginalExtension,
+    ],
   );
 
   const handleNewChat = useCallback(async () => {
@@ -202,8 +288,9 @@ export function useChatManager({
           text: msg.content,
           time: formatTime(msg.created_at),
         }));
-      } catch {
-        // fall back to empty chat
+      } catch (err) {
+        console.error("Failed to create new conversation:", err);
+        setChatError("Could not create a new chat. Please try again.");
       }
     }
 
@@ -213,33 +300,51 @@ export function useChatManager({
       messages,
       ...(backendId ? { backendId } : {}),
     };
-    setChats((prev) => [...prev, newChat]);
+    setChats((prev) => [newChat, ...prev]);
     setActiveChatId(backendId || tempId);
     setCurrentConversationId(backendId);
-    safe(setUploaded)(false);
-    safe(setTableData)([]);
-    safe(setTableDataBefore)([]);
-    safe(setHeaders)([]);
-    safe(setHeadersBefore)([]);
-    safe(setDatasetName)("");
-    safe(setRows)(0);
-    safe(setColumns)(0);
-    safe(setOriginalExtension)(".csv");
+    resetDatasetState({
+      setUploaded,
+      setDatasetName,
+      setRows,
+      setColumns,
+      setTableData,
+      setTableDataBefore,
+      setHeaders,
+      setHeadersBefore,
+      setUploadError,
+      setOriginalExtension,
+    });
     safe(setChatError)("");
     setPendingFeedback(false);
     safe(setSelectedActions)([]);
-  }, [setChats, setActiveChatId, setCurrentConversationId, setUploaded, setTableData, setTableDataBefore, setHeaders, setHeadersBefore, setDatasetName, setRows, setColumns, setOriginalExtension, setChatError, setSelectedActions]);
+  }, [
+    setChats,
+    setActiveChatId,
+    setCurrentConversationId,
+    setUploaded,
+    setDatasetName,
+    setRows,
+    setColumns,
+    setTableData,
+    setTableDataBefore,
+    setHeaders,
+    setHeadersBefore,
+    setUploadError,
+    setOriginalExtension,
+    setChatError,
+    setSelectedActions,
+  ]);
 
   const handleRenameChat = useCallback(
     async (chatId, title) => {
       const trimmedTitle = title.trim();
       if (!trimmedTitle) return;
 
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat.id === chatId ? { ...chat, title: trimmedTitle } : chat
-        )
-      );
+      updateChatById(setChats, chatId, (chat) => ({
+        ...chat,
+        title: trimmedTitle,
+      }));
 
       if (typeof chatId === "string") {
         try {
@@ -248,13 +353,11 @@ export function useChatManager({
           console.error("Failed to rename conversation:", error);
           const message = error?.message || "Could not rename conversation";
           setChatError(message);
-          if (/token|unauthorized|expired|invalid/i.test(message)) {
-            navigate("/login");
-          }
+          handleAuthError(error, navigate);
         }
       }
     },
-    [setChats, setChatError, navigate]
+    [setChats, setChatError, navigate],
   );
 
   const handleDeleteChat = useCallback(
@@ -276,7 +379,7 @@ export function useChatManager({
         console.error("Failed to delete conversation:", error);
       }
     },
-    [chats, activeChatId, setChats, handleSwitchChat, handleNewChat]
+    [chats, activeChatId, setChats, handleSwitchChat, handleNewChat],
   );
 
   const handleFeedback = useCallback(
@@ -287,28 +390,29 @@ export function useChatManager({
       setChatError("");
 
       try {
-        const response = await sendFeedback({ conversationId: currentConversationId, accept });
+        const response = await sendFeedback({
+          conversationId: currentConversationId,
+          accept,
+        });
 
-        const botTime = formatTime();
-
-        setChats((prev) =>
-          prev.map((chat) =>
-            chat.id === currentConversationId
-              ? {
-                  ...chat,
-                  messages: [
-                    ...chat.messages,
-                    botMsg(response.assistant_message, botTime, response.result?.download_url),
-                  ],
-                }
-              : chat
-          )
-        );
+        appendMessage(setChats, currentConversationId, botMsg(
+          response.assistant_message,
+          formatTime(),
+          response.result?.download_url,
+        ));
 
         setPendingFeedback(response.finished === false);
         setStepTitle(response.step_title || "");
 
-        updateDatasetFromResponse(response.result, { setHeaders, setHeadersBefore, setTableData, setTableDataBefore, setRows, setColumns });
+        updateDatasetFromResponse(response.result, {
+          setHeaders,
+          setHeadersBefore,
+          setTableData,
+          setTableDataBefore,
+          setRows,
+          setColumns,
+        });
+        bumpChatToTop(currentConversationId);
       } catch (error) {
         console.error("Feedback error:", error);
         setChatError(cleanError(error.message));
@@ -316,11 +420,30 @@ export function useChatManager({
         setSubmittingFeedback(false);
       }
     },
-    [currentConversationId, submittingFeedback, setChats, setHeaders, setHeadersBefore, setTableData, setTableDataBefore, setRows, setColumns, setChatError]
+    [
+      currentConversationId,
+      submittingFeedback,
+      setChats,
+      setHeaders,
+      setHeadersBefore,
+      setTableData,
+      setTableDataBefore,
+      setRows,
+      setColumns,
+      setChatError,
+    ],
   );
 
   const handleSend = useCallback(
-    async ({ inputValue, selectedActions, setInputValue, headers, tableData, originalExtension, datasetName }) => {
+    async ({
+      inputValue,
+      selectedActions,
+      setInputValue,
+      headers,
+      tableData,
+      originalExtension,
+      datasetName,
+    }) => {
       if (!inputValue.trim() && selectedActions.length === 0) return;
 
       const thisChatId = activeChatId;
@@ -335,13 +458,7 @@ export function useChatManager({
           `Please apply these actions: ${selectedActions.join(", ")}`;
       }
 
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat.id === thisChatId
-            ? { ...chat, messages: [...chat.messages, userMsg(displayedMessage, time)] }
-            : chat
-        )
-      );
+      appendMessage(setChats, thisChatId, userMsg(displayedMessage, time));
 
       safe(setInputValue)("");
       setChatError("");
@@ -350,16 +467,29 @@ export function useChatManager({
       try {
         let datasetFile = null;
         if (tableData?.length > 0 && headers?.length > 0) {
-          datasetFile = reconstructDatasetFile(headers, tableData, originalExtension || ".csv", datasetName);
+          datasetFile = reconstructDatasetFile(
+            headers,
+            tableData,
+            originalExtension || ".csv",
+            datasetName,
+          );
         }
 
         const backendMessage = `${messageText}\n\nPlease apply these actions: ${selectedActions.join(", ")}`;
 
         console.log("Sending message to backend:", backendMessage);
-        console.log("mode:", inputValue.trim() === "" && selectedActions.length > 0 ? "manual" : "chat");
+        console.log(
+          "mode:",
+          inputValue.trim() === "" && selectedActions.length > 0
+            ? "manual"
+            : "chat",
+        );
         const response = await sendChatMessage({
           message: backendMessage,
-          mode: inputValue.trim() === "" && selectedActions.length > 0 ? "manual" : "chat",
+          mode:
+            inputValue.trim() === "" && selectedActions.length > 0
+              ? "manual"
+              : "chat",
           selectedIntents: selectedActions.map((a) => ACTION_TO_INTENT[a] || a),
           conversationId: thisConvId,
           dataset: datasetFile,
@@ -368,61 +498,77 @@ export function useChatManager({
         const realConvId = response.conversation_id ?? thisConvId;
         syncConversationId(response.conversation_id, thisChatId);
 
-        const botTime = formatTime();
         setPendingFeedback(response.finished === false);
         setStepTitle(response.step_title || "");
 
-        setChats((prev) =>
-          prev.map((chat) =>
-            chat.id === thisChatId || chat.id === realConvId
-              ? {
-                  ...chat,
-                  messages: [
-                    ...chat.messages,
-                    botMsg(response.assistant_message || "I received your message!", botTime, response.result?.download_url ?? null),
-                  ],
-                }
-              : chat
-          )
+        appendMessageToChats(
+          setChats,
+          [thisChatId, realConvId],
+          botMsg(
+            response.assistant_message || "I received your message!",
+            formatTime(),
+            response.result?.download_url ?? null,
+          ),
         );
 
-        updateDatasetFromResponse(response.result, { setHeaders, setHeadersBefore, setTableData, setTableDataBefore, setRows, setColumns });
+        updateDatasetFromResponse(response.result, {
+          setHeaders,
+          setHeadersBefore,
+          setTableData,
+          setTableDataBefore,
+          setRows,
+          setColumns,
+        });
         safe(setSelectedActions)([]);
+        bumpChatToTop(thisChatId);
       } catch (error) {
         console.error("Chat error:", error);
         setChatError(cleanError(error.message));
-        const botTime = formatTime();
-        setChats((prev) =>
-          prev.map((chat) =>
-            chat.id === thisChatId
-              ? {
-                  ...chat,
-                  messages: [
-                    ...chat.messages,
-                    botMsg(`Error: ${error.message}`, botTime),
-                  ],
-                }
-              : chat
-          )
-        );
+        appendMessage(setChats, thisChatId, botMsg(`Error: ${error.message}`, formatTime()));
+        bumpChatToTop(thisChatId);
       } finally {
         setIsLoadingChat(false);
       }
     },
-    [activeChatId, currentConversationId, syncConversationId, setChats, setChatError, setIsLoadingChat, setHeaders, setHeadersBefore, setTableData, setTableDataBefore, setRows, setColumns, setSelectedActions]
+    [
+      activeChatId,
+      currentConversationId,
+      syncConversationId,
+      setChats,
+      setChatError,
+      setIsLoadingChat,
+      setHeaders,
+      setHeadersBefore,
+      setTableData,
+      setTableDataBefore,
+      setRows,
+      setColumns,
+      setSelectedActions,
+    ],
   );
 
   return {
-    chats, setChats, activeChat, activeChatId, setActiveChatId,
-    currentConversationId, setCurrentConversationId,
-    sidebarCollapsed, setSidebarCollapsed,
+    chats,
+    setChats,
+    activeChat,
+    activeChatId,
+    setActiveChatId,
+    currentConversationId,
+    setCurrentConversationId,
+    sidebarCollapsed,
+    setSidebarCollapsed,
     syncConversationId,
-    isLoadingChat, setIsLoadingChat,
-    chatError, setChatError,
+    isLoadingChat,
+    setIsLoadingChat,
+    chatError,
+    setChatError,
     chatEndRef,
-    pendingFeedback, setPendingFeedback,
-    submittingFeedback, setSubmittingFeedback,
-    stepTitle, setStepTitle,
+    pendingFeedback,
+    setPendingFeedback,
+    submittingFeedback,
+    setSubmittingFeedback,
+    stepTitle,
+    setStepTitle,
     handleFeedback,
     loadChatMessages,
     loadConversations,
@@ -431,5 +577,6 @@ export function useChatManager({
     handleRenameChat,
     handleDeleteChat,
     handleSend,
+    bumpChatToTop,
   };
 }

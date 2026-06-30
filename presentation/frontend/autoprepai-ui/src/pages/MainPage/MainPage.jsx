@@ -55,6 +55,7 @@ export default function MainPage() {
     setIsLoadingChat: chat.setIsLoadingChat,
     setChatError: chat.setChatError,
     setPendingFeedback: chat.setPendingFeedback,
+    bumpChatToTop: chat.bumpChatToTop,
   };
 
   return (
