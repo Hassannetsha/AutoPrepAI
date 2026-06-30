@@ -1,13 +1,21 @@
 import * as XLSX from "xlsx";
 import { escapeCSV } from "./helpers";
 
-export function reconstructDatasetFile(headers, data, ext, datasetName = "data") {
-  const isExcel = ext === ".xlsx" || ext === ".xls";
-  const baseName = datasetName.replace(/\.\w+$/, "");
+export function reconstructDatasetFile(
+  headers = [],
+  data = [],
+  ext,
+  datasetName = "data",
+) {
+  const extension = ext?.toLowerCase();
+  const isExcel = extension === ".xlsx" || extension === ".xls";
+  const baseName = (datasetName || "data").replace(/\.\w+$/, "");
   const fileName = `${baseName}${isExcel ? ".xlsx" : ".csv"}`;
 
   if (isExcel) {
-    const ws = XLSX.utils.json_to_sheet(data);
+    const ws = XLSX.utils.json_to_sheet(data, {
+      header: headers,
+    });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -16,15 +24,19 @@ export function reconstructDatasetFile(headers, data, ext, datasetName = "data")
     });
   }
 
+  // For CSV, we need to escape values and join them with commas
   const csvContent = [
     headers.map(escapeCSV).join(","),
     ...data.map((row) => headers.map((h) => escapeCSV(row[h])).join(",")),
-  ].join("\n");
+  ].join("\r\n");
 
   return new File([csvContent], fileName, { type: "text/csv" });
 }
 
-export function openLatestDownload(messages) {
+export function openLatestDownload(messages = []) {
   const last = [...messages].reverse().find((m) => m.downloadUrl);
-  if (last) window.open(last.downloadUrl, "_blank");
+
+  if (last?.downloadUrl) {
+    window.open(last.downloadUrl, "_blank");
+  }
 }

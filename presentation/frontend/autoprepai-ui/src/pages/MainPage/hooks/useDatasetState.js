@@ -1,10 +1,12 @@
 import { useState, useRef, useCallback } from "react";
-import { getFileIcon, cleanError, formatTime, updateDatasetFromResponse, userMsg, botMsg } from "../utils/helpers";
+import { cleanError, formatTime, updateDatasetFromResponse, userMsg, botMsg } from "../utils/helpers";
 import { sendChatMessage, sendFeedback } from "../../../api/chat";
 import { getAuthToken } from "../../../api/auth";
 import { parseCSV, parseXLSX } from "../utils/fileParsers";
 import { ALLOWED_MIME_TYPES } from "../constants";
 import { reconstructDatasetFile } from "../utils/datasetFile";
+import { FileSpreadsheet } from "lucide-react";
+
 
 export function useDatasetState() {
   const [uploaded, setUploaded] = useState(false);
@@ -261,7 +263,7 @@ export function useDatasetState() {
     ? datasetName.replace(/\.\w+$/, ".csv")
     : "data.csv";
 
-  const DatasetIcon = getFileIcon(datasetName);
+  const DatasetIcon = FileSpreadsheet;
 
   return {
     uploaded, setUploaded,
