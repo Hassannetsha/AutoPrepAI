@@ -136,6 +136,7 @@ class FeatureEngineeringService:
                 name = re.sub(r'^\d+\.\s*', '', name)
                 name = re.sub(r'([A-Z])', r'_\1', name).lstrip('_').lower()  # CamelCase → snake_case
                 name = re.sub(r'\s+', '_', name)  # spaces → underscores
+                name = re.sub(r'_+', '_', name)
                 code = code_part.strip()
 
                 print(f"\n{'='*50}")
@@ -158,9 +159,11 @@ class FeatureEngineeringService:
                                 "re": __import__('re')}
                 
                 # Ensure the code is wrapped as an assignment if it isn't already
-                is_assignment = bool(re.match(r'^\s*df\[.+\]\s*=', fixed_code))
+                assign_match = re.match(r"^\s*df\[(['\"])(.+?)\1\]\s*=", fixed_code)
+                is_assignment = bool(assign_match)
                 if is_assignment:
                     execution_code = fixed_code
+                    name = assign_match.group(2)
                 else:
                     execution_code = f"df['{name}'] = {fixed_code}"
                 
