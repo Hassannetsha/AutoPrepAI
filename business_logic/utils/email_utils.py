@@ -12,7 +12,7 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 def send_welcome_email(to_email: str, first_name: str, last_name: str):
-    subject = "Welcome to AutoPrepAI 🚀"
+    subject = "Welcome to AutoPrepAI"
 
     body = f"""
 Hi {first_name} {last_name},
@@ -23,7 +23,7 @@ We're excited to have you on board. You can now start cleaning, processing, and 
 
 If you have any questions, feel free to explore the platform or reach out.
 
-Happy building! 🚀
+Happy building!
 
 — AutoPrepAI Team
 """
@@ -46,7 +46,7 @@ Happy building! 🚀
 
 # email verfification
 def send_verification_email(to_email: str, first_name: str, token: str):
-    subject = "Verify your AutoPrepAI Account 🚀"
+    subject = "Verify your AutoPrepAI Account"
     
     verification_link = f"{FRONTEND_URL}/verify-email?token={token}"
 
