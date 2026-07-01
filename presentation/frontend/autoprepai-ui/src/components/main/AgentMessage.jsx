@@ -16,6 +16,8 @@ import { CheckCircle2, ChevronDown, ChevronRight, BarChart3, Info } from "lucide
  * still rendered as plain text, so nothing is ever dropped.
  */
 
+const SUGGESTION_RE = /^(?:\d+\.\s+)?(?<name>\w[\w\s()-]*?):\s+(?<desc>.*?)\s*\|\s*code:\s*(?<code>.*)$/;
+
 function parseLines(text) {
   return text
     .split("\n")
@@ -31,6 +33,8 @@ function classifyLine(line) {
   if (/^•\s*Executing agent:/i.test(line)) return { type: "exec", content: line.replace(/^•\s*/, "") };
   if (/^•\s*Explanation for/i.test(line)) return { type: "explanation", content: line.replace(/^•\s*/, "") };
   if (line.startsWith("•")) return { type: "sub", content: line.replace(/^•\s*/, "") };
+  const s = line.match(SUGGESTION_RE);
+  if (s) return { type: "suggestion", name: s.groups.name, desc: s.groups.desc, code: s.groups.code };
   return { type: "text", content: line };
 }
 
@@ -84,6 +88,18 @@ function SkipGroup({ items }) {
   );
 }
 
+function SuggestionItem({ name, desc, code }) {
+  return (
+    <div className="agent-suggestion">
+      <div className="agent-suggestion-header">
+        <span className="agent-suggestion-name">{name}</span>
+        <code className="agent-suggestion-code">{code}</code>
+      </div>
+      <p className="agent-suggestion-desc">{desc}</p>
+    </div>
+  );
+}
+
 function Explanation({ content }) {
   const [expanded, setExpanded] = useState(false);
   const match = content.match(/^Explanation for '([^']+)':\s*(.*)$/i);
@@ -131,6 +147,8 @@ export default function AgentMessage({ text }) {
                 <span>{boldify(g.content.replace(/^Executing agent:\s*/i, ""))}</span>
               </div>
             );
+          case "suggestion":
+            return <SuggestionItem name={g.name} desc={g.desc} code={g.code} key={i} />;
           case "sub":
             return (
               <div className="agent-line-sub" key={i}>
