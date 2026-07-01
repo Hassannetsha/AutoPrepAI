@@ -151,6 +151,12 @@ export default function MainPage() {
           loadingHistory={history.loadingHistory}
         />
       )}
+
+      {(chat.isDeletingChat || dataSet.isResetting) && (
+        <div className="page-loading-overlay">
+          <div className="page-loading-spinner"></div>
+        </div>
+      )}
     </div>
   );
 }

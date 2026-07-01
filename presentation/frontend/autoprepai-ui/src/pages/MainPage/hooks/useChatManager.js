@@ -23,7 +23,11 @@ import {
 } from "../utils/datasetFile";
 import { ACTION_TO_INTENT } from "../constants";
 import { LOGOUT_EVENT } from "../../../components/main/AppHeader";
-import { updateChatById, appendMessage, appendMessageToChats } from "../utils/chatState";
+import {
+  updateChatById,
+  appendMessage,
+  appendMessageToChats,
+} from "../utils/chatState";
 
 export function useChatManager({
   setUploaded,
@@ -42,7 +46,7 @@ export function useChatManager({
   const [chats, setChats] = useState([
     { id: 1, title: "Chat 1", messages: [] },
   ]);
-  const [activeChatId, setActiveChatId] = useState(1);
+  const [activeChatId, setActiveChatId] = useState(null);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
@@ -50,6 +54,7 @@ export function useChatManager({
   const [pendingFeedback, setPendingFeedback] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [stepTitle, setStepTitle] = useState("");
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
 
   const chatEndRef = useRef(null);
   const navigate = useNavigate();
@@ -67,6 +72,7 @@ export function useChatManager({
     });
   }, []);
 
+  // syncs the conversation ID from the backend response with the local chat state
   const syncConversationId = useCallback(
     (responseConvId, thisChatId) => {
       if (!currentConversationId && responseConvId) {
@@ -153,6 +159,7 @@ export function useChatManager({
   const loadConversations = useCallback(async () => {
     try {
       const data = await listConversations();
+      // Sort conversations by updated_at, then created_at
       if (data && data.length > 0) {
         const sorted = [...data].sort((a, b) => {
           const diff = new Date(b.updated_at) - new Date(a.updated_at);
@@ -216,7 +223,7 @@ export function useChatManager({
       });
       setCurrentConversationId(null);
       setChats([{ id: 1, title: "Chat 1", messages: [] }]);
-      setActiveChatId(1);
+      setActiveChatId(null);
       setPendingFeedback(false);
       setStepTitle("");
     };
@@ -362,24 +369,27 @@ export function useChatManager({
 
   const handleDeleteChat = useCallback(
     async (chatId) => {
-      const remaining = chats.filter((c) => c.id !== chatId);
-      setChats(remaining);
-
-      if (activeChatId === chatId) {
-        if (remaining.length > 0) {
-          await handleSwitchChat(remaining[0].id);
-        } else {
-          handleNewChat();
-        }
-      }
-
+      setIsDeletingChat(true);
       try {
         await deleteConversation(chatId);
+
+        const remaining = chats.filter((c) => c.id !== chatId);
+        setChats(remaining);
+
+        if (activeChatId === chatId) {
+          if (remaining.length > 0) {
+            await handleSwitchChat(remaining[0].id);
+          } else {
+            handleNewChat();
+          }
+        }
       } catch (error) {
         console.error("Failed to delete conversation:", error);
+      } finally {
+        setIsDeletingChat(false);
       }
     },
-    [chats, activeChatId, setChats, handleSwitchChat, handleNewChat],
+    [chats, activeChatId, handleSwitchChat, handleNewChat],
   );
 
   const handleFeedback = useCallback(
@@ -395,11 +405,15 @@ export function useChatManager({
           accept,
         });
 
-        appendMessage(setChats, currentConversationId, botMsg(
-          response.assistant_message,
-          formatTime(),
-          response.result?.download_url,
-        ));
+        appendMessage(
+          setChats,
+          currentConversationId,
+          botMsg(
+            response.assistant_message,
+            formatTime(),
+            response.result?.download_url,
+          ),
+        );
 
         setPendingFeedback(response.finished === false);
         setStepTitle(response.step_title || "");
@@ -431,6 +445,7 @@ export function useChatManager({
       setRows,
       setColumns,
       setChatError,
+      bumpChatToTop,
     ],
   );
 
@@ -476,20 +491,16 @@ export function useChatManager({
         }
 
         const backendMessage = `${messageText}\n\nPlease apply these actions: ${selectedActions.join(", ")}`;
-
-        console.log("Sending message to backend:", backendMessage);
-        console.log(
-          "mode:",
+        const mode =
           inputValue.trim() === "" && selectedActions.length > 0
             ? "manual"
-            : "chat",
-        );
+            : "chat";
+
+        console.log("Sending message to backend:", backendMessage);
+        console.log(mode);
         const response = await sendChatMessage({
           message: backendMessage,
-          mode:
-            inputValue.trim() === "" && selectedActions.length > 0
-              ? "manual"
-              : "chat",
+          mode,
           selectedIntents: selectedActions.map((a) => ACTION_TO_INTENT[a] || a),
           conversationId: thisConvId,
           dataset: datasetFile,
@@ -524,7 +535,11 @@ export function useChatManager({
       } catch (error) {
         console.error("Chat error:", error);
         setChatError(cleanError(error.message));
-        appendMessage(setChats, thisChatId, botMsg(`Error: ${error.message}`, formatTime()));
+        appendMessage(
+          setChats,
+          thisChatId,
+          botMsg(`Error: ${error.message}`, formatTime()),
+        );
         bumpChatToTop(thisChatId);
       } finally {
         setIsLoadingChat(false);
@@ -544,6 +559,7 @@ export function useChatManager({
       setRows,
       setColumns,
       setSelectedActions,
+      bumpChatToTop,
     ],
   );
 
@@ -569,6 +585,8 @@ export function useChatManager({
     setSubmittingFeedback,
     stepTitle,
     setStepTitle,
+    isDeletingChat,
+    setIsDeletingChat,
     handleFeedback,
     loadChatMessages,
     loadConversations,
