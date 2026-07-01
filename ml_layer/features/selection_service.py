@@ -18,7 +18,6 @@ class FeatureSelectionService:
         
         Returns (cleaned_X, dropped_column_names_with_reasons).
         """
-        before = set(X.columns)
         nunique = X.nunique()
         n = len(X)
         dropped = []
