@@ -15,7 +15,7 @@ class TestFeatureSelectionAgent:
         mock_service = MagicMock()
         df_input = pd.DataFrame({"a": [1, 2], "b": [3, 4], "c": [5, 6]})
         df_pruned = pd.DataFrame({"a": [1, 2], "c": [5, 6]})
-        mock_service.run.return_value = (["a", "c"], df_pruned)
+        mock_service.run.return_value = (["a", "c"], ["b"], ["c excluded"], df_pruned)
         MockService.return_value = mock_service
 
         agent = FeatureSelectionAgent()
@@ -57,22 +57,21 @@ class TestFeatureSelectionAgent:
         assert "features_selected" not in result.metadata
 
     @patch("agents.feature_selection_agent.FeatureSelectionService")
-    def test_passes_threshold_and_n_features(self, MockService):
+    def test_passes_n_features(self, MockService):
         from ml_layer.agents.feature_selection_agent import FeatureSelectionAgent
 
         mock_service = MagicMock()
-        mock_service.run.return_value = (["a"], pd.DataFrame({"a": [1, 2]}))
+        mock_service.run.return_value = (["a"], ["b"], ["excluded"], pd.DataFrame({"a": [1, 2]}))
         MockService.return_value = mock_service
 
         agent = FeatureSelectionAgent()
         ctx = DataContext(data=pd.DataFrame({"a": [1, 2], "b": [3, 4]}))
         params = AgentParams(
             columns=["a", "b"],
-            options={"threshold": 0.1, "n_features": 5}
+            options={"n_features": 5}
         )
 
         result = agent.execute(ctx, params)
         mock_service.run.assert_called_once()
         _, kwargs_call = mock_service.run.call_args
-        assert kwargs_call["threshold"] == 0.1
         assert kwargs_call["n_features"] == 5

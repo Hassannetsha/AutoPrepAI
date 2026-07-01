@@ -13,18 +13,17 @@ class FeatureSelectionAgent(PipelineAgent):
         context.log("Selecting features")
         try:
             service = FeatureSelectionService(random_state=context.metadata.get("random_state", 42))
-            threshold = params.get_option("threshold")
             n_features = params.get_option("n_features")
-            selected, pruned_df = service.run(
+            selected, dropped, excluded, pruned_df = service.run(
                 context.data,
                 columns=columns,
-                threshold=threshold,
                 n_features=n_features,
                 metadata=context.metadata
             )
         except ValueError as e:
-            context.log(f"Feature selection skipped")
-            print(f"Feature selection skipped: {e}")
+            reason = str(e).replace("NaN", "missing values")
+            context.log(f"Feature selection skipped: {reason}")
+            print(f"Feature selection skipped: {reason}")
             return context
         except Exception as e:
             context.log(f"Feature selection failed.")
@@ -34,4 +33,8 @@ class FeatureSelectionAgent(PipelineAgent):
         context.metadata["features_selected"] = True
         context.metadata["selected_features"] = selected
         context.log(f"Selected features: {selected}")
+        if dropped:
+            context.log(f"Dropped features: {dropped}")
+        if excluded:
+            context.log(f"Excluded by importance: {excluded}")
         return context
