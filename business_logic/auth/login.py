@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from data_access.database.connection import get_db, SessionLocal
 from data_access.database.models import User, Conversation
-from business_logic.utils.utils import verify_password, create_access_token, create_reset_password_token, decode_reset_password_token, hash_password
+from business_logic.utils.auth_utils import verify_password, create_access_token, create_reset_password_token, decode_reset_password_token, hash_password
 from business_logic.utils.email_utils import send_password_reset_email
 from business_logic.auth.schemas import ForgotPasswordRequest, ResetPasswordRequest, UserLogin
 from business_logic.auth import dependencies

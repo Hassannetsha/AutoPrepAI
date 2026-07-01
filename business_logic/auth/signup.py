@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from data_access.database.connection import get_db
 from data_access.database.models import User
-from business_logic.utils.utils import create_verification_token, decode_verification_token, hash_password
+from business_logic.utils.auth_utils import create_verification_token, decode_verification_token, hash_password
 from business_logic.auth.schemas import UserSignup, ResendVerificationRequest
 from business_logic.utils.email_utils import send_verification_email, send_welcome_email
 import re
