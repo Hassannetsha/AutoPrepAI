@@ -1,7 +1,7 @@
 # data_resolver/strategy/convert_to_type.py
 import pandas as pd
 from .base_strategy import BaseResolutionStrategy
-from .helper_utils import clean_numeric
+from .helper_utils import clean_boolean, clean_numeric
 
 class ConvertToTypeStrategy(BaseResolutionStrategy):
     def resolve(self, df, column_name, **kwargs):
@@ -13,10 +13,12 @@ class ConvertToTypeStrategy(BaseResolutionStrategy):
         elif target_type == "datetime":
             df[column_name] = pd.to_datetime(df[column_name], errors="coerce")
         elif target_type == "boolean":
-            df[column_name] = df[column_name].astype(bool)
+            df[column_name] = df[column_name].apply(clean_boolean)        
         else:
-            df[column_name] = df[column_name].astype(str)
+            df[column_name] = df[column_name].apply(
+                lambda x: x if pd.isna(x) else str(x)
+            )
 
         after_null = df[column_name].isna().sum()
         failed = after_null - before_null
-        return df, f"✓ Converted '{column_name}' to {target_type} ({failed} values became NaN)"
+        return df, f"✓ Converted '{column_name}' to {target_type}."

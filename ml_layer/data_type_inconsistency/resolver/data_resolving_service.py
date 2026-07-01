@@ -1,12 +1,7 @@
 # data_resolver/resolver.py
 import pandas as pd
 from typing import Dict, Any
-from .strategy.leave_as_is import LeaveAsIsStrategy
-from .strategy.delete_strategies import DeleteRowsStrategy, DeleteColumnStrategy
-from .strategy.impute_strategies import (
-    ImputeMeanStrategy, ImputeMedianStrategy, ImputeModeStrategy,
-    ImputeCustomValueStrategy, ForwardFillStrategy, BackwardFillStrategy
-)
+
 from .strategy.convert_to_type import ConvertToTypeStrategy
 
 class DataResolvingService:
@@ -17,15 +12,6 @@ class DataResolvingService:
         self.resolution_log = []
 
         self.strategies = {
-            "leave_as_is": LeaveAsIsStrategy(),
-            "delete_rows": DeleteRowsStrategy(),
-            "delete_column": DeleteColumnStrategy(),
-            "impute_mean": ImputeMeanStrategy(),
-            "impute_median": ImputeMedianStrategy(),
-            "impute_mode": ImputeModeStrategy(),
-            "impute_custom": ImputeCustomValueStrategy(),
-            "forward_fill": ForwardFillStrategy(),
-            "backward_fill": BackwardFillStrategy(),
             "convert_to_type": ConvertToTypeStrategy(),
         }
 

@@ -45,7 +45,10 @@ class DataTypeInconsistencyDetector:
             'inconsistent_indices': [],
             'inconsistent_values': [],
             'recommended_type': None,
-            'conversion_issues': []
+            'conversion_issues': {
+                "failed_count": 0,
+                "failed_values": []
+            }
         }
 
         non_null = series.dropna()
@@ -90,6 +93,37 @@ class DataTypeInconsistencyDetector:
             result['conversion_issues'] = self.numeric_converter.test_conversion(non_null)
         elif recommended_type == 'datetime':
             result['conversion_issues'] = self.datetime_converter.test_conversion(non_null)
+
+        conversion = result["conversion_issues"]
+
+        if result["non_null_count"] > 0:
+            result["conversion_failure_rate"] = (
+                conversion["failed_count"] / result["non_null_count"]
+            )
+        else:
+            result["conversion_failure_rate"] = 0.0
+
+        failure_rate = result["conversion_failure_rate"]
+
+        if failure_rate == 0:
+            confidence = "High"
+        elif failure_rate <= 0.10:
+            confidence = "Medium"
+        else:
+            confidence = "Low"
+
+        result["recommendation_confidence"] = confidence
+
+        if (
+            recommended_type == "numeric"
+            and result["conversion_failure_rate"] > 0.20
+        ):
+            result["recommendation_note"] = (
+                f"{conversion['failed_count']} values ({result['conversion_failure_rate']:.1%}) "
+                "cannot be converted safely."
+            )
+        else:
+            result["recommendation_note"] = ""
 
         return result
 

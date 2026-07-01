@@ -44,6 +44,7 @@ class MLPipelineService:
         "handle_missing_values",
         "detect_outliers",
         "remove_duplicates",
+        "fix_data_types",
         "remove_inconsistencies",
         "correct_spelling",
         "standardize_data",
@@ -281,6 +282,7 @@ class MLPipelineService:
                 "has_numeric": True,
                 "has_categorical": True,
                 "user_command": effective_command,
+                "mode": normalized_mode
             },
         )
 

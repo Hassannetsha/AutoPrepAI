@@ -26,3 +26,22 @@ def get_inconsistent_mask(df, column_name, recommended_type):
 
     else:
         return df[column_name].isna()
+
+def clean_boolean(value):
+    """Convert common boolean representations while preserving missing values."""
+
+    if pd.isna(value):
+        return pd.NA
+
+    if isinstance(value, bool):
+        return value
+
+    value = str(value).strip().lower()
+
+    if value in {"true", "1", "yes", "y", "t"}:
+        return True
+
+    if value in {"false", "0", "no", "n", "f"}:
+        return False
+
+    return pd.NA
