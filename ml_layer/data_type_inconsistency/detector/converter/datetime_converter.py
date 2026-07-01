@@ -2,13 +2,19 @@ import pandas as pd
 
 class DatetimeConverter:
     def test_conversion(self, series: pd.Series):
-        issues = []
-        converted = pd.to_datetime(series, errors='coerce')
-        failed_count = converted.isna().sum() - series.isna().sum()
+        converted = pd.to_datetime(series, errors="coerce")
 
-        if failed_count > 0:
-            issues.append(f"{failed_count} values cannot be converted to datetime")
-            failures = series[converted.isna() & series.notna()].head(5).tolist()
-            issues.append(f"Example failures: {failures}")
+        failure_mask = converted.isna() & series.notna()
+        failed_count = int(failure_mask.sum())
 
-        return issues
+        failed_examples = (
+            series[failure_mask]
+            .drop_duplicates()
+            .head(5)
+            .tolist()
+        )
+
+        return {
+            "failed_count": failed_count,
+            "failed_values": failed_examples,
+        }

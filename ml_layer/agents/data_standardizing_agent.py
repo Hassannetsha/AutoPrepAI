@@ -135,7 +135,12 @@ class DataStandardizerAgent(PipelineAgent):
             context.data = standardizer.df
             context.metadata["data_standardized"] = True
             context.metadata["standardization_results"] = standardizer.results
-            context.log("Data standardization completed")
+            
+            self._log_standardization_summary(
+                context,
+                standardizer.results
+            )
+            
 
         except Exception as e:
             context.log("Data standardization failed.")
@@ -144,3 +149,39 @@ class DataStandardizerAgent(PipelineAgent):
             print(traceback.format_exc())
 
         return context
+
+    def _log_standardization_summary(self, context: DataContext, results: dict):
+        """
+        Logs user-friendly summary of standardization changes.
+        """
+
+        total_changes = 0
+        changed_columns = []
+
+        for column, result in results.get("standardization", {}).items():
+            accepted_changes = result.get("accepted_changes", {})
+
+            if accepted_changes:
+                change_count = len(accepted_changes)
+                total_changes += change_count
+                changed_columns.append(column)
+
+                examples = list(accepted_changes.items())[:3]
+
+                context.log(
+                    f"Column '{column}' standardized: "
+                    f"{change_count} inconsistent values fixed. "
+                    f"Examples: {examples}"
+                )
+
+        if total_changes:
+            column_word = "column" if len(changed_columns) == 1 else "columns"
+
+            context.log(
+                f"Standardization completed: fixed {total_changes} value inconsistencies "
+                f"across {len(changed_columns)} {column_word}."
+            )
+        else:
+            context.log(
+                "Standardization completed: no inconsistent categorical values found."
+            )
