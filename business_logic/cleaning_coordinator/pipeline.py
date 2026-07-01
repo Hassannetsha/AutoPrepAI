@@ -168,6 +168,11 @@ class Pipeline:
             print(error_msg)
             return context, False
         
+        if context.data.equals(data_before):
+            context.log(f"No data changes detected — continuing to next step.")
+            self.logger.info(f"No data changes for {agent_name}, auto-advancing")
+            print(f"[DEBUG] No data changes for {agent_name}, auto-advancing")
+            return context, False
         # Generate explanation if NLP service is available
         if self.nlp_service and agent_name != "NLP":
             explanation = self.nlp_service.explain_step_llm(
@@ -187,11 +192,6 @@ class Pipeline:
         #     return context, True
         
         # If data is unchanged, auto-advance without waiting for feedback
-        if context.data.equals(data_before):
-            context.log(f"No data changes detected — continuing to next step.")
-            self.logger.info(f"No data changes for {agent_name}, auto-advancing")
-            print(f"[DEBUG] No data changes for {agent_name}, auto-advancing")
-            return context, False
         
         return context,True
 
