@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 from business_logic.cleaning_coordinator.data_context import DataContext
 from business_logic.cleaning_coordinator.agent_params import AgentParams
-from business_logic.cleaning_coordinator.intent import Intent
 
 
 class ParameterResolver(ABC):
@@ -64,12 +63,8 @@ class IntentColumnResolver(ParameterResolver):
             intent_name = None
             intent_columns = []
             
-            # Handle Intent objects
-            if isinstance(item, Intent):
-                intent_name = item.name
-                intent_columns = item.columns
             # Handle tuples/lists like ["intent_name", "col1", "col2"]
-            elif isinstance(item, (list, tuple)) and len(item) > 0:
+            if isinstance(item, (list, tuple)) and len(item) > 0:
                 intent_name = item[0]
                 if len(item) > 1:
                     # Check if second element is a list of columns
@@ -92,10 +87,7 @@ class IntentColumnResolver(ParameterResolver):
             intent_name = None
             intent_params = {}
             
-            if isinstance(item, Intent):
-                intent_name = item.name
-                intent_params = item.parameters
-            elif isinstance(item, (list, tuple)) and len(item) > 0:
+            if isinstance(item, (list, tuple)) and len(item) > 0:
                 intent_name = item[0]
             
             if intent_name in self.intent_names and intent_params:

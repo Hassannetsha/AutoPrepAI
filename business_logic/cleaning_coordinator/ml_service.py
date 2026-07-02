@@ -74,25 +74,6 @@ class MLPipelineService:
         "engineer features for modeling"
     )
 
-    @classmethod
-    def _ensure_output_dir(cls) -> Path:
-        cls.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        return cls.OUTPUT_DIR
-
-    @classmethod
-    def get_output_file_path(cls, filename: str) -> Path:
-        if not filename:
-            raise ValueError("Filename is required")
-
-        output_dir = cls._ensure_output_dir().resolve()
-        file_path = (output_dir / filename).resolve()
-
-        if output_dir not in file_path.parents:
-            raise ValueError("Invalid filename")
-        if not file_path.exists() or not file_path.is_file():
-            raise FileNotFoundError("File not found")
-
-        return file_path
     #this function reads the uploaded file and converts it to a pandas dataframe
     # it supports both csv and excel files based on the file extension
     @staticmethod
@@ -140,11 +121,6 @@ class MLPipelineService:
             if intent_name and intent_name in cls.ALLOWED_MANUAL_INTENTS and intent_name not in cleaned:
                 cleaned.append(intent_name)
         return cleaned
-    @staticmethod
-    def load_dataframe_from_b2(key: str) -> pd.DataFrame:
-        from data_access.storage.b2_service import download_file_from_b2
-        raw = download_file_from_b2(key)
-        return pd.read_csv(io.BytesIO(raw))
     @staticmethod
     def _to_jsonable(value):
         try: 
@@ -326,7 +302,6 @@ class MLPipelineService:
                 utilities.sessions.pop(conversation_id, None)
                 return jsonable, True
 
-        # ── Shared end ──
         if normalized_mode == "chat":
             detected_intents = final_context.metadata.get("intents") or []
             if not detected_intents:
@@ -366,17 +341,6 @@ class MLPipelineService:
         jsonable = MLPipelineService._to_jsonable(result)
         jsonable["assistant_message"] = MLPipelineService._build_assistant_message(jsonable)
         return jsonable, finished
-    @staticmethod
-    def change_output_file(conversation_id: str, dataframe: pd.DataFrame) -> None:
-        session = utilities.sessions.get(conversation_id)
-        if session is None:
-            raise ValueError("Conversation session not found")
-        
-        session["output_file"] = MLPipelineService.save_processed_dataframe(
-            dataframe, conversation_id,
-            file_extension=session.get("file_extension", ".csv"),
-            original_filename=session.get("original_filename")
-        )
     @classmethod
     def save_processed_dataframe(cls, dataframe: pd.DataFrame, conversation_id: str, file_extension: str = ".csv", original_filename: str | None = None) -> str:
         from business_logic.utils.excel_utils import save_dataframe_to_bytes
@@ -473,12 +437,12 @@ class MLPipelineService:
         parts = []
 
         if intent_names:
-            parts.append(f"✅ Applied: **{', '.join(intent_names)}**.")
+            parts.append(f"Applied: **{', '.join(intent_names)}**.")
 
         if logs:
             parts.append("\n".join(f"• {log}" for log in logs))
 
         if shape:
-            parts.append(f"📊 Dataset now has **{shape[0]} rows** and **{shape[1]} columns**.")
+            parts.append(f"Dataset now has **{shape[0]} rows** and **{shape[1]} columns**.")
 
         return "\n\n".join(parts) if parts else "Processing completed successfully."

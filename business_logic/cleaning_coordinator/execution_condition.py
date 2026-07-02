@@ -4,7 +4,6 @@ ExecutionCondition: Determines whether a pipeline node should execute.
 from abc import ABC, abstractmethod
 from typing import List
 from business_logic.cleaning_coordinator.data_context import DataContext
-from business_logic.cleaning_coordinator.intent import Intent
 
 
 class ExecutionCondition(ABC):
@@ -62,12 +61,10 @@ class IntentBasedCondition(ExecutionCondition):
         """Evaluate if the required intents are present."""
         intents = context.get_metadata("intents") or []
         
-        # Handle both Intent objects and simple tuples/lists
+        # Handle simple tuples/lists
         intent_names = []
         for item in intents:
-            if isinstance(item, Intent):
-                intent_names.append(item.name)
-            elif isinstance(item, (list, tuple)) and len(item) > 0:
+            if isinstance(item, (list, tuple)) and len(item) > 0:
                 intent_names.append(item[0])
             elif isinstance(item, str):
                 intent_names.append(item)

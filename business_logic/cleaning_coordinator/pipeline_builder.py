@@ -60,20 +60,6 @@ class PipelineBuilder:
         )
         nodes.append(datatype_node)
         
-        # 3. Spelling Corrector
-        # spelling_node = PipelineNode(
-        #     agent=SpellingCorrectorAgent(),
-        #     condition=IntentBasedCondition(
-        #         ["correct_spelling", "remove_inconsistencies"],
-        #         operator="any"
-        #     ),
-        #     resolver=IntentColumnResolver(
-        #         ["correct_spelling", "remove_inconsistencies"],
-        #         ""
-        #     )
-        # )
-        # nodes.append(spelling_node)
-        
         # 4. Data Standardizer
         standardizer_node = PipelineNode(
             agent=DataStandardizerAgent(),
@@ -161,42 +147,3 @@ class PipelineBuilder:
         )
         
         return pipeline
-    
-    @staticmethod
-    def build_custom_pipeline(agent_list: List[str]) -> Pipeline:
-        """
-        Build a custom pipeline with specific agents.
-        
-        Args:
-            agent_list: List of agent names to include
-            
-        Returns:
-            Configured Pipeline instance with selected agents
-        """
-        all_agents = {
-            "nlp": (NLPAgent(), ["always"], []),
-            "datatype": (DataTypeInconsistencyAgent(), ["fix_data_types", "remove_inconsistencies"], ["fix_data_types", "remove_inconsistencies"]),
-            # "spelling": (SpellingCorrectorAgent(), ["correct_spelling", "remove_inconsistencies"], ["correct_spelling", "remove_inconsistencies"]),
-            "standardizer": (DataStandardizerAgent(), ["standardize_data"], ["standardize_data"]),
-            "duplicate": (DuplicateRemoverAgent(), ["remove_duplicates"], ["remove_duplicates"]),
-            "outlier": (OutliersAgent(), ["remove_outliers", "detect_outliers"], ["remove_outliers", "detect_outliers"]),
-            "missing": (MissingValueAgent(), ["handle_missing_values"], ["handle_missing_values"]),
-            "feature_engineering": (FeatureEngineeringAgent(), ["suggest_features", "feature_engineering"], ["suggest_features", "feature_engineering"]),
-            "feature_selection": (FeatureSelectionAgent(), ["select_features", "feature_selection"], ["select_features", "feature_selection"]),
-            "scaler": (ScalingAgent(), ["scale_numerical"], ["scale_numerical"]),
-            "encoder": (EncodingAgent(), ["encode_categorical"], ["encode_categorical"])
-        }
-        
-        nodes = []
-        for agent_name in agent_list:
-            if agent_name.lower() in all_agents:
-                agent, intents, resolver_intents = all_agents[agent_name.lower()]
-                condition = AlwaysTrueCondition() if agent_name.lower() == "nlp" else IntentBasedCondition(intents, operator="any")
-                node = PipelineNode(
-                    agent=agent,
-                    condition=condition,
-                    resolver=IntentColumnResolver(resolver_intents, "")
-                )
-                nodes.append(node)
-        
-        return Pipeline(agents=nodes, session_manager=None, data_loader=None)

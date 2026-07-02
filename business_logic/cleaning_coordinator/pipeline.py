@@ -37,9 +37,6 @@ class Pipeline:
         # NLP service will be injected when needed
         self.nlp_service = NLPService()
 
-    def set_nlp_service(self, nlp_service: NLPService):
-        """Set the NLP service for intent extraction and explanations."""
-        self.nlp_service = nlp_service
     def run_single_agent(self, context: DataContext, session, user_command: str = "") -> tuple[DataContext, bool]:
         """
         Run the pipeline on the given context.
@@ -168,6 +165,7 @@ class Pipeline:
             print(error_msg)
             return context, False
         
+        # If data is unchanged, auto-advance without waiting for feedback
         if context.data.equals(data_before):
             context.log(f"No data changes detected — continuing to next step.")
             self.logger.info(f"No data changes for {agent_name}, auto-advancing")
@@ -185,13 +183,7 @@ class Pipeline:
                 "step": agent_name,
                 "explanation": explanation
             })
-            context.log(f"Explanation for '{agent_name}': {explanation}")
-        
-        # # NLP should always stop to show detected intents to the user
-        # if agent_name == "NLP":
-        #     return context, True
-        
-        # If data is unchanged, auto-advance without waiting for feedback
+            context.log(f"Explanation for '{agent_name}': {explanation}")    
         
         return context,True
 

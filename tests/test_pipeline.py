@@ -176,8 +176,3 @@ class TestPipeline:
         ctx = DataContext(data=pd.DataFrame())
         assert pipeline.check_no_agents_left_to_run(ctx) is False
 
-    def test_set_nlp_service(self, mock_init_pipeline, mock_init_lm):
-        pipeline = Pipeline(agents=[])
-        new_service = MagicMock(spec=NLPService)
-        pipeline.set_nlp_service(new_service)
-        assert pipeline.nlp_service is new_service
