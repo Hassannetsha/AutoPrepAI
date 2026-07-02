@@ -21,6 +21,22 @@ class EncodingAgent(PipelineAgent):
             method = columns[1].lower()
         cols_to_encode = self._parse_columns(columns, context)
         cols_to_encode = [col for col in cols_to_encode if col in context.data.columns]
+
+        # Skip high-cardinality columns for one-hot to prevent column explosion
+        if method == "onehot":
+            max_cardinality = 20
+            skipped = []
+            filtered = []
+            for col in cols_to_encode:
+                n_unique = context.data[col].nunique()
+                if n_unique <= max_cardinality:
+                    filtered.append(col)
+                else:
+                    skipped.append(f"{col} ({n_unique} unique values)")
+            if skipped:
+                context.log(f"Skipped high-cardinality columns: {', '.join(skipped)}")
+            cols_to_encode = filtered
+
         if not cols_to_encode:
             context.log("No categorical columns available to encode")
             return context
