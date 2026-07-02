@@ -10,7 +10,7 @@ from data_access.database.connection import get_db
 from data_access.database.models import Conversation, ConversationMessage, User, WELCOME_TEXT
 from business_logic.auth.dependencies import get_current_user
 from business_logic.services import session_store as utilities
-from config.settings import B2_BUCKET_NAME, B2_KEY_ID
+from config.settings import B2_BUCKET_NAME
 from presentation.api.schemas import ConversationRenameRequest
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
