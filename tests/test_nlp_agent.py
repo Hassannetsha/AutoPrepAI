@@ -9,7 +9,7 @@ from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestNLPAgent:
-    @patch("agents.nlp_agent.NLPService")
+    @patch("ml_layer.agents.nlp_agent.NLPService")
     def test_execute_returns_intents(self, MockNLPService):
         from ml_layer.agents.nlp_agent import NLPAgent
 
@@ -29,7 +29,7 @@ class TestNLPAgent:
         assert result.metadata.get("nlp_done") is True
         assert result.metadata.get("intents") == [["handle_missing_values", "x"]]
 
-    @patch("agents.nlp_agent.NLPService")
+    @patch("ml_layer.agents.nlp_agent.NLPService")
     def test_execute_skips_when_nlp_done(self, MockNLPService):
         from ml_layer.agents.nlp_agent import NLPAgent
 
@@ -47,7 +47,7 @@ class TestNLPAgent:
         result = agent.execute(ctx, params)
         mock_service.run.assert_not_called()
 
-    @patch("agents.nlp_agent.NLPService")
+    @patch("ml_layer.agents.nlp_agent.NLPService")
     def test_execute_tuple_with_intents_only(self, MockNLPService):
         from ml_layer.agents.nlp_agent import NLPAgent
 
@@ -63,7 +63,7 @@ class TestNLPAgent:
         result = agent.execute(ctx, params)
         assert result.metadata["intents"] == ["remove_outliers"]
 
-    @patch("agents.nlp_agent.NLPService")
+    @patch("ml_layer.agents.nlp_agent.NLPService")
     def test_execute_list_result(self, MockNLPService):
         from ml_layer.agents.nlp_agent import NLPAgent
 
@@ -79,7 +79,7 @@ class TestNLPAgent:
         result = agent.execute(ctx, params)
         assert result.metadata["intents"] == [["scale_numerical"]]
 
-    @patch("agents.nlp_agent.NLPService")
+    @patch("ml_layer.agents.nlp_agent.NLPService")
     def test_execute_handles_error(self, MockNLPService):
         from ml_layer.agents.nlp_agent import NLPAgent
 
@@ -96,7 +96,7 @@ class TestNLPAgent:
         # On non-RuntimeError exceptions, agent returns without setting nlp_done
         assert "nlp_done" not in result.metadata
 
-    @patch("agents.nlp_agent.NLPService")
+    @patch("ml_layer.agents.nlp_agent.NLPService")
     def test_execute_re_raises_runtime_error(self, MockNLPService):
         from ml_layer.agents.nlp_agent import NLPAgent
 
@@ -112,7 +112,7 @@ class TestNLPAgent:
         with pytest.raises(RuntimeError, match="API key exhausted"):
             agent.execute(ctx, params)
 
-    @patch("agents.nlp_agent.NLPService")
+    @patch("ml_layer.agents.nlp_agent.NLPService")
     def test_user_command_from_context_fallback(self, MockNLPService):
         from ml_layer.agents.nlp_agent import NLPAgent
 

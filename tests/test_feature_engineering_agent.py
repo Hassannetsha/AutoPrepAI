@@ -8,9 +8,9 @@ from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestFeatureEngineeringAgent:
-    @patch("agents.feature_engineering_agent.dspy.ChainOfThought")
-    @patch("agents.feature_engineering_agent.FeatureEngineeringService")
-    @patch("agents.feature_engineering_agent.get_key_manager")
+    @patch("ml_layer.agents.feature_engineering_agent.dspy.ChainOfThought")
+    @patch("ml_layer.agents.feature_engineering_agent.FeatureEngineeringService")
+    @patch("ml_layer.agents.feature_engineering_agent.get_key_manager")
     def test_execute_generates_features(
         self, MockKeyManager, MockFEService, MockChainOfThought
     ):
@@ -44,9 +44,9 @@ class TestFeatureEngineeringAgent:
         assert result.metadata.get("features_added_count") == 1
         assert result.metadata.get("feature_engineering_suggestions") is not None
 
-    @patch("agents.feature_engineering_agent.dspy.ChainOfThought")
-    @patch("agents.feature_engineering_agent.FeatureEngineeringService")
-    @patch("agents.feature_engineering_agent.get_key_manager")
+    @patch("ml_layer.agents.feature_engineering_agent.dspy.ChainOfThought")
+    @patch("ml_layer.agents.feature_engineering_agent.FeatureEngineeringService")
+    @patch("ml_layer.agents.feature_engineering_agent.get_key_manager")
     def test_skips_when_no_suggestions(
         self, MockKeyManager, MockFEService, MockChainOfThought
     ):

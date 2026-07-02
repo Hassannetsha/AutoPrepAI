@@ -5,11 +5,10 @@ import pytest
 from business_logic.cleaning_coordinator.data_context import DataContext
 from business_logic.cleaning_coordinator.parameter_resolver import IntentColumnResolver
 from business_logic.cleaning_coordinator.agent_params import AgentParams
-from business_logic.cleaning_coordinator.intent import Intent
 
 
 class TestIntentColumnResolver:
-    def test_resolve_with_intent_objects(self):
+    def test_resolve_with_tuple_intents(self):
         resolver = IntentColumnResolver(
             intent_names=["remove_outliers"],
             default_strategy="iqr"
@@ -18,8 +17,7 @@ class TestIntentColumnResolver:
             data=pd.DataFrame(),
             metadata={
                 "intents": [
-                    Intent(name="remove_outliers", columns=["age", "salary"],
-                           parameters={"method": "zscore", "threshold": "3"})
+                    ["remove_outliers", "age", "salary"]
                 ]
             }
         )
@@ -27,9 +25,9 @@ class TestIntentColumnResolver:
         assert isinstance(params, AgentParams)
         assert params.columns == ["age", "salary"]
         assert params.strategy == "iqr"
-        assert params.options == {"method": "zscore", "threshold": "3"}
+        assert params.options == {}
 
-    def test_resolve_with_tuple_intents(self):
+    def test_resolve_with_multiple_tuple_intents(self):
         resolver = IntentColumnResolver(
             intent_names=["handle_missing_values"],
             default_strategy="mean"
@@ -72,7 +70,7 @@ class TestIntentColumnResolver:
         ctx = DataContext(
             data=pd.DataFrame(),
             metadata={
-                "intents": [Intent(name="something_else")]
+                "intents": [("something_else",)]
             }
         )
         params = resolver.resolve(ctx)
@@ -100,7 +98,7 @@ class TestIntentColumnResolver:
         assert params.columns == []
         assert params.strategy == "default"
 
-    def test_resolve_strategy_from_parameters(self):
+    def test_resolve_strategy_uses_default(self):
         resolver = IntentColumnResolver(
             intent_names=["handle_missing_values"],
             default_strategy="mean"
@@ -109,15 +107,14 @@ class TestIntentColumnResolver:
             data=pd.DataFrame(),
             metadata={
                 "intents": [
-                    Intent(name="handle_missing_values",
-                           parameters={"strategy": "median"})
+                    ["handle_missing_values"]
                 ]
             }
         )
         params = resolver.resolve(ctx)
-        assert params.strategy == "median"
+        assert params.strategy == "mean"
 
-    def test_resolve_multiple_matching_intents_merge_params(self):
+    def test_resolve_multiple_matching_intents_merge_columns(self):
         resolver = IntentColumnResolver(
             intent_names=["intent_a", "intent_b"],
             default_strategy="default"
@@ -126,15 +123,11 @@ class TestIntentColumnResolver:
             data=pd.DataFrame(),
             metadata={
                 "intents": [
-                    Intent(name="intent_a", columns=["col1"],
-                           parameters={"a": "1"}),
-                    Intent(name="intent_b", columns=["col2"],
-                           parameters={"b": "2"})
+                    ("intent_a", "col1"),
+                    ("intent_b", "col2")
                 ]
             }
         )
         params = resolver.resolve(ctx)
         assert "col1" in params.columns
         assert "col2" in params.columns
-        assert params.options.get("a") == "1"
-        assert params.options.get("b") == "2"

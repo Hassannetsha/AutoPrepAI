@@ -8,7 +8,7 @@ from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestScalingAgent:
-    @patch("agents.scaling_agent.DFScaler")
+    @patch("ml_layer.agents.scaling_agent.DFScaler")
     def test_execute_standard_scale(self, MockDFScaler):
         from ml_layer.agents.scaling_agent import ScalingAgent
 
@@ -27,7 +27,7 @@ class TestScalingAgent:
         assert "scaling_fit" in result.metadata
         assert result.metadata["scaling_fit"]["method"] == "standard"
 
-    @patch("agents.scaling_agent.DFScaler")
+    @patch("ml_layer.agents.scaling_agent.DFScaler")
     def test_execute_minmax_scale(self, MockDFScaler):
         from ml_layer.agents.scaling_agent import ScalingAgent
 
@@ -44,7 +44,7 @@ class TestScalingAgent:
         result = agent.execute(ctx, params)
         assert result.metadata["scaling_fit"]["method"] == "minmax"
 
-    @patch("agents.scaling_agent.DFScaler")
+    @patch("ml_layer.agents.scaling_agent.DFScaler")
     def test_execute_method_from_columns(self, MockDFScaler):
         from ml_layer.agents.scaling_agent import ScalingAgent
 
@@ -60,7 +60,7 @@ class TestScalingAgent:
         result = agent.execute(ctx, params)
         assert result.metadata["scaling_fit"]["method"] == "minmax"
 
-    @patch("agents.scaling_agent.DFScaler")
+    @patch("ml_layer.agents.scaling_agent.DFScaler")
     def test_execute_excludes_target_col(self, MockDFScaler):
         from ml_layer.agents.scaling_agent import ScalingAgent
 
@@ -77,7 +77,7 @@ class TestScalingAgent:
         scaled_cols = result.metadata["scaling_fit"]["columns"]
         assert "price" not in scaled_cols
 
-    @patch("agents.scaling_agent.DFScaler")
+    @patch("ml_layer.agents.scaling_agent.DFScaler")
     def test_execute_with_comma_separated_columns(self, MockDFScaler):
         from ml_layer.agents.scaling_agent import ScalingAgent
 

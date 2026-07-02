@@ -113,37 +113,16 @@ class TestToJsonable:
         assert result == [1, "a", None]
 
 
-class TestSaveAndGetOutputFile:
-    def test_save_and_get_path(self, tmp_path):
-        service = MLPipelineService()
-        original_dir = MLPipelineService.OUTPUT_DIR
-        try:
-            MLPipelineService.OUTPUT_DIR = tmp_path
-            df = pd.DataFrame({"a": [1, 2]})
-            filename = MLPipelineService.save_processed_dataframe(df, "test_conv")
-            assert isinstance(filename, str)
-            assert filename.startswith("processed/test_conv/")
-            assert filename.endswith(".csv")
-            # Create file locally so get_output_file_path can find it
-            file_path = tmp_path / filename
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            df.to_csv(file_path, index=False)
-            path = MLPipelineService.get_output_file_path(filename)
-            assert path.exists()
-        finally:
-            MLPipelineService.OUTPUT_DIR = original_dir
-
-    def test_get_output_file_not_found(self):
-        with pytest.raises(FileNotFoundError):
-            MLPipelineService.get_output_file_path("nonexistent.csv")
-
-    def test_get_output_file_empty(self):
-        with pytest.raises(ValueError, match="Filename is required"):
-            MLPipelineService.get_output_file_path("")
-
-    def test_get_output_file_path_traversal(self):
-        with pytest.raises(ValueError, match="Invalid filename"):
-            MLPipelineService.get_output_file_path("../../etc/passwd")
+class TestSaveProcessedDataframe:
+    @patch("business_logic.cleaning_coordinator.ml_service.upload_file_to_b2")
+    def test_save_returns_key(self, mock_upload):
+        mock_upload.return_value = None
+        df = pd.DataFrame({"a": [1, 2]})
+        key = MLPipelineService.save_processed_dataframe(df, "test_conv")
+        assert isinstance(key, str)
+        assert key.startswith("processed/test_conv/")
+        assert key.endswith(".csv")
+        mock_upload.assert_called_once()
 
 
 class TestBuildAssistantMessage:
@@ -219,15 +198,15 @@ class TestPrepareChat:
 
 
 class TestProcessMessage:
-    @patch("backend.ml_service.utilities")
-    @patch("backend.ml_service.PipelineBuilder")
+    @patch("business_logic.services.session_store")
+    @patch("business_logic.cleaning_coordinator.ml_service.PipelineBuilder")
     def test_raises_on_no_dataset(self, mock_builder, mock_utils):
         with pytest.raises(ValueError, match="Dataset is required"):
             MLPipelineService.process_message("hello", dataset_df=None)
 
-    @patch("backend.ml_service.MLPipelineService.save_processed_dataframe")
-    @patch("backend.ml_service.utilities")
-    @patch("backend.ml_service.PipelineBuilder")
+    @patch("business_logic.cleaning_coordinator.ml_service.MLPipelineService.save_processed_dataframe")
+    @patch("business_logic.services.session_store")
+    @patch("business_logic.cleaning_coordinator.ml_service.PipelineBuilder")
     def test_full_auto_execution(self, mock_builder, mock_utils, mock_save):
         mock_save.return_value = "output.csv"
         mock_utils.sessions = {}
@@ -245,9 +224,9 @@ class TestProcessMessage:
         assert finished is True
         assert "assistant_message" in result
 
-    @patch("backend.ml_service.MLPipelineService.save_processed_dataframe")
-    @patch("backend.ml_service.utilities")
-    @patch("backend.ml_service.PipelineBuilder")
+    @patch("business_logic.cleaning_coordinator.ml_service.MLPipelineService.save_processed_dataframe")
+    @patch("business_logic.services.session_store")
+    @patch("business_logic.cleaning_coordinator.ml_service.PipelineBuilder")
     def test_manual_execution(self, mock_builder, mock_utils, mock_save):
         mock_save.return_value = "output.csv"
         mock_utils.sessions = {}
@@ -265,9 +244,9 @@ class TestProcessMessage:
             )
             assert finished is False
 
-    @patch("backend.ml_service.MLPipelineService.save_processed_dataframe")
-    @patch("backend.ml_service.utilities")
-    @patch("backend.ml_service.PipelineBuilder")
+    @patch("business_logic.cleaning_coordinator.ml_service.MLPipelineService.save_processed_dataframe")
+    @patch("business_logic.services.session_store")
+    @patch("business_logic.cleaning_coordinator.ml_service.PipelineBuilder")
     def test_chat_execution(self, mock_builder, mock_utils, mock_save):
         mock_save.return_value = "output.csv"
         mock_utils.sessions = {}

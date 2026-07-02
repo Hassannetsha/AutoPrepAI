@@ -8,7 +8,7 @@ from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestFeatureSelectionAgent:
-    @patch("agents.feature_selection_agent.FeatureSelectionService")
+    @patch("ml_layer.agents.feature_selection_agent.FeatureSelectionService")
     def test_selects_features(self, MockService):
         from ml_layer.agents.feature_selection_agent import FeatureSelectionAgent
 
@@ -26,7 +26,7 @@ class TestFeatureSelectionAgent:
         assert result.metadata.get("features_selected") is True
         assert result.metadata.get("selected_features") == ["a", "c"]
 
-    @patch("agents.feature_selection_agent.FeatureSelectionService")
+    @patch("ml_layer.agents.feature_selection_agent.FeatureSelectionService")
     def test_handles_value_error(self, MockService):
         from ml_layer.agents.feature_selection_agent import FeatureSelectionAgent
 
@@ -41,7 +41,7 @@ class TestFeatureSelectionAgent:
         result = agent.execute(ctx, params)
         assert "features_selected" not in result.metadata
 
-    @patch("agents.feature_selection_agent.FeatureSelectionService")
+    @patch("ml_layer.agents.feature_selection_agent.FeatureSelectionService")
     def test_handles_generic_exception(self, MockService):
         from ml_layer.agents.feature_selection_agent import FeatureSelectionAgent
 
@@ -56,7 +56,7 @@ class TestFeatureSelectionAgent:
         result = agent.execute(ctx, params)
         assert "features_selected" not in result.metadata
 
-    @patch("agents.feature_selection_agent.FeatureSelectionService")
+    @patch("ml_layer.agents.feature_selection_agent.FeatureSelectionService")
     def test_passes_n_features(self, MockService):
         from ml_layer.agents.feature_selection_agent import FeatureSelectionAgent
 

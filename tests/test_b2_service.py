@@ -13,7 +13,7 @@ from data_access.storage.b2_service import (
 
 
 class TestGetB2Client:
-    @patch("backend.b2_service.boto3.client")
+    @patch("data_access.storage.b2_service.boto3.client")
     def test_creates_client_with_s3v4(self, mock_boto3_client):
         get_b2_client()
         mock_boto3_client.assert_called_once()
@@ -22,7 +22,7 @@ class TestGetB2Client:
 
 
 class TestUploadFileToB2:
-    @patch("backend.b2_service.get_b2_client")
+    @patch("data_access.storage.b2_service.get_b2_client")
     def test_upload_calls_put_object(self, mock_get_client):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
@@ -38,7 +38,7 @@ class TestUploadFileToB2:
 
 
 class TestGenerateDownloadUrl:
-    @patch("backend.b2_service.get_b2_client")
+    @patch("data_access.storage.b2_service.get_b2_client")
     def test_generates_presigned_url(self, mock_get_client):
         mock_client = MagicMock()
         mock_client.generate_presigned_url.return_value = "https://example.com/presigned"
@@ -54,7 +54,7 @@ class TestGenerateDownloadUrl:
 
 
 class TestDeleteFileFromB2:
-    @patch("backend.b2_service.get_b2_client")
+    @patch("data_access.storage.b2_service.get_b2_client")
     def test_deletes_all_versions(self, mock_get_client):
         mock_client = MagicMock()
         mock_client.list_object_versions.return_value = {
@@ -69,7 +69,7 @@ class TestDeleteFileFromB2:
         delete_file_from_b2("test/file.csv")
         assert mock_client.delete_object.call_count == 2
 
-    @patch("backend.b2_service.get_b2_client")
+    @patch("data_access.storage.b2_service.get_b2_client")
     def test_handles_delete_markers(self, mock_get_client):
         mock_client = MagicMock()
         mock_client.list_object_versions.return_value = {
@@ -87,7 +87,7 @@ class TestDeleteFileFromB2:
             VersionId="m1",
         )
 
-    @patch("backend.b2_service.get_b2_client")
+    @patch("data_access.storage.b2_service.get_b2_client")
     def test_no_files_to_delete(self, mock_get_client):
         mock_client = MagicMock()
         mock_client.list_object_versions.return_value = {

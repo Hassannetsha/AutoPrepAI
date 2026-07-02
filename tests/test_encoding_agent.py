@@ -8,8 +8,8 @@ from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestEncodingAgent:
-    @patch("agents.encoding_agent.EncoderFactory")
-    @patch("agents.encoding_agent.detect_categorical_columns")
+    @patch("ml_layer.agents.encoding_agent.EncoderFactory")
+    @patch("ml_layer.agents.encoding_agent.detect_categorical_columns")
     def test_execute_auto_detect_columns(self, mock_detect, MockEncoderFactory):
         from ml_layer.agents.encoding_agent import EncodingAgent
 
@@ -28,7 +28,7 @@ class TestEncodingAgent:
         result = agent.execute(ctx, params)
         assert result.metadata.get("encoded") is True
 
-    @patch("agents.encoding_agent.EncoderFactory")
+    @patch("ml_layer.agents.encoding_agent.EncoderFactory")
     def test_execute_specific_columns(self, MockEncoderFactory):
         from ml_layer.agents.encoding_agent import EncodingAgent
 
@@ -46,7 +46,7 @@ class TestEncodingAgent:
         result = agent.execute(ctx, params)
         assert result.metadata.get("encoded") is True
 
-    @patch("agents.encoding_agent.EncoderFactory")
+    @patch("ml_layer.agents.encoding_agent.EncoderFactory")
     def test_execute_method_from_columns(self, MockEncoderFactory):
         from ml_layer.agents.encoding_agent import EncodingAgent
 
@@ -73,7 +73,7 @@ class TestEncodingAgent:
         result = agent.execute(ctx, params)
         assert "encoded" not in result.metadata
 
-    @patch("agents.encoding_agent.EncoderFactory")
+    @patch("ml_layer.agents.encoding_agent.EncoderFactory")
     def test_execute_with_target_column(self, MockEncoderFactory):
         from ml_layer.agents.encoding_agent import EncodingAgent
 
@@ -94,7 +94,7 @@ class TestEncodingAgent:
         result = agent.execute(ctx, params)
         assert result.metadata.get("encoded") is True
 
-    @patch("agents.encoding_agent.EncoderFactory")
+    @patch("ml_layer.agents.encoding_agent.EncoderFactory")
     def test_execute_error_logged(self, MockEncoderFactory):
         from ml_layer.agents.encoding_agent import EncodingAgent
 
