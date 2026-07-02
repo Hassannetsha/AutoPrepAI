@@ -5,16 +5,51 @@ import numpy as np
 import re
 
 class SuggestFeatures(dspy.Signature):
-    """Suggest meaningful new features for a dataset.
-    IMPORTANT: Only suggest features using columns that exist in dataset_columns.
-    Never reference columns not listed there.
-    IMPORTANT: Never suggest scalar/dataset-level statistics (like correlations or global means).
+    """
+    Suggest meaningful new features for a dataset.
+    
+    CRITICAL — focus on user_requested_columns if provided:
+    Generate features USING those columns (transformations, combinations, ratios, etc.).
+    Never ignore user_requested_columns — every feature must involve at least one of them.
+
+    IMPORTANT:
+    The target column is provided and should be considered when generating features.
+    Create features that are useful and related to the target column.
+
+    The target column can be used in feature generation.
+    Analyze relationships between columns and the target to create meaningful features.
+
+    CRITICAL: 
+    Only reference column names that appear EXACTLY in dataset_columns (case-sensitive).
+    NEVER invent or assume columns like 'income', 'salary', 'debt', 'balance' unless they are explicitly listed in dataset_columns.
+    If a column doesn't exist, do NOT use it — find another approach with available columns.
+    Example: if 'Credit amount' exists but 'income' does not, do NOT use df['income'].
+    
+    IMPORTANT: 
+    Never suggest scalar/dataset-level statistics (like correlations or global means).
+    
     Only suggest row-level features that produce a unique value per row.
+    
     Outputs one feature per line: name: description | code: pandas expression
-    IMPORTANT: Never use pd.get_dummies() — it returns multiple columns which cannot be assigned as a single feature.
+    
+    IMPORTANT: 
+    Never use pd.get_dummies() — it returns multiple columns which cannot be assigned as a single feature.
     Use df['column'].map() or label encoding instead for categorical columns.
     """
+
     dataset_columns = dspy.InputField(desc="Available column names (comma-separated)", default="")
+    column_dtypes = dspy.InputField(
+        desc="Column names and their data types as JSON dict, e.g. {\"Age\": \"int64\", \"Sex\": \"object\"}",
+        default=""
+    )
+    user_requested_columns = dspy.InputField(
+        desc="Columns the user specifically asked to engineer features from. Empty if none specified.",
+        default=""
+    )
+    target_column = dspy.InputField(
+        desc="Target column that should guide feature generation",
+        default=""
+    )
     sample_rows = dspy.InputField(desc="Sample rows as JSON (first N rows)", default="")
     top_n = dspy.InputField(desc="Number of suggestions to return", default="5")
     suggested_features = dspy.OutputField(desc="Suggested features, one per line (name: description | code: ...)")
@@ -63,7 +98,7 @@ class FeatureEngineeringService:
     @staticmethod
     def fix_column_references(code: str, df_columns: list) -> str:
         """Fix bare column names in code to use df['column'] syntax.
-        Avoids replacing column names that are already inside quotes.
+        Also corrects case mismatches for column names already inside df['...'].
         """
         def is_inside_quotes(text: str, pos: int) -> bool:
             """Check if position is inside a quoted string."""
@@ -82,29 +117,37 @@ class FeatureEngineeringService:
         fixed_code = code
         sorted_columns = sorted(df_columns, key=len, reverse=True)
         
+        # Step 1: Fix bare column names to df['col'] syntax
         for col in sorted_columns:
-            # Find all occurrences of the column name
             pattern = r'\b' + re.escape(col) + r'\b'
             matches = list(re.finditer(pattern, fixed_code))
             
-            # Process matches in reverse to maintain correct positions
             for match in reversed(matches):
                 start_pos = match.start()
                 
-                # Skip if inside quotes
                 if is_inside_quotes(fixed_code, start_pos):
                     continue
                 
-                # Skip if already in df['col'] or df["col"] format
                 if start_pos >= 4:
                     before = fixed_code[start_pos-4:start_pos]
                     if before == "df['" or before == 'df["':
                         continue
                 
-                # Replace with df['col']
                 fixed_code = (fixed_code[:start_pos] + 
                             f"df['{col}']" + 
                             fixed_code[match.end():])
+        
+        # Step 2: Fix case of column names already inside df['...'] or df["..."]
+        df_refs = list(re.finditer(r"df\s*\[\s*['\"]([^'\"]+)['\"]\s*\]", fixed_code))
+        for ref_match in reversed(df_refs):
+            ref_col = ref_match.group(1)
+            for actual_col in sorted_columns:
+                if ref_col.lower() == actual_col.lower() and ref_col != actual_col:
+                    corrected = f"df['{actual_col}']"
+                    fixed_code = (fixed_code[:ref_match.start()] + 
+                                corrected + 
+                                fixed_code[ref_match.end():])
+                    break
         
         return fixed_code
     def apply(self, DataFrame: pd.DataFrame, suggested_features: str) -> tuple[pd.DataFrame, int]:
@@ -138,6 +181,9 @@ class FeatureEngineeringService:
                 name = re.sub(r'\s+', '_', name)  # spaces → underscores
                 name = re.sub(r'_+', '_', name)
                 code = code_part.strip()
+                # Remove trailing parenthetical notes and sentence-ending periods
+                code = re.sub(r'\s*\((?:Note|Again|Assuming|This)[^)]*\)\s*\.?\s*$', '', code)
+                code = code.rstrip('.')
 
                 print(f"\n{'='*50}")
                 print(f"Processing feature: {name}")
@@ -153,6 +199,22 @@ class FeatureEngineeringService:
                     )
                 
                 print(f"Fixed code: {fixed_code}")
+
+                # Validate that all column references exist in the dataframe
+                missing_cols = []
+                for ref_match in re.finditer(r"df\s*\[\s*['\"]([^'\"]+)['\"]\s*\]", fixed_code):
+                    ref_col = ref_match.group(1)
+                    # Skip if this is the target column in an assignment (LHS)
+                    after = fixed_code[ref_match.end():].lstrip()
+                    if after.startswith('='):
+                        continue
+                    if ref_col not in df_columns:
+                        # Check if there's a case-insensitive match already handled
+                        if not any(ref_col.lower() == c.lower() for c in df_columns):
+                            missing_cols.append(ref_col)
+                if missing_cols:
+                    print(f"[SKIP] Feature '{name}' references non-existent columns: {missing_cols}")
+                    continue
 
                 eval_context = {"df": df, "pd": pd, "np": np, "numpy": np,
                                 "datetime": __import__('datetime'), "math": __import__('math'),

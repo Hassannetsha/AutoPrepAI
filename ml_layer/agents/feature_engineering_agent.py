@@ -43,8 +43,18 @@ class FeatureEngineeringAgent(PipelineAgent):
             suggest_predictor = dspy.ChainOfThought(SuggestFeatures)
             
             target_col = context.metadata.get("target_col")
-            feature_columns = [col for col in context.data.columns.tolist() if col != target_col]
-            dataset_columns = json.dumps(feature_columns)
+
+            # Extract columns the user specifically asked about from NLP intents
+            user_cols = []
+            for intent in (context.metadata.get("intents") or []):
+                if isinstance(intent, (list, tuple)) and len(intent) > 1:
+                    cols = intent[1]
+                    if isinstance(cols, list):
+                        user_cols.extend(cols)
+            user_requested_columns = json.dumps(list(dict.fromkeys(user_cols)))
+
+            dataset_columns = json.dumps(context.data.columns.tolist())
+            column_dtypes = json.dumps(context.data.dtypes.astype(str).to_dict())
             sample_rows = context.data.head(5).to_json(orient='records')
             top_n = params.get_option('top_n', '5')
 
@@ -54,6 +64,9 @@ class FeatureEngineeringAgent(PipelineAgent):
                 result = handler.execute(
                     task=lambda: suggest_predictor(
                         dataset_columns=dataset_columns,
+                        column_dtypes=column_dtypes,
+                        user_requested_columns=user_requested_columns,
+                        target_col=target_col,
                         sample_rows=sample_rows,
                         top_n=top_n
                     ),
