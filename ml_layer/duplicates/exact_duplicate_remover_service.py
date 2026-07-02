@@ -10,13 +10,12 @@ class ExactDuplicateRemoverService:
     ):
         self.subset = subset
         self.keep = keep
-        self.auto_exclude_ids = auto_exclude_ids
+        self.auto_exclude_ids = auto_exclude_ids # automatically ignore ID-like columns
     
     @staticmethod
     def detect_id_columns(
         df: pd.DataFrame,
         uniqueness_threshold: float = 0.95,
-        verbose: bool = False
     ) -> List[str]:
         potential_ids = []
         n_rows = len(df)
@@ -29,10 +28,10 @@ class ExactDuplicateRemoverService:
             col_lower = str(col).lower()
             id_keywords = {'id', 'uuid', 'guid', 'pk', 'key'}
             name_parts = set(col_lower.replace('_', ' ').replace('.', ' ').split())
-            has_id_name = not id_keywords.isdisjoint(name_parts) or col_lower.endswith('_id')
+            has_id_name = not id_keywords.isdisjoint(name_parts) or col_lower.endswith('_id') # column name suggests and identifier
 
             nunique = series.nunique()
-            uniqueness_ratio = nunique / n_rows
+            uniqueness_ratio = nunique / n_rows # Fraction of unique values
             is_integer = pd.api.types.is_integer_dtype(series)
             is_object = pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series)
 

@@ -30,17 +30,16 @@ class SemanticDuplicateDetector:
         texts = df[text_column].tolist()
 
         print("Encoding texts...")
-        embeddings = self.encoder.encode(texts)
+        embeddings = self.encoder.encode(texts) # convert texts to embeddings
 
         print("Searching for nearest neighbors...")
-        D, I = self.vector_index.search(embeddings)
+        D, I = self.vector_index.search(embeddings) # get similarity scores and neighbor indices
 
-        pairs = self._extract_pairs(D, I, t)
-
+        pairs = self._extract_pairs(D, I, t) # keep only pairs above threshold
         if pairs.empty:
             return self._empty_pairs_df()
         
-        pairs["text_1"] = df.iloc[pairs["query_index_1"].values][text_column].values
+        pairs["text_1"] = df.iloc[pairs["query_index_1"].values][text_column].values # recover original text
         pairs["text_2"] = df.iloc[pairs["query_index_2"].values][text_column].values
 
         if self.cross_encoder is not None:
@@ -60,14 +59,14 @@ class SemanticDuplicateDetector:
             df: pd.DataFrame,
             text_column: str,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        df = df.reset_index(drop=True)
+        df = df.reset_index(drop=True) # ensure row indices match embedding indices
         pairs = self.find_duplicates(df, text_column)
 
         if pairs.empty:
             print("No semantic duplicates found.")
             return df, self._empty_pairs_df()
         
-        to_remove = set(pairs["query_index_2"].values)
+        to_remove = set(pairs["query_index_2"].values) # remove the second item from each duplicate pair
         df_dedup = df.drop(index=to_remove).reset_index(drop=True)  
         print(f"Threshold {self.threshold}: found {len(to_remove)} duplicates. "
         f"{len(df)} → {len(df_dedup)} rows.")
@@ -83,7 +82,7 @@ class SemanticDuplicateDetector:
         print(f"Combining columns for multi-column matching: {text_columns}")
 
         df_temp = df.copy()
-        df_temp["_combined"] = self._combine_columns(df, text_columns)
+        df_temp["_combined"] = self._combine_columns(df, text_columns)  # Merge columns into one text
 
         pairs = self.find_duplicates(df_temp, "_combined")
 
@@ -108,31 +107,31 @@ class SemanticDuplicateDetector:
         Convert raw FAISS search results into a deduplicated pairs DataFrame.
         Only keeps pairs (i, j) where i < j to avoid duplicating each pair.
         """
-        mask = D > threshold
-        rows, cols = np.where(mask)
+        mask = D > threshold # keep only similarities above threshold  
+        rows, cols = np.where(mask) # locations of valid matches
  
         # Keep only upper-triangle pairs (i < j) to avoid duplicates
-        valid = rows < I[rows, cols]
+        valid = rows < I[rows, cols] # remove self-matches and duplicate pairs
         rows, cols = rows[valid], cols[valid]
  
         if len(rows) == 0:
             return pd.DataFrame()
  
         return pd.DataFrame({
-            "query_index_1": rows,
-            "query_index_2": I[rows, cols],
-            "similarity": D[rows, cols],
+            "query_index_1": rows, # first text index
+            "query_index_2": I[rows, cols], # matching text index
+            "similarity": D[rows, cols], # cosine similarity score
         })
  
     def _rerank(self, pairs: pd.DataFrame) -> pd.DataFrame:
         if self.cross_encoder is None:
             return pairs
         
-        text_pairs = list(zip(pairs["text_1"].tolist(), pairs["text_2"].tolist()))
+        text_pairs = list(zip(pairs["text_1"].tolist(), pairs["text_2"].tolist())) # build sentence pairs
         scores = self.cross_encoder.rerank(text_pairs)
         _, filtered_scores = self.cross_encoder.filter_pairs(text_pairs, scores)
 
-        keep_mask = scores >= self.cross_encoder.threshold
+        keep_mask = scores >= self.cross_encoder.threshold # keep only high-confidence matches
         pairs = pairs[keep_mask].reset_index(drop=True)
         pairs["cross_encoder_score"] = filtered_scores
         return pairs
@@ -141,7 +140,7 @@ class SemanticDuplicateDetector:
     def _combine_columns(df: pd.DataFrame, text_columns: list[str]) -> pd.Series:
         combined = df[text_columns[0]].astype(str)
         for col in text_columns[1:]:
-            combined = combined + " | " + df[col].astype(str)
+            combined = combined + " | " + df[col].astype(str) # concatenate text columns
         return combined
  
     @staticmethod
