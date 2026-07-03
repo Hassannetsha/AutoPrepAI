@@ -1,5 +1,10 @@
 import { useState } from "react";
 
+const isMissing = (v) =>
+  v == null ||
+  String(v).trim() === "" ||
+  /^[^a-zA-Z0-9]+$/.test(String(v).trim());
+
 export default function DataPreviewModal({ onClose, data, dataBefore, headers, headersBefore, datasetName }) {
   const [tab, setTab] = useState("after");
 
@@ -30,7 +35,7 @@ export default function DataPreviewModal({ onClose, data, dataBefore, headers, h
                     <td>{index + 1}</td>
                     {headers.map((h, i) => (
                       <td key={i}>
-                        {row[h] === "" || row[h] === null || row[h] === undefined ? (
+                        {isMissing(row[h]) ? (
                           <span className="missing">missing</span>
                         ) : (
                           String(row[h])
@@ -91,7 +96,7 @@ export default function DataPreviewModal({ onClose, data, dataBefore, headers, h
                   <td>{index + 1}</td>
                   {activeHeaders.map((h, i) => (
                     <td key={i}>
-                      {row[h] === "" || row[h] === null || row[h] === undefined ? (
+                      {isMissing(row[h]) ? (
                         <span className="missing">missing</span>
                       ) : (
                         String(row[h])
