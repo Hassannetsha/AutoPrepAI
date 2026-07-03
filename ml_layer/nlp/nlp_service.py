@@ -237,6 +237,8 @@ class NLPService:
                 # -y → -ies (Category → categories)
                 if col_lower.endswith("ies"):
                     variants.add(col_lower[:-3] + "y")
+                    #word boundary regex to avoid partial matches (e.g., 'age' matching 'page') and 
+                    #also don't read special characters as regex command
                 if any(re.search(rf'(?<!\w){re.escape(v)}(?!\w)', task_lower) for v in variants):
                     found.append(col)
             return found
