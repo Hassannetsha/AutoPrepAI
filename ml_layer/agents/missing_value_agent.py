@@ -164,11 +164,31 @@ class MissingValueAgent(PipelineAgent):
         return best_strategy, scores
 
 
+    @staticmethod
+    def _replace_placeholder_markers(data: pd.DataFrame) -> pd.DataFrame:
+        """Replace single-character special-symbol placeholders (?, $, #, etc.)
+        in object columns with NaN, so they are treated as missing values."""
+        import string
+        special_chars = set(string.punctuation)  # !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
+        data = data.copy()
+        for col in data.select_dtypes(include="object").columns:
+            mask = data[col].apply(
+                lambda x: isinstance(x, str)
+                and len(x) == 1
+                and x in special_chars
+            )
+            if mask.any():
+                data.loc[mask, col] = np.nan
+                count = mask.sum()
+                print(f"[MissingValueAgent] Replaced {count} placeholder marker(s) in '{col}' with NaN")
+        return data
+
     def execute(
         self,
         context: DataContext,
         params: AgentParams
     ) -> DataContext:
+        context.data = self._replace_placeholder_markers(context.data)
         context.data = context.data.reset_index(drop=True)
 
         columns = params.columns or []
