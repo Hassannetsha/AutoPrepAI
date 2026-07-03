@@ -93,7 +93,7 @@ class APIKeyManager:
             attempts += 1
         
         key = self.api_keys[self.current_index]
-        print(f"🔄 Rotated to API key #{self.current_index + 1}")
+        print(f"Rotated to API key #{self.current_index + 1}")
         return key
     
     def mark_key_failed(self, key: Optional[str] = None) -> None:
