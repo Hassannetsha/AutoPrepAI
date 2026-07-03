@@ -155,7 +155,7 @@ async def chat(
             "metadata": {},
             # "data_preview": dataset_df.head(10).to_dict(orient="records"),
             "dataset": dataset_df.to_dict(orient="records"),
-            "data_preview_before": dataset_df.to_dict(orient="records"),
+            "data_preview_before": [],
             "output_file": None,
             "download_url": None,
         }
