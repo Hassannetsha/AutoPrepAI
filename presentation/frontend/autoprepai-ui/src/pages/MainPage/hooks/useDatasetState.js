@@ -92,9 +92,9 @@ export function useDatasetState() {
         rows,
         columns,
         tableData: data,
-        tableDataBefore: data,
+        tableDataBefore: [],
         headers,
-        headersBefore: headers,
+        headersBefore: [],
         uploadError: "",
         originalExtension: extension,
       });
