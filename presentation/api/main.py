@@ -25,7 +25,7 @@ from business_logic.auth import admin  # import your admin router
 from presentation.api.routes import conversations
 
 from data_access.storage.b2_service import upload_file_to_b2, generate_download_url
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from business_logic.services import session_store as utilities
 
 
@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
     ensure_auth_columns()
     ensure_conversation_columns()
     yield
+    # ── after shutdown: runs when the server stops ──
 
 
 app = FastAPI(title="AutoPrepAI Backend", version="1.0.0", lifespan=lifespan)
@@ -53,18 +54,7 @@ app.include_router(signup.router, prefix="/auth")
 app.include_router(login.router, prefix="/auth")
 app.include_router(admin.router)
 app.include_router(conversations.router)
-# @app.middleware("http")
-# async def enforce_auth(request: Request, call_next):
-#     if request.url.path.startswith("/auth") or request.url.path.startswith("/health"):
-#         return await call_next(request)
-    
-#     try:
-#         user = await get_current_user(request)
-#         request.state.user = user
-#     except HTTPException:
-#         raise HTTPException(status_code=401, detail="Not authenticated")
-    
-#     return await call_next(request)
+
 
 @app.get("/health")
 def health() -> dict:
@@ -199,7 +189,6 @@ async def chat(
     # ── END UPLOAD-ONLY GUARD ──────────────────────────────────────────────────
     mode = MLPipelineService._normalize_mode(mode)
     print(f"{conversation.id}: Starting processing with mode={mode}, selected_intents={parsed_selected_intents}")
-    # utilities.sessions.setdefault(str(conversation.id), MLPipelineService.session_builder(conversation.id))["dataset_before"] = dataset_df.copy()
     orig_ext = Path(dataset.filename).suffix if dataset.filename else ".csv"
     orig_name = dataset.filename or f"data{orig_ext}"
     existing_session = utilities.sessions.get(str(conversation.id))
@@ -207,14 +196,11 @@ async def chat(
         utilities.sessions[str(conversation.id)] = MLPipelineService.session_builder(
             str(conversation.id), mode, file_extension=orig_ext, original_filename=orig_name
         )
-    utilities.sessions[str(conversation.id)]["dataset_before"] = dataset_df.copy()
     #this will route to the new endpoint for manual and chat modes where the frontend will handle the step by step execution and user feedback
     # and take the part of manual in the function process message as there will be no user input
     session = utilities.sessions.get(str(conversation.id))
+    session["dataset_before"] = dataset_df.copy()
     print(f"Session at start of /chat: {session}")
-    # if session is None:
-    #         # First call for this conversation — build a fresh pipeline
-    #         session = MLPipelineService.session_builder(conversation.id)
     try:
         result,session["finished"] = MLPipelineService.process_message(
             user_message=clean_message,
@@ -223,8 +209,6 @@ async def chat(
             selected_intents=parsed_selected_intents,
             conversation_id=str(conversation.id),
         )
-        # if mode=="manual" or mode == "chat":
-        #     session["finished"] = False
     except Exception as exc:
         print(f"[ERROR] {exc}")
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -234,9 +218,7 @@ async def chat(
             result["download_url"] = generate_download_url(output_key)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {exc}") from exc
-    # print(f"[DEBUG] Session after processing in line 209")
     assistant_message = result.pop("assistant_message", "Processing completed successfully.")
-    # print(f"[DEBUG] Session after processing in line 211")
     finished = True
     if session["dataset_before"].equals(session["dataset_after"]):
         assistant_message += "\n[System] No changes were made to the dataset in this step."
@@ -248,8 +230,6 @@ async def chat(
         assistant_message += "\n[System] Waiting for your feedback to proceed to the next step."
         finished = False
     stored_message = clean_message or f"[{mode}]"
-    # if :
-    #     finished = True
     db.add(ConversationMessage(
         conversation_id=conversation.id,
         role="user",
@@ -282,8 +262,6 @@ async def chat(
         finished=finished,
         step_title=session.get("last_executed_step") or "",
     )
-    # else:
-    #     raise HTTPException(status_code=400, detail=f"Unsupported mode: {mode}")
 
 @app.post("/chat/feedback", response_model=ChatResponse)
 async def chat_feedback(
@@ -303,7 +281,7 @@ async def chat_feedback(
             raise HTTPException(status_code=404, detail="Conversation not found")
         last_msg = None
         for msg in reversed(conversation.messages or []):
-            if msg.role in ("assistant", "bot") and msg.payload:
+            if msg.role in ("assistant") and msg.payload:
                 last_msg = msg
                 break
         if not last_msg or not last_msg.payload:
@@ -334,11 +312,9 @@ async def chat_feedback(
         print(f"Previous log: {step.get_agent_name()}")
     if body.accept:
         dataset_df = session["dataset_after"].copy()
-        # print(f"dataset_df before reverting: {dataset_df.head()}")
         session["previous_logs"].append(f"[System] User ACCEPTED changes from: {step_executed}")
     else:
         dataset_df = session["dataset_before"].copy()
-        # print(f"dataset_df before reverting: {dataset_df.head()}")
         session["previous_logs"].append(f"[System] User REJECTED changes from: {step_executed}. Reverting data.")
     # 3. Check if we are out of steps
     finished = session.get("finished")
@@ -351,7 +327,6 @@ async def chat_feedback(
                 mode=session["mode"],
                 conversation_id=str(conversation_uuid),
             )
-            # finished = session["finished"]
         except Exception as exc:
             print(f"[ERROR] {exc}")
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -359,9 +334,6 @@ async def chat_feedback(
         
         result = session["result"]
         if not body.accept:
-            # result["data_preview"] = json.loads(
-            #     dataset_df.head(50).to_json(orient="records")
-            # )
             result["dataset"] = json.loads(
                 dataset_df.to_json(orient="records")
             )
@@ -376,27 +348,20 @@ async def chat_feedback(
             original_filename=session.get("original_filename")
         )
         utilities.sessions.pop(str(conversation_uuid), None)
-        # session = utilities.sessions.get(str(conversation_uuid))
-        # print(f"Session after pop: {utilities.sessions.get(str(conversation_uuid))}")
     output_key = result.get("output_file")
     if output_key:
         try:
             result["download_url"] = generate_download_url(output_key)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {exc}") from exc
-    print(f"[DEBUG] In line 316")
     assistant_message = result.pop("assistant_message", "Processing completed successfully.")
     if session["dataset_before"].equals(session["dataset_after"]):
-        print(f"[DEBUG] In line 358")
         assistant_message += "\n[System] No changes were made to the dataset in this step."
         if MLPipelineService.check_no_agents_left_to_run(session["dataset_before"], session, session["pipeline"]):
-            print(f"[DEBUG] In line 361")
             finished = True
             utilities.sessions.pop(str(conversation_uuid), None)
-        print(f"[DEBUG] In line 320")
     if not finished:
         assistant_message += "\n[System] Waiting for your feedback to proceed to the next step."
-        print(f"[DEBUG] In line 324")
     db.add(ConversationMessage(
         conversation_id=conversation_uuid,
         role="assistant",
@@ -422,58 +387,6 @@ async def chat_feedback(
         finished=finished,
         step_title=session.get("last_executed_step") or "",
     )
-        
-
-#     # 4. If more steps exist, download the approved data from B2
-#     try:
-#         file_bytes = download_file_from_b2(target_file_key)
-#         dataset_df = MLPipelineService.dataframe_from_upload(file_bytes, filename="temp.csv")
-#     except Exception as exc:
-#         raise HTTPException(status_code=500, detail=f"Failed to load dataset for next step: {exc}")
-
-#     # 5. Pop the next intent and process it
-#     next_intent = pending_intents.pop(0)
-    
-#     metadata_state = payload.get("metadata", {
-#         "has_text": True, "has_numeric": True, "has_categorical": True, "nlp_done": True
-#     })
-#     metadata_state = {**metadata_state, "intents": [(next_intent, [])]}
-    
-#     result = MLPipelineService.process_single_step(
-#         dataset_df=dataset_df,
-#         intent=next_intent,
-#         conversation_id=str(conversation_uuid),
-#         metadata_state=metadata_state
-#     )
-    
-#     # --- NEW: Combine the accumulated history with the logs of the new step ---
-#     result["logs"] = previous_logs + result.get("logs", [])
-#     result["pending_intents"] = pending_intents
-#     result["output_file"] = result["proposed_data_key"]
-    
-#     try:
-#         result["download_url"] = generate_download_url(result["proposed_data_key"])
-#     except Exception:
-#         pass
-
-#     # 6. Save the user's choice and the next proposed step to the database
-#     user_msg = "Accepted previous step." if body.accept else "Rejected previous step."
-#     db.add(ConversationMessage(
-#         conversation_id=conversation_uuid, role="user", content=user_msg, payload=None
-#     ))
-#     db.add(ConversationMessage(
-#         conversation_id=conversation_uuid, 
-#         role="assistant", 
-#         content=f"Processed step: {next_intent}. Ready for review.", 
-#         payload=result
-#     ))
-#     db.commit()
-
-#     return ChatResponse(
-#         conversation_id=conversation_uuid,
-#         assistant_message=f"Processed step: {next_intent}. Ready for review.",
-#         result=result,
-# )
 @app.get("/download/{path:path}")
 def download_processed_file(
     path: str,
