@@ -178,6 +178,10 @@ export function useChatManager({
         setActiveChatId(sorted[0].id);
         setCurrentConversationId(sorted[0].id);
         await loadChatMessages(sorted[0].id);
+      } else {
+        setChats([]);
+        setActiveChatId(null);
+        setCurrentConversationId(null);
       }
     } catch (error) {
       console.error("Failed to load conversations:", error);
@@ -222,7 +226,7 @@ export function useChatManager({
         setOriginalExtension,
       });
       setCurrentConversationId(null);
-      setChats([{ id: 1, title: "Chat 1", messages: [] }]);
+      setChats([]);
       setActiveChatId(null);
       setPendingFeedback(false);
       setStepTitle("");
