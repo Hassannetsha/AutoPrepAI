@@ -99,6 +99,7 @@ class TestConversationOut:
         now = datetime.now()
         conv = ConversationOut(
             id=uuid4(),
+            title="Test Chat",
             created_at=now,
             messages=[],
         )
@@ -108,7 +109,7 @@ class TestConversationOut:
     def test_with_messages(self):
         now = datetime.now()
         msg = ConversationMessageOut(id=1, role="assistant", content="hi", payload=None, created_at=now)
-        conv = ConversationOut(id=uuid4(), created_at=now, messages=[msg])
+        conv = ConversationOut(id=uuid4(), title="Test Chat", created_at=now, messages=[msg])
         assert len(conv.messages) == 1
 
     def test_from_attributes_config(self):
