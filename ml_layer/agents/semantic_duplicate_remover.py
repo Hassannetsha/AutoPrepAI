@@ -53,12 +53,23 @@ class SemanticDuplicateRemover(PipelineAgent):
                 errors="coerce"
             ).notna().mean()
 
+            NAME_PATTERN = (
+                r"^[A-Za-z'\-]+,\s+"
+                r"(Mr|Mrs|Miss|Master|Dr|Rev|Col|Major|Capt|Sir|Lady|Mme|Mlle|Ms|Jonkheer|Don|Dona|Countess)\."
+            )
+
+            name_ratio = values.str.contains(NAME_PATTERN, regex=True).mean()
+
             selected = True
             reason = "Passed all heuristics"
 
             if numeric_ratio >= 0.8:
                 selected = False
                 reason = "numeric values"
+
+            elif name_ratio >= 0.8:
+                selected = False
+                reason = "person name values"
 
             elif avg_length < 20:
                 selected = False
