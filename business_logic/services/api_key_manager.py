@@ -109,19 +109,19 @@ class APIKeyManager:
         self.failed_keys.add(key)
         print(f"[WARN] Key marked as rate-limited: {key[:20]}...")
     
-    def mark_key_recovered(self, key: Optional[str] = None) -> None:
-        """
-        Mark a key as recovered (useful if you wait and retry later).
+    # def mark_key_recovered(self, key: Optional[str] = None) -> None:
+    #     """
+    #     Mark a key as recovered (useful if you wait and retry later).
         
-        Args:
-            key: Optional specific key to mark as recovered. If None, marks current key.
-        """
-        if key is None:
-            key = self.get_current_key()
+    #     Args:
+    #         key: Optional specific key to mark as recovered. If None, marks current key.
+    #     """
+    #     if key is None:
+    #         key = self.get_current_key()
         
-        if key in self.failed_keys:
-            self.failed_keys.discard(key)
-            print(f"[OK] Key marked as recovered: {key[:20]}...")
+    #     if key in self.failed_keys:
+    #         self.failed_keys.discard(key)
+    #         print(f"[OK] Key marked as recovered: {key[:20]}...")
     
     def get_available_keys_count(self) -> int:
         """Get the number of available (non-failed) keys."""
@@ -130,27 +130,6 @@ class APIKeyManager:
     def get_total_keys_count(self) -> int:
         """Get the total number of loaded keys."""
         return len(self.api_keys)
-    
-    def reset_failed_keys(self) -> None:
-        """Reset all failed keys (useful after a timeout/wait period)."""
-        self.failed_keys.clear()
-        print("[RESET] All keys reset and available for use")
-    
-    def set_active_key(self, key_index: int) -> str:
-        """
-        Manually set the active key by index.
-        
-        Args:
-            key_index: Index of the key (0-based)
-            
-        Returns:
-            The selected API key
-        """
-        if not (0 <= key_index < len(self.api_keys)):
-            raise IndexError(f"Key index {key_index} out of range (0-{len(self.api_keys)-1})")
-        
-        self.current_index = key_index
-        return self.get_current_key()
 
 
 # Create a global instance for easy access
@@ -163,13 +142,3 @@ def get_key_manager(keys_file: str = "ApiKeys.txt") -> APIKeyManager:
     if _key_manager is None:
         _key_manager = APIKeyManager(keys_file)
     return _key_manager
-
-
-def get_api_key() -> str:
-    """Convenience function to get the current API key."""
-    return get_key_manager().get_current_key()
-
-
-def rotate_api_key() -> str:
-    """Convenience function to rotate to the next API key."""
-    return get_key_manager().rotate_key()

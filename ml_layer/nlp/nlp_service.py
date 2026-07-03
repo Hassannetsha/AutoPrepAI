@@ -8,7 +8,7 @@ import pandas as pd
 import dspy
 from ml_layer.features.engineering_service import *
 import json
-from business_logic.services.api_key_manager import get_key_manager, get_api_key, rotate_api_key
+from business_logic.services.api_key_manager import get_key_manager
 
 # Initialize the key manager (singleton)
 _key_manager = get_key_manager()

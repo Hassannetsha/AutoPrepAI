@@ -60,7 +60,6 @@ def demo_multi_rotation():
     print("="*70)
     
     manager = get_key_manager()
-    manager.reset_failed_keys()  # Start fresh
     
     print("\nScenario: Experiencing multiple rate limits, rotating through keys...\n")
     
@@ -78,7 +77,6 @@ def demo_multi_rotation():
         print()
     
     # Reset for clean state
-    manager.reset_failed_keys()
     print("Demo complete - keys reset to initial state\n")
 
 
@@ -89,7 +87,6 @@ def demo_recovery():
     print("="*70)
     
     manager = get_key_manager()
-    manager.reset_failed_keys()  # Start fresh
     
     print("\nScenario: All keys hit rate limit, then window expires...\n")
     
@@ -107,7 +104,6 @@ def demo_recovery():
     print("Rate limit window expires on Groq API...\n")
     
     print("Running: python api_key_utility.py reset")
-    manager.reset_failed_keys()
     
     print(f"✅ Keys recovered!")
     print(f"Available keys: {manager.get_available_keys_count()}/12")
