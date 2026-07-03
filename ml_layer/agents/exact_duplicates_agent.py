@@ -14,7 +14,9 @@ class ExactDuplicateRemover(PipelineAgent):
         context.log("Removing exact duplicate rows")
         
         try:
-            target_col = context.metadata.get("target_col")
+            print(context.metadata)
+            target_col = context.metadata.get("columns")
+            print(f"Target column: {target_col}")
             subset = columns if columns else None
             if subset and target_col in context.data.columns and target_col not in subset:
                 # A feature duplicate with a conflicting label is not safe to drop.

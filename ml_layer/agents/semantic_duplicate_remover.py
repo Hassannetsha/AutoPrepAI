@@ -152,7 +152,6 @@ class SemanticDuplicateRemover(PipelineAgent):
             examples = []
 
             for _, pair in df_duplicates.head(MAX_EXAMPLES).iterrows():
-
                 example = {
                     "similarity": round(pair["similarity"] * 100, 1),
                     "kept": {},
@@ -160,7 +159,6 @@ class SemanticDuplicateRemover(PipelineAgent):
                 }
 
                 for col in candidate_columns:
-
                     kept = str(context.data.loc[pair["query_index_1"], col])
                     removed = str(context.data.loc[pair["query_index_2"], col])
 
@@ -183,15 +181,10 @@ class SemanticDuplicateRemover(PipelineAgent):
             context.metadata["semantic_duplicate_examples"] = examples
             
             if num_duplicates > 0:
-
                 context.log(f"Removed {num_duplicates} semantic duplicate rows.")
-
                 if examples:
-
                     context.log("Examples of removed semantic duplicates:")
-
                     for i, example in enumerate(examples, 1):
-
                         context.log(f"Example {i}")
 
                         context.log("Kept row:")

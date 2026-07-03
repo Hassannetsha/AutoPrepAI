@@ -70,7 +70,7 @@ class ExactDuplicateRemoverService:
             return df.copy(), pd.DataFrame()
 
         # 1. ID Identification & Integrity Check
-        detected_ids = self.detect_id_columns(df, verbose=False) if self.auto_exclude_ids else []
+        detected_ids = self.detect_id_columns(df) if self.auto_exclude_ids else []
         id_cols_in_df = [c for c in detected_ids if c in df.columns]
         
         if verbose and id_cols_in_df:
