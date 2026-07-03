@@ -38,6 +38,7 @@ class ConversationMessageOut(BaseModel):
 
 class ConversationOut(BaseModel):
     id: UUID
+    title: str
     created_at: datetime
     messages: list[ConversationMessageOut]
 

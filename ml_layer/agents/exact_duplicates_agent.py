@@ -14,6 +14,9 @@ class ExactDuplicateRemover(PipelineAgent):
         context.log("Removing exact duplicate rows")
         
         try:
+            target_col = context.metadata.get("target_col")
+            if target_col and target_col not in columns:
+                columns = [*columns, target_col]
             subset = columns if columns else None
 
             # Initialize exact duplicate remover
