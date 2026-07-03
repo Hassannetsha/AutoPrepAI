@@ -17,17 +17,14 @@ class Pipeline:
     def __init__(
         self,
         agents: List[PipelineNode],
-        session_manager=None,
         data_loader=None
     ):
         """
         Args:
             agents: List of pipeline nodes to execute
-            session_manager: Optional session manager for persistence
             data_loader: Optional data loader for loading datasets
         """
         self.agents = agents
-        self.session_manager = session_manager
         self.data_loader = data_loader
         
         # Set up logging
@@ -110,10 +107,6 @@ class Pipeline:
         for node in self.agents:
             context, _ = self._execute_node(node, context)
         
-        # Save execution if session manager is available
-        if self.session_manager and user_command:
-            self._save_execution(user_command, context)
-        
         self.logger.info("Pipeline execution completed")
         return context
 
@@ -192,10 +185,6 @@ class Pipeline:
         user_command: str, 
         result: DataContext
     ) -> None:
-        """Save execution details using session manager."""
-        if not self.session_manager:
-            return
-        
         try:
             # Extract execution summary
             summary = {

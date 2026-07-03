@@ -142,7 +142,6 @@ class PipelineBuilder:
         # Create pipeline
         pipeline = Pipeline(
             agents=nodes,
-            session_manager=None,  # Can be injected later
             data_loader=None  # Can be injected later
         )
         

@@ -24,7 +24,6 @@ class TestPipeline:
         agents = [self.make_mock_node()]
         pipeline = Pipeline(agents=agents)
         assert pipeline.agents == agents
-        assert pipeline.session_manager is None
         assert pipeline.data_loader is None
         assert pipeline.nlp_service is not None
 
@@ -156,8 +155,7 @@ class TestPipeline:
     def test_run_saves_execution(self, mock_init_pipeline, mock_init_lm):
         ctx = DataContext(data=pd.DataFrame({"a": [1]}))
         node = self.make_mock_node("Agent1", returned_ctx=ctx)
-        session_manager = MagicMock()
-        pipeline = Pipeline(agents=[node], session_manager=session_manager)
+        pipeline = Pipeline(agents=[node])
         pipeline.nlp_service = MagicMock(spec=NLPService)
         pipeline.nlp_service.explain_step_llm.return_value = "explanation"
 
