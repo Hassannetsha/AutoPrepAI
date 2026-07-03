@@ -1,29 +1,3 @@
-"""
-cluster_resolver.py
-===================
-Resolves ambiguous clusters using a single batched LLM call per column.
-
-For auto-resolved clusters the mapping is built directly from
-:meth:`Cluster.mapping` without any LLM involvement.
-
-For ambiguous clusters the LLM receives all of them in ONE prompt and
-returns a JSON array with its decision for each group.  This means the
-number of LLM calls per column is at most 1, regardless of how many
-unique values the column has.
-
-The ValidationLayer still gates every accepted mapping before it is
-written to the dataframe, so the LLM cannot bypass domain rules.
-
-MODES
------
-- **Strict mode** (allowed_values provided): LLM must pick canonical from
-  the whitelist. Zero hallucination risk for the canonical form itself.
-  
-- **Discovery mode** (allowed_values=None): LLM discovers the canonical
-  form from cluster context (e.g., "N.Y." → "New York"). Uses a higher
-  confidence threshold to mitigate hallucination risk.
-"""
-
 from __future__ import annotations
 
 import json
@@ -40,10 +14,7 @@ except ImportError:
     from llm_json_parser import parse_llm_json
 
 
-# ---------------------------------------------------------------------------
 # Prompt builder
-# ---------------------------------------------------------------------------
-
 def _build_cluster_prompt(
     column: str,
     ambiguous_clusters: list[Cluster],
@@ -109,9 +80,7 @@ Groups to resolve:
 {json.dumps(groups, ensure_ascii=False, indent=2)}"""
 
 
-# ---------------------------------------------------------------------------
 # Response parser (unchanged)
-# ---------------------------------------------------------------------------
 def _parse_llm_response(raw: str, n_groups: int) -> list[dict]:
     """Parse LLM JSON response, delegating fence-stripping to parse_llm_json."""
     try:
@@ -137,10 +106,7 @@ def _parse_llm_response(raw: str, n_groups: int) -> list[dict]:
     return result
 
 
-# ---------------------------------------------------------------------------
 # Main resolver
-# ---------------------------------------------------------------------------
-
 class ClusterResolver:
     """
     Resolves clusters produced by :func:`cluster_column` into a concrete
@@ -176,10 +142,6 @@ class ClusterResolver:
         self.threshold = confidence_threshold
         self.discovery_threshold = discovery_threshold
 
-    # ------------------------------------------------------------------
-    # Public entry point
-    # ------------------------------------------------------------------
-
     def resolve(
         self,
         column: str,
@@ -187,26 +149,11 @@ class ClusterResolver:
         ambiguous_clusters: list[Cluster],
         allowed_values: Optional[list[str]] = None,  
     ) -> tuple[dict[str, str], list[dict]]:
-        """
-        Parameters
-        ----------
-        column            : column name (for validation and logging).
-        auto_clusters     : clusters that can be mapped without LLM.
-        ambiguous_clusters: clusters that need LLM arbitration.
-        allowed_values    : optional whitelist. When provided, LLM must
-                            pick from this list (strict mode). When None,
-                            LLM discovers canonical (discovery mode).
-
-        Returns
-        -------
-        mapping : {original_value: canonical_value}
-            Only contains values where the change was accepted.
-        log     : list of decision records for the validation_log.
-        """
+        # stores accepted mappings (variant → canonical) and log entries
         mapping: dict[str, str] = {}
         log: list[dict] = []
 
-        # Determine effective threshold based on mode
+        # Determine effective threshold based on mode (strict or discovery)
         is_discovery_mode = allowed_values is None
         effective_threshold = (
             max(self.threshold, self.discovery_threshold)
@@ -214,7 +161,7 @@ class ClusterResolver:
             else self.threshold
         )
 
-        # --- Auto-resolved clusters (unchanged) ---
+        # process clusters that can be resolved automatically (no LLM needed)
         for cluster in auto_clusters:
             for original, canonical in cluster.mapping().items():
                 val_ok, val_reason = self.validation.validate(column, original, canonical)
@@ -240,6 +187,8 @@ class ClusterResolver:
         # --- Ambiguous clusters: one batched LLM call ---
         if ambiguous_clusters:
             llm_decisions = self._call_llm(column, ambiguous_clusters, allowed_values)
+            
+            # apply each LLM decision after confidence and validation checks
             for cluster, decision in zip(ambiguous_clusters, llm_decisions):
                 self._apply_llm_decision(
                     column, cluster, decision, allowed_values,
@@ -248,17 +197,18 @@ class ClusterResolver:
 
         return mapping, log
 
-    # ------------------------------------------------------------------
-    # LLM call (batched) — unchanged signature
-    # ------------------------------------------------------------------
-
+    # LLM call
     def _call_llm(
         self,
         column: str,
         clusters: list[Cluster],
         allowed_values: Optional[list[str]],
     ) -> list[dict]:
+        
+        # build a prompt describing every ambiguous cluster
         prompt = _build_cluster_prompt(column, clusters, allowed_values)
+        
+        # send a single batched request to reduce LLm calls
         messages = [
             {
                 "role": "system",
@@ -270,11 +220,13 @@ class ClusterResolver:
             {"role": "user", "content": prompt},
         ]
         try:
+            # parse the JSON response into one decision per cluster
             raw = self._chat(messages, completion_tokens=512)
             if not isinstance(raw, str):
                 raw = raw.choices[0].message.content
             return _parse_llm_response(raw, len(clusters))
         except Exception as exc:
+            # if LLM fails, reject every cluster and log the failure reason
             return [
                 {
                     "group_id": i,
@@ -286,10 +238,7 @@ class ClusterResolver:
                 for i in range(len(clusters))
             ]
         
-    # ------------------------------------------------------------------
     # Apply one LLM decision to the mapping + log
-    # ------------------------------------------------------------------
-
     def _apply_llm_decision(
         self,
         column: str,
@@ -298,20 +247,26 @@ class ClusterResolver:
         allowed_values: Optional[list[str]],
         mapping: dict[str, str],
         log: list[dict],
-        effective_threshold: float,  # ← NEW: passed in
+        effective_threshold: float,
     ) -> None:
+        
+        # Extract and normalize the LLM's proposed canonical value.
         canonical_raw = decision.get("canonical") or ""
         canonical = unicodedata.normalize("NFKC", str(canonical_raw).strip())
         confidence = float(decision.get("confidence", 0.0))
         rejected = bool(decision.get("reject", False))
         llm_reason = str(decision.get("reason", ""))
 
+        # determine if we are in discovery mode (no allowed_values provided)
         is_discovery_mode = allowed_values is None
         allowed_set = set(allowed_values) if allowed_values else set()
 
         mode_label = "discovery" if is_discovery_mode else "strict"
 
+        # evaluate each value in the cluster independently 
         for original in cluster.members:
+
+            # skip the canonical itself (no mapping needed)
             if original == canonical:
                 log.append({
                     "column": column,
@@ -329,7 +284,7 @@ class ClusterResolver:
                 })
                 continue
 
-            # Rejection gate
+            # 1. Rejection: rejected by LLM
             if rejected:
                 log.append({
                     "column": column,
@@ -347,7 +302,7 @@ class ClusterResolver:
                 })
                 continue
 
-            # Allowed-values gate (ONLY in strict mode)
+            # 2. In strict mode, canonical must be in allowed_values
             if allowed_set and canonical not in allowed_set:
                 log.append({
                     "column": column,
@@ -365,7 +320,7 @@ class ClusterResolver:
                 })
                 continue
 
-            # Confidence gate (uses effective_threshold)
+            # 3. Reject mappings below confidence threshold
             if confidence < effective_threshold:
                 log.append({
                     "column": column,
@@ -386,8 +341,10 @@ class ClusterResolver:
                 })
                 continue
 
-            # Validation gate
+            # 4. Apply validation
             val_ok, val_reason = self.validation.validate(column, original, canonical)
+            
+            # 5. store accepted mapping
             if val_ok:
                 mapping[original] = canonical
             

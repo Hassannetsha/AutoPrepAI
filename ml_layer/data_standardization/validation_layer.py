@@ -2,22 +2,6 @@ import re
 
 
 class ValidationLayer:
-    """
-    Rule-based validation that runs BEFORE any LLM suggestion is accepted.
-
-    Rules are registered per column. If no rules are registered for a column,
-    the layer acts as a pass-through (accepts everything).
-
-    Supported rule types
-    --------------------
-    allowed_values  : set/list  – exact allowed strings (case-insensitive match)
-    regex           : str       – the normalized value must fully match this pattern
-    max_length      : int       – character length ceiling
-    min_length      : int       – character length floor
-    disallow_digits : bool      – reject values that are purely numeric after normalization
-    custom          : callable  – f(original, normalized) -> (bool, reason_str)
-    """
-
     def __init__(self):
         self._rules: dict[str, dict] = {}
 
@@ -36,6 +20,7 @@ class ValidationLayer:
         is_valid=False → reject; caller should fall back to original
         """
         rules = self._rules.get(column, {})
+        # No validation rules defined for this column.
         if not rules:
             return True, "no rules defined — accepted"
 

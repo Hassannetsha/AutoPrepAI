@@ -4,6 +4,7 @@ from config.settings import B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET_NAME, B2_EN
 
 
 def get_b2_client():
+    """Create an authenticated Backblaze B2 client using the S3-compatible API."""
     return boto3.client(
         "s3",
         endpoint_url=B2_ENDPOINT_URL,
@@ -13,7 +14,7 @@ def get_b2_client():
     )
 
 def upload_file_to_b2(file_bytes: bytes, key: str, content_type= "text/csv", content_disposition: str | None = None) -> str:
-    """Upload bytes to B2 and return the object key."""
+    """Upload a file to B2 and return its object key."""
     client = get_b2_client()
     kwargs = {
         "Bucket": B2_BUCKET_NAME,
@@ -21,6 +22,8 @@ def upload_file_to_b2(file_bytes: bytes, key: str, content_type= "text/csv", con
         "Body": file_bytes,
         "ContentType": content_type,
     }
+    # Optionally control how browsers handle the downloaded file
+    # (e.g., display inline or force download with a specific filename).
     if content_disposition:
         kwargs["ContentDisposition"] = content_disposition
     client.put_object(**kwargs)

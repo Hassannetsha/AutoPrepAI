@@ -1,17 +1,5 @@
-"""
-categorical_cluster_detector.py
-================================
-Detects categorical inconsistencies via edit-distance clustering
-and optional LLM resolution for ambiguous cases.
-
-Does NOT apply changes — returns ColumnIssue list only.
-Does NOT record results — that is the orchestrator's job.
-"""
-
 from __future__ import annotations
-
 from typing import Optional
-
 import pandas as pd
 
 from .detection_strategy import ColumnIssue, DetectionContext, DetectionResult, DetectionStrategy
@@ -31,9 +19,6 @@ class CategoricalClusterDetector(DetectionStrategy):
     """
     Detects categorical inconsistencies via edit-distance clustering
     and optional LLM resolution for ambiguous cases.
-
-    Does NOT apply changes — returns ColumnIssue list only.
-    Does NOT record results — that is the orchestrator's job.
     """
 
     def __init__(
@@ -53,12 +38,13 @@ class CategoricalClusterDetector(DetectionStrategy):
         self._max_unique_values = max_unique_values
         self._min_unique_for_auto = min_unique_for_auto
 
-        # ClusterResolver now receives chat_fn that returns plain string
+        # resolver decides the canonical value for each cluster,
+        # using validation rules and LLM assistance if needed.
         self._resolver = ClusterResolver(
             chat_fn=self._chat_fn,
             validation=validation,
             confidence_threshold=confidence_threshold,
-            discovery_threshold=discovery_threshold,  # ← NEW
+            discovery_threshold=discovery_threshold,
         )
 
     # ------------------------------------------------------------------
@@ -69,7 +55,7 @@ class CategoricalClusterDetector(DetectionStrategy):
         series: pd.Series,
         context: DetectionContext,
     ) -> DetectionResult:
-        allowed_values = context.allowed_values  # Now Optional[list[str]]
+        allowed_values = context.allowed_values
 
         if self._should_skip(series.nunique(), allowed_values):
             print(
@@ -80,12 +66,16 @@ class CategoricalClusterDetector(DetectionStrategy):
 
         unique_values, value_counts = self._extract_unique_values(series, context.column)
 
+        # Group similar categorical values using edit-distance similarity.
         clusters = cluster_column(
             unique_values=unique_values,
             value_counts=value_counts,
             allowed_values=allowed_values,  # Passes None in discovery mode
             similarity_threshold=self._similarity_threshold,
         )
+
+        # Separate clusters that can be resolved automatically
+        # from those requiring LLM assistance.
         auto_clusters, ambiguous_clusters = split_clusters(clusters)
 
         print(
@@ -95,6 +85,8 @@ class CategoricalClusterDetector(DetectionStrategy):
             f"ambiguous={len(ambiguous_clusters)}"
         )
 
+        # Resolve each cluster into canonical values while applying
+        # validation rules and confidence thresholds.
         mapping, validation_log = self._resolver.resolve(
             column=context.column,
             auto_clusters=auto_clusters,
@@ -102,6 +94,8 @@ class CategoricalClusterDetector(DetectionStrategy):
             allowed_values=allowed_values,  # Passes None in discovery mode
         )
 
+        # Convert accepted mappings into pipeline-standard issues
+        # for the orchestrator to apply later.
         issues = [
             ColumnIssue(
                 index=None,
@@ -115,10 +109,6 @@ class CategoricalClusterDetector(DetectionStrategy):
         ]
 
         return DetectionResult(issues=issues, log=validation_log)
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
 
     def _should_skip(
         self,

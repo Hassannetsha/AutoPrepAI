@@ -83,10 +83,6 @@ class DataStandardizingService:
             min_unique_for_auto=min_unique_for_auto,
         )
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     @property
     def results(self) -> dict:
         """Backward-compatible export for callers that used self.results."""

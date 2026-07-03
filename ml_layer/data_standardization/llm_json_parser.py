@@ -1,13 +1,3 @@
-"""
-
-==================
-Utility for parsing JSON out of LLM responses.
-
-LLM responses are often wrapped in markdown fences or contain
-surrounding explanation text. This module handles all of that
-in one place so individual strategies don't duplicate the logic.
-"""
-
 from __future__ import annotations
 
 import json
@@ -18,31 +8,10 @@ T = TypeVar("T", list, dict)
 
 
 def parse_llm_json(raw: str, expected_type: type[T]) -> T:
-    """
-    Extract and parse a JSON value from a raw LLM response string.
-
-    Handles:
-      - Markdown code fences (```json ... ``` or ``` ... ```)
-      - Leading/trailing whitespace
-      - JSON embedded within surrounding explanation text
-
-    Parameters
-    ----------
-    raw           : Raw string from the LLM.
-    expected_type : `list` or `dict` — the expected top-level type.
-
-    Returns
-    -------
-    Parsed JSON value of the expected type.
-
-    Raises
-    ------
-    ValueError
-        If no valid JSON of the expected type can be extracted.
-    """
+    # Remove surrounding whitespace from the LLM response.
     cleaned = raw.strip()
 
-    # Strip markdown fences if present
+    # Remove Markdown code fences (```json ... ```), if present.
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
         cleaned = re.sub(r"\s*```$", "", cleaned)
@@ -70,7 +39,8 @@ def parse_llm_json(raw: str, expected_type: type[T]) -> T:
                 return parsed
         except json.JSONDecodeError:
             pass
-
+    
+    # No valid JSON could be extracted
     raise ValueError(
         f"Could not extract a valid {expected_type.__name__} "
         f"from LLM response: {raw[:200]!r}"
