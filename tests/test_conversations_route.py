@@ -15,7 +15,7 @@ class TestListConversations:
     def _auth_override(self, mock_auth_user):
         from business_logic.auth.dependencies import get_current_user
         from data_access.database.connection import get_db
-        from data_access.main import app
+        from presentation.api.main import app
         self._mock_db = MagicMock()
         app.dependency_overrides[get_current_user] = lambda: mock_auth_user
         app.dependency_overrides[get_db] = lambda: self._mock_db
@@ -26,7 +26,7 @@ class TestListConversations:
         self._mock_db.query.return_value.filter.return_value.all.return_value = []
 
         from fastapi.testclient import TestClient
-        from data_access.main import app
+        from presentation.api.main import app
         client = TestClient(app)
 
         response = client.get(
@@ -42,7 +42,7 @@ class TestGetConversation:
     def _auth_override(self, mock_auth_user):
         from business_logic.auth.dependencies import get_current_user
         from data_access.database.connection import get_db
-        from data_access.main import app
+        from presentation.api.main import app
         self._current_user_id = mock_auth_user.id
         self._mock_db = MagicMock()
         app.dependency_overrides[get_current_user] = lambda: mock_auth_user
@@ -61,7 +61,7 @@ class TestGetConversation:
         self._mock_db.get.return_value = conv
 
         from fastapi.testclient import TestClient
-        from data_access.main import app
+        from presentation.api.main import app
         client = TestClient(app)
 
         response = client.get(
@@ -74,7 +74,7 @@ class TestGetConversation:
 
     def test_invalid_uuid_returns_400(self):
         from fastapi.testclient import TestClient
-        from data_access.main import app
+        from presentation.api.main import app
         client = TestClient(app)
 
         response = client.get(
@@ -90,7 +90,7 @@ class TestDeleteConversation:
     def _auth_override(self, mock_auth_user):
         from business_logic.auth.dependencies import get_current_user
         from data_access.database.connection import get_db
-        from data_access.main import app
+        from presentation.api.main import app
         self._current_user_id = mock_auth_user.id
         self._mock_db = MagicMock()
         app.dependency_overrides[get_current_user] = lambda: mock_auth_user
@@ -107,7 +107,7 @@ class TestDeleteConversation:
         self._mock_db.get.return_value = conv
 
         from fastapi.testclient import TestClient
-        from data_access.main import app
+        from presentation.api.main import app
         client = TestClient(app)
 
         response = client.delete(
@@ -120,7 +120,7 @@ class TestDeleteConversation:
 
     def test_delete_invalid_id_returns_400(self):
         from fastapi.testclient import TestClient
-        from data_access.main import app
+        from presentation.api.main import app
         client = TestClient(app)
 
         response = client.delete(
@@ -135,7 +135,7 @@ class TestRenameConversation:
     def _auth_override(self, mock_auth_user):
         from business_logic.auth.dependencies import get_current_user
         from data_access.database.connection import get_db
-        from data_access.main import app
+        from presentation.api.main import app
         self._current_user_id = mock_auth_user.id
         self._mock_db = MagicMock()
         app.dependency_overrides[get_current_user] = lambda: mock_auth_user
@@ -153,7 +153,7 @@ class TestRenameConversation:
         self._mock_db.get.return_value = conv
 
         from fastapi.testclient import TestClient
-        from data_access.main import app
+        from presentation.api.main import app
         client = TestClient(app)
 
         response = client.patch(

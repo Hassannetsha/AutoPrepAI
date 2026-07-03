@@ -9,8 +9,8 @@ from business_logic.cleaning_coordinator.pipeline_node import PipelineNode
 from ml_layer.nlp.nlp_service import NLPService
 
 
-@patch("services.nlp_service.NLPService._init_lm")
-@patch("services.nlp_service.NLPService._init_pipeline")
+@patch("ml_layer.nlp.nlp_service.NLPService._init_lm")
+@patch("ml_layer.nlp.nlp_service.NLPService._init_pipeline")
 class TestPipeline:
     def make_mock_node(self, name="TestAgent", should_run=True, returned_ctx=None):
         node = MagicMock(spec=PipelineNode)
@@ -24,7 +24,6 @@ class TestPipeline:
         agents = [self.make_mock_node()]
         pipeline = Pipeline(agents=agents)
         assert pipeline.agents == agents
-        assert pipeline.session_manager is None
         assert pipeline.data_loader is None
         assert pipeline.nlp_service is not None
 
@@ -156,8 +155,7 @@ class TestPipeline:
     def test_run_saves_execution(self, mock_init_pipeline, mock_init_lm):
         ctx = DataContext(data=pd.DataFrame({"a": [1]}))
         node = self.make_mock_node("Agent1", returned_ctx=ctx)
-        session_manager = MagicMock()
-        pipeline = Pipeline(agents=[node], session_manager=session_manager)
+        pipeline = Pipeline(agents=[node])
         pipeline.nlp_service = MagicMock(spec=NLPService)
         pipeline.nlp_service.explain_step_llm.return_value = "explanation"
 
@@ -168,11 +166,11 @@ class TestPipeline:
         node = self.make_mock_node("Agent1", should_run=False)
         pipeline = Pipeline(agents=[node])
         ctx = DataContext(data=pd.DataFrame())
-        assert pipeline.check_no_agents_left_to_run(ctx) is True
+        assert pipeline.check_no_agents_left_to_run(ctx, {}) is True
 
     def test_check_no_agents_left_to_run_some_pending(self, mock_init_pipeline, mock_init_lm):
         node = self.make_mock_node("Agent1", should_run=True)
         pipeline = Pipeline(agents=[node])
         ctx = DataContext(data=pd.DataFrame())
-        assert pipeline.check_no_agents_left_to_run(ctx) is False
+        assert pipeline.check_no_agents_left_to_run(ctx, {}) is False
 

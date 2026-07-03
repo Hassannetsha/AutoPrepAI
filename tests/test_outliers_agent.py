@@ -8,7 +8,7 @@ from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestOutliersAgent:
-    @patch("agents.outliers_agent.OutliersService")
+    @patch("ml_layer.agents.outliers_agent.OutliersService")
     def test_execute_processes_data(self, MockOutliersService):
         from ml_layer.agents.outliers_agent import OutliersAgent
 
@@ -27,7 +27,7 @@ class TestOutliersAgent:
         assert len(result.data) == 2
         MockOutliersService.assert_called_once_with(dataframe=df_input)
 
-    @patch("agents.outliers_agent.OutliersService")
+    @patch("ml_layer.agents.outliers_agent.OutliersService")
     def test_execute_passes_params_ignored(self, MockOutliersService):
         from ml_layer.agents.outliers_agent import OutliersAgent
 

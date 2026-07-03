@@ -8,8 +8,8 @@ from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestDataTypeInconsistencyAgent:
-    @patch("agents.data_type_inconsistency_agent.DataTypeInconsistencyDetector")
-    @patch("agents.data_type_inconsistency_agent.DataResolvingService")
+    @patch("ml_layer.agents.data_type_inconsistency_agent.DataTypeInconsistencyDetector")
+    @patch("ml_layer.agents.data_type_inconsistency_agent.DataResolvingService")
     def test_detects_and_resolves(self, MockResolver, MockDetector):
         from ml_layer.agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
 
@@ -17,7 +17,10 @@ class TestDataTypeInconsistencyAgent:
         mock_detector.analyze_dataframe.return_value = {
             "mixed_col": {
                 "detected_types": {"integer": 3, "string": 2},
-                "recommended_type": "integer"
+                "recommended_type": "integer",
+                "recommendation_confidence": "High",
+                "conversion_failure_rate": 0.0,
+                "conversion_issues": {"failed_count": 0, "failed_values": []}
             }
         }
         MockDetector.return_value = mock_detector
@@ -25,6 +28,7 @@ class TestDataTypeInconsistencyAgent:
         mock_resolver = MagicMock()
         mock_resolver.df_resolved = pd.DataFrame({"mixed_col": [1, 2, 3, 4, 5]})
         mock_resolver.resolution_log = {"mixed_col": "converted to integer"}
+        mock_resolver.resolve.return_value = (True, "converted successfully")
         MockResolver.return_value = mock_resolver
 
         agent = DataTypeInconsistencyAgent()
@@ -36,7 +40,7 @@ class TestDataTypeInconsistencyAgent:
         assert result.metadata["datatype_inconsistencies_fixed"] is True
         assert "datatype_detection_results" in result.metadata
 
-    @patch("agents.data_type_inconsistency_agent.DataTypeInconsistencyDetector")
+    @patch("ml_layer.agents.data_type_inconsistency_agent.DataTypeInconsistencyDetector")
     def test_no_inconsistencies_returns_early(self, MockDetector):
         from ml_layer.agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
 
@@ -55,7 +59,7 @@ class TestDataTypeInconsistencyAgent:
         assert result.metadata["datatype_inconsistencies_fixed"] is True
         assert "resolution_log" not in result.metadata
 
-    @patch("agents.data_type_inconsistency_agent.DataTypeInconsistencyDetector")
+    @patch("ml_layer.agents.data_type_inconsistency_agent.DataTypeInconsistencyDetector")
     def test_skips_empty_column_recommendation(self, MockDetector):
         from ml_layer.agents.data_type_inconsistency_agent import DataTypeInconsistencyAgent
 
@@ -74,7 +78,7 @@ class TestDataTypeInconsistencyAgent:
         params = AgentParams(columns=[])
 
         with patch(
-            "agents.data_type_inconsistency_agent.DataResolvingService"
+            "ml_layer.agents.data_type_inconsistency_agent.DataResolvingService"
         ) as MockResolver:
             mock_resolver = MagicMock()
             mock_resolver.df_resolved = df

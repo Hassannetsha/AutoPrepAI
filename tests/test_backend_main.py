@@ -10,7 +10,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from data_access.main import app
+from presentation.api.main import app
 from business_logic.cleaning_coordinator.ml_service import MLPipelineService
 from data_access.database.models import Conversation
 
@@ -62,8 +62,8 @@ class TestChatEndpoint:
         )
         assert response.status_code == 400
 
-    @patch("backend.main.MLPipelineService")
-    @patch("backend.main.upload_file_to_b2")
+    @patch("presentation.api.main.MLPipelineService")
+    @patch("presentation.api.main.upload_file_to_b2")
     def test_chat_upload_only_message(
         self, mock_upload, mock_service, client, mock_auth_user, valid_csv_bytes
     ):
@@ -88,8 +88,8 @@ class TestChatEndpoint:
         assert "conversation_id" in data
         assert "Dataset loaded successfully" in data["assistant_message"]
 
-    @patch("backend.main.MLPipelineService")
-    @patch("backend.main.upload_file_to_b2")
+    @patch("presentation.api.main.MLPipelineService")
+    @patch("presentation.api.main.upload_file_to_b2")
     def test_chat_invalid_conversation_id(
         self, mock_upload, mock_service, client, mock_auth_user, valid_csv_bytes
     ):
@@ -107,8 +107,8 @@ class TestChatEndpoint:
         )
         assert response.status_code == 400
 
-    @patch("backend.main.MLPipelineService")
-    @patch("backend.main.upload_file_to_b2")
+    @patch("presentation.api.main.MLPipelineService")
+    @patch("presentation.api.main.upload_file_to_b2")
     def test_chat_conversation_not_found(
         self, mock_upload, mock_service, client, mock_auth_user, valid_csv_bytes
     ):
@@ -166,7 +166,7 @@ class TestDownloadEndpoint:
         yield
         app.dependency_overrides.clear()
 
-    @patch("backend.main.generate_download_url")
+    @patch("presentation.api.main.generate_download_url")
     def test_download(self, mock_gen_url, client, mock_auth_user):
         mock_gen_url.return_value = "https://example.com/file.csv"
 

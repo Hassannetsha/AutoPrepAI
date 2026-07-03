@@ -4,7 +4,6 @@ import pytest
 import pandas as pd
 from business_logic.cleaning_coordinator.data_context import DataContext
 from business_logic.cleaning_coordinator.execution_condition import AlwaysTrueCondition, AlwaysFalseCondition, IntentBasedCondition
-from business_logic.cleaning_coordinator.intent import Intent
 
 
 class TestAlwaysTrueCondition:
@@ -22,15 +21,15 @@ class TestAlwaysFalseCondition:
 
 
 class TestIntentBasedCondition:
-    def test_any_operator_with_intent_objects(self):
+    def test_any_operator_with_tuple_intents(self):
         condition = IntentBasedCondition(["remove_duplicates", "scale_numerical"], operator="any")
         ctx = DataContext(
             data=pd.DataFrame(),
-            metadata={"intents": [Intent(name="remove_duplicates")]}
+            metadata={"intents": [("remove_duplicates",)]}
         )
         assert condition.evaluate(ctx) is True
 
-    def test_any_operator_with_tuple_intents(self):
+    def test_any_operator_with_nested_tuple_intents(self):
         condition = IntentBasedCondition(["handle_missing_values"], operator="any")
         ctx = DataContext(
             data=pd.DataFrame(),
@@ -50,7 +49,7 @@ class TestIntentBasedCondition:
         condition = IntentBasedCondition(["remove_outliers"], operator="any")
         ctx = DataContext(
             data=pd.DataFrame(),
-            metadata={"intents": [Intent(name="handle_missing_values")]}
+            metadata={"intents": [("handle_missing_values",)]}
         )
         assert condition.evaluate(ctx) is False
 
@@ -59,8 +58,8 @@ class TestIntentBasedCondition:
         ctx = DataContext(
             data=pd.DataFrame(),
             metadata={"intents": [
-                Intent(name="remove_duplicates"),
-                Intent(name="scale_numerical")
+                ("remove_duplicates",),
+                ("scale_numerical",)
             ]}
         )
         assert condition.evaluate(ctx) is True
@@ -69,7 +68,7 @@ class TestIntentBasedCondition:
         condition = IntentBasedCondition(["remove_duplicates", "scale_numerical"], operator="all")
         ctx = DataContext(
             data=pd.DataFrame(),
-            metadata={"intents": [Intent(name="remove_duplicates")]}
+            metadata={"intents": [("remove_duplicates",)]}
         )
         assert condition.evaluate(ctx) is False
 
@@ -92,7 +91,7 @@ class TestIntentBasedCondition:
         ctx = DataContext(
             data=pd.DataFrame(),
             metadata={"intents": [
-                Intent(name="encode_categorical", columns=["color"]),
+                ("encode_categorical", "color"),
                 ["handle_missing_values", "age"],
                 "scale_numerical"
             ]}

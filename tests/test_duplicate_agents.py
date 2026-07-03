@@ -8,7 +8,7 @@ from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 
 class TestExactDuplicateRemover:
-    @patch("agents.exact_duplicates_agent.ExactDuplicateRemoverService")
+    @patch("ml_layer.agents.exact_duplicates_agent.ExactDuplicateRemoverService")
     def test_removes_duplicates(self, MockService):
         from ml_layer.agents.exact_duplicates_agent import ExactDuplicateRemover
 
@@ -28,7 +28,7 @@ class TestExactDuplicateRemover:
         assert result.metadata["exact_duplicates_count"] == 1
         assert len(result.data) == 2
 
-    @patch("agents.exact_duplicates_agent.ExactDuplicateRemoverService")
+    @patch("ml_layer.agents.exact_duplicates_agent.ExactDuplicateRemoverService")
     def test_no_duplicates_found(self, MockService):
         from ml_layer.agents.exact_duplicates_agent import ExactDuplicateRemover
 
@@ -46,7 +46,7 @@ class TestExactDuplicateRemover:
         result = agent.execute(ctx, params)
         assert result.metadata["exact_duplicates_count"] == 0
 
-    @patch("agents.exact_duplicates_agent.ExactDuplicateRemoverService")
+    @patch("ml_layer.agents.exact_duplicates_agent.ExactDuplicateRemoverService")
     def test_handles_target_col_in_subset(self, MockService):
         from ml_layer.agents.exact_duplicates_agent import ExactDuplicateRemover
 
@@ -77,7 +77,7 @@ class TestExactDuplicateRemover:
 
 
 class TestSemanticDuplicateRemover:
-    @patch("agents.semantic_duplicate_remover.SemanticDuplicateRemoverService")
+    @patch("ml_layer.agents.semantic_duplicate_remover.SemanticDuplicateRemoverService")
     def test_no_text_columns_skips(self, MockService):
         from ml_layer.agents.semantic_duplicate_remover import SemanticDuplicateRemover
 
@@ -89,7 +89,7 @@ class TestSemanticDuplicateRemover:
         result = agent.execute(ctx, params)
         MockService.assert_not_called()
 
-    @patch("agents.semantic_duplicate_remover.SemanticDuplicateRemoverService")
+    @patch("ml_layer.agents.semantic_duplicate_remover.SemanticDuplicateRemoverService")
     def test_short_text_columns_skips(self, MockService):
         from ml_layer.agents.semantic_duplicate_remover import SemanticDuplicateRemover
 
@@ -101,7 +101,7 @@ class TestSemanticDuplicateRemover:
         result = agent.execute(ctx, params)
         MockService.assert_not_called()
 
-    @patch("agents.semantic_duplicate_remover.SemanticDuplicateRemoverService")
+    @patch("ml_layer.agents.semantic_duplicate_remover.SemanticDuplicateRemoverService")
     def test_semantic_removal(self, MockService):
         from ml_layer.agents.semantic_duplicate_remover import SemanticDuplicateRemover
 
@@ -120,7 +120,10 @@ class TestSemanticDuplicateRemover:
             ]
         })
         df_dups = pd.DataFrame({
-            "text": ["The quick brown fox jumps over the lazy dog"]
+            "text": ["The quick brown fox jumps over the lazy dog"],
+            "similarity": [0.95],
+            "query_index_1": [0],
+            "query_index_2": [1]
         })
         mock_service.remove_duplicates.return_value = (df_dedup, df_dups)
         MockService.return_value = mock_service
@@ -133,12 +136,12 @@ class TestSemanticDuplicateRemover:
         assert result.metadata["semantic_duplicates_removed"] is True
         assert result.metadata["semantic_duplicates_count"] == 1
         assert len(result.data) == 2
-        assert result.metadata["semantic_column_used"] == "text"
+        assert result.metadata["semantic_columns_used"] == ["text"]
 
 
 class TestDuplicateRemoverAgent:
-    @patch("agents.duplicate_remover_agent.ExactDuplicateRemover")
-    @patch("agents.duplicate_remover_agent.SemanticDuplicateRemover")
+    @patch("ml_layer.agents.duplicate_remover_agent.ExactDuplicateRemover")
+    @patch("ml_layer.agents.duplicate_remover_agent.SemanticDuplicateRemover")
     def test_runs_both_sub_agents(self, MockSemantic, MockExact):
         from ml_layer.agents.duplicate_remover_agent import DuplicateRemoverAgent
 

@@ -9,11 +9,11 @@ from business_logic.cleaning_coordinator.agent_params import AgentParams
 
 # Patch targets for dependencies
 _PATCHES = {
-    "groq": "agents.data_standardizing_agent.Groq",
-    "service": "agents.data_standardizing_agent.DataStandardizingService",
-    "key_manager": "agents.data_standardizing_agent.get_key_manager",
-    "rate_limiter": "agents.data_standardizing_agent.RateLimiter",
-    "llm_client": "agents.data_standardizing_agent.GroqLLMClient",
+    "groq": "ml_layer.agents.data_standardizing_agent.Groq",
+    "service": "ml_layer.agents.data_standardizing_agent.DataStandardizingService",
+    "key_manager": "ml_layer.agents.data_standardizing_agent.get_key_manager",
+    "rate_limiter": "ml_layer.agents.data_standardizing_agent.RateLimiter",
+    "llm_client": "ml_layer.agents.data_standardizing_agent.GroqLLMClient",
 }
 
 
