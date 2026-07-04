@@ -689,7 +689,7 @@ class NLPService:
 
         # 6) Pre-filter: detect obvious non-data requests without calling the LLM
         if self._is_unknown_intent(user_input):
-            print(f"🔍 Pre-filter: '{user_input}' detected as unknown_intent (physical-world keywords, no data keywords)")
+            print(f"Pre-filter: '{user_input}' detected as unknown_intent (physical-world keywords, no data keywords)")
             intents = [["unknown_intent", "none", "none", "none"]]
             return df, intents
 
